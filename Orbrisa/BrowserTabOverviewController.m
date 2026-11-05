@@ -611,8 +611,13 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     if (focusedItemIndex == NSNotFound || focusedItemIndex >= self.overviewController.viewModel.tabs.count) {
         return;
     }
-    self.preferredFocusItemIndex = focusedItemIndex;
+    // After closing, focus the tab on the left (not the "New Tab" card that slides into its place).
+    self.preferredFocusItemIndex = MAX(focusedItemIndex - 1, 0);
+    self.collectionView.remembersLastFocusedIndexPath = NO;
     [self.overviewController handleCloseRequestForDisplayItemIndex:focusedItemIndex];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        self.collectionView.remembersLastFocusedIndexPath = YES;
+    });
 }
 
 - (NSInteger)currentFocusedItemIndex {

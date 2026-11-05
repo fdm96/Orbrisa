@@ -412,6 +412,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 @interface BrowserStartPageViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, BrowserTopBarViewDelegate>
 @property (nonatomic) NSUInteger tabCount;
 @property (nonatomic) BOOL canGoBack;
+@property (nonatomic) BOOL closing;
 @property (nonatomic) BrowserTopBarView *topBar;
 @property (nonatomic) UICollectionView *collectionView;   // favorites: one row, scrolls left and right, stays in place
 @property (nonatomic) UICollectionView *recentsView;      // recently visited: scrolls up and down below
@@ -1079,38 +1080,34 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
-    if (press.type == UIPressTypeMenu && [self backLeavesApp]) {
-        [super pressesBegan:presses withEvent:event]; // the only, empty tab: Back goes to the Home screen as usual
-        return;
-    }
     if (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause) {
         return;
     }
     [super pressesBegan:presses withEvent:event];
 }
 
-/// YES when Back has nowhere to go inside Orbrisa: the only tab, and it is empty.
-- (BOOL)backLeavesApp {
-    return self.panel == nil && !self.canGoBack && (self.closeEmptyTab == nil || self.tabCount <= 1);
+- (void)handleBackPress {
+    if ([self consumeMenuPress] || self.closing) {
+        return;
+    }
+    if (self.canGoBack) {
+        self.closing = YES;
+        [self closeThen:nil];
+    } else if (self.closeEmptyTab != nil) {
+        self.closing = YES;
+        [self closeThen:self.closeEmptyTab]; // an empty tab: close it and go back into the previous tab
+    }
+    // the only tab, and it is empty: the start page stays – there is no tab to go back to
 }
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
-    if (press.type == UIPressTypeMenu && [self consumeMenuPress]) {
-        return; // Back closes only the panel – the start page stays
+    if (press.type == UIPressTypeMenu) {
+        [self handleBackPress];
+        return;
     }
     if (self.panel != nil && press.type == UIPressTypePlayPause) {
         [self closePanel];
-        return;
-    }
-    if (press.type == UIPressTypeMenu) {
-        if ([self backLeavesApp]) {
-            [super pressesEnded:presses withEvent:event];
-        } else if (!self.canGoBack && self.closeEmptyTab != nil) {
-            [self closeThen:self.closeEmptyTab]; // an empty tab: close it and go back into the previous tab
-        } else {
-            [self closeThen:nil];
-        }
         return;
     }
     if (press.type == UIPressTypePlayPause) {

@@ -1578,7 +1578,8 @@ static NSString *BrowserWebAppPagingScript(void) {
 
 - (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu {
     if ([self.presentedViewController isKindOfClass:[BrowserStartPageViewController class]]) {
-        return [(BrowserStartPageViewController *)self.presentedViewController consumeMenuPress];
+        [(BrowserStartPageViewController *)self.presentedViewController handleBackPress];
+        return YES;
     }
     return NO;
 }

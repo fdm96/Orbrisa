@@ -29,6 +29,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// YES when this favorite always opens as a web app (full screen, no bar).
 /// Back while the favorite panel is open (or was just closed): closes only the panel. YES when it was used.
 - (BOOL)consumeMenuPress;
+/// Back on the start page: closes a panel, else returns to the tab (an empty tab is closed and the previous one shown).
+- (void)handleBackPress;
 
 + (BOOL)isWebAppURL:(nullable NSString *)URLString;
 /// The web app Orbrisa opens when it starts, or nil.
