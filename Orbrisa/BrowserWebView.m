@@ -319,7 +319,7 @@ static void BrowserEnableCloudGamingFeatures(id preferences) {
         NSString *lower = key.lowercaseString;
         BOOL wanted = [lower containsString:@"peerconnection"] || [lower containsString:@"webrtc"] || [lower containsString:@"gamepad"]
             || [lower containsString:@"mediadevices"] || [lower containsString:@"mediastream"] || [lower containsString:@"webgpu"];
-        BOOL reportOnly = [lower containsString:@"fullscreen"] || [lower containsString:@"pointerlock"];
+        BOOL reportOnly = NO;
         if (!wanted && !reportOnly) {
             continue;
         }

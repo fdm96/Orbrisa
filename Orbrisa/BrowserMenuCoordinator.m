@@ -1374,31 +1374,27 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     static NSString * const script =
         @"(function(){var r=[];function add(k,v){r.push(k+': '+v);}"
         @"function t(f){try{return f();}catch(e){return 'error ('+(e&&e.message?e.message:e)+')';}}"
+        @"add('Frames per second',(window.__orbFPS||'measuring – check again in a moment')+' · visible: '+document.visibilityState+' · focus: '+document.hasFocus());"
+        @"t(function(){var n=0,s=performance.now();function f(){n++;if(performance.now()-s<1000){requestAnimationFrame(f);}else{window.__orbFPS=n+' fps';}}requestAnimationFrame(f);var m=0;var i=setInterval(function(){m++;},10);setTimeout(function(){clearInterval(i);window.__orbFPS=(window.__orbFPS||'0 fps (rAF never ran)')+' · timers '+m+'/100';},1100);return '';});"
         @"add('WebGPU (navigator.gpu)',typeof navigator.gpu);"
         @"add('localStorage',t(function(){localStorage.setItem('__orb','1');var v=localStorage.getItem('__orb');localStorage.removeItem('__orb');return v==='1'?'works':'no';}));"
         @"add('IndexedDB',(typeof indexedDB)+' · last test: '+(window.__orbIDB||'running – check again in a moment'));"
         @"t(function(){var q=indexedDB.open('__orbrisa_check',1);q.onupgradeneeded=function(){q.result.createObjectStore('s');};q.onsuccess=function(){try{var tx=q.result.transaction('s','readwrite');tx.objectStore('s').put(1,'k');tx.oncomplete=function(){window.__orbIDB='works';q.result.close();};tx.onerror=function(){window.__orbIDB='write failed';};}catch(e){window.__orbIDB='error ('+e.message+')';}};q.onerror=function(){window.__orbIDB='error ('+(q.error?q.error.message:'?')+')';};return '';});"
         @"add('RTCPeerConnection',typeof RTCPeerConnection);"
-        @"add('webkitRTCPeerConnection',typeof webkitRTCPeerConnection);"
         @"add('new RTCPeerConnection()',t(function(){var pc=new RTCPeerConnection();var dc=pc.createDataChannel('x');var ok='ok, data channel '+(dc?'ok':'missing');pc.close();return ok;}));"
         @"add('Video codecs (WebRTC)',t(function(){if(typeof RTCRtpReceiver==='undefined'||!RTCRtpReceiver.getCapabilities){return 'n/a';}var c=RTCRtpReceiver.getCapabilities('video');if(!c){return 'none';}var m={};c.codecs.forEach(function(x){m[x.mimeType]=1;});return Object.keys(m).join(', ');}));"
         @"add('mediaDevices',typeof navigator.mediaDevices);"
         @"add('getGamepads',typeof navigator.getGamepads);"
         @"add('Gamepads seen',t(function(){if(!navigator.getGamepads){return 'n/a';}var g=Array.prototype.filter.call(navigator.getGamepads()||[],function(x){return !!x;});return g.length+(g.length?' ('+g.map(function(x){return x.id;}).join(', ')+')':' (press a controller button on the page, then check again)');}));"
-        @"add('Pointer Lock',typeof document.body.requestPointerLock);"
         @"add('Fullscreen API',typeof (document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen));"
-        @"add('WebAssembly',typeof WebAssembly);"
         @"add('WebGL2',t(function(){return document.createElement('canvas').getContext('webgl2')?'yes':'no';}));"
         @"add('WebCodecs VideoDecoder',typeof VideoDecoder);"
-        @"add('MediaSource',typeof MediaSource);"
-        @"add('ManagedMediaSource',typeof ManagedMediaSource);"
-        @"add('User agent',navigator.userAgent);"
         @"return r.join('\\n');})()";
     NSString *result = [[self.host browserWebView] stringByEvaluatingJavaScriptFromString:script];
     if (result.length == 0) {
         result = @"The page did not answer. Open any website first (e.g. play.geforcenow.com) and try again.";
     }
-    result = [NSString stringWithFormat:@"WebKit features:\n%@\n\n%@", [BrowserWebView cloudGamingFeatureReport], result];
+    result = [NSString stringWithFormat:@"%@\n\nWebKit features:\n%@", result, [BrowserWebView cloudGamingFeatureReport]];
     BrowserLog(@"[CloudGamingCheck]\n%@", result);
     UIAlertController *alertController = [self browserAlertControllerWithTitle:@"Cloud Gaming Check" message:result];
     [alertController addAction:[self browserCancelAction]];
