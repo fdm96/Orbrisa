@@ -855,9 +855,11 @@ static NSString * const kBrowserAdBlockDisabledKey = @"BrowserAdBlockDisabled";
 static id BrowserAdBlockRuleList;                    // WKContentRuleList, once compiled
 static NSHashTable *BrowserAdBlockControllers;        // every tab's user content controller (weak)
 
-static NSString *BrowserAdBlockRulesJSON(void) {
-    // Ad and tracking servers – blocked when a page loads them from another site (the site itself keeps working).
-    NSArray<NSString *> *domains = @[
+static NSArray<NSString *> *BrowserAdBlockDomains(void) {
+    static NSArray<NSString *> *domains;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+    domains = @[
         @"doubleclick.net", @"googlesyndication.com", @"googleadservices.com", @"adservice.google.com", @"googletagservices.com",
         @"google-analytics.com", @"googletagmanager.com", @"amazon-adsystem.com", @"adnxs.com", @"adsrvr.org", @"criteo.com",
         @"criteo.net", @"taboola.com", @"outbrain.com", @"pubmatic.com", @"rubiconproject.com", @"openx.net", @"casalemedia.com",
@@ -866,8 +868,58 @@ static NSString *BrowserAdBlockRulesJSON(void) {
         @"3lift.com", @"sharethrough.com", @"indexww.com", @"bidswitch.net", @"contextweb.com", @"lijit.com", @"sovrn.com",
         @"33across.com", @"adition.com", @"stroeer.io", @"adscale.de", @"ioam.de", @"seedtag.com", @"connatix.com",
         @"exponential.com", @"revcontent.com", @"mgid.com", @"propellerads.com", @"popads.net", @"popcash.net", @"adsterra.com",
-        @"exoclick.com", @"juicyads.com", @"trafficjunky.net", @"hotjar.com",
+        @"exoclick.com", @"juicyads.com", @"trafficjunky.net", @"hotjar.com", @"2mdn.net", @"adsystem.com", @"serving-sys.com",
+        @"flashtalking.com", @"adhese.com", @"adtech.de", @"emetriq.de", @"theadex.com", @"aniview.com", @"glomex.com",
     ];
+    });
+    return domains;
+}
+
+/// YES for an ad or tracking server (the host itself or any of its subdomains).
+static BOOL BrowserAdBlockHostBlocked(NSString *host) {
+    host = host.lowercaseString;
+    if (host.length == 0) {
+        return NO;
+    }
+    for (NSString *domain in BrowserAdBlockDomains()) {
+        if ([host isEqualToString:domain] || [host hasSuffix:[@"." stringByAppendingString:domain]]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+/// Hides ad boxes – also those that appear later, and the frames of ad servers.
+static NSString *BrowserAdBlockCSS(void) {
+    NSMutableArray *selectors = [@[
+        @"ins.adsbygoogle", @".adsbygoogle", @"[id^='google_ads_iframe']", @"[id^='div-gpt-ad']", @"[id*='div-gpt-ad']",
+        @"[data-google-query-id]", @"[data-ad-slot]", @"[data-adunit]", @"[data-ad-unit]", @"amp-ad", @"amp-embed",
+        @".ad-slot", @".ad-container", @".ad-banner", @".adBanner", @".advertisement", @".advert", @".ad-wrapper",
+        @"[class*='taboola']", @"[id*='taboola']", @".OUTBRAIN", @"[class^='outbrain']", @"[aria-label='Advertisement']",
+        @"[aria-label='Anzeige']", @".werbung", @".anzeige", @"[id*='skyscraper']", @"[class*='skyscraper']",
+        @"[id*='Skyscraper']", @"[class*='sticky-ad']", @"[id^='adngin']", @"[class*='adngin']", @"[id*='AdSlot']", @"[class*='AdSlot']",
+    ] mutableCopy];
+    for (NSString *domain in BrowserAdBlockDomains()) {
+        [selectors addObject:[NSString stringWithFormat:@"iframe[src*='%@']", domain]];
+    }
+    return [[selectors componentsJoinedByString:@","] stringByAppendingString:@"{display:none !important;visibility:hidden !important;}"];
+}
+
+static NSString *BrowserAdBlockScript(void) {
+    NSData *css = [NSJSONSerialization dataWithJSONObject:@[BrowserAdBlockCSS()] options:0 error:nil];
+    NSString *cssArray = css != nil ? [[NSString alloc] initWithData:css encoding:NSUTF8StringEncoding] : @"['']";
+    return [NSString stringWithFormat:
+            @"(function(){try{if(window.__orbrisaAdBlock){return;}window.__orbrisaAdBlock=true;"
+            @"var css=%@[0];function add(){if(document.getElementById('__orbrisaAdBlock')){return true;}"
+            @"var root=document.head||document.documentElement;if(!root){return false;}"
+            @"var s=document.createElement('style');s.id='__orbrisaAdBlock';s.textContent=css;root.appendChild(s);return true;}"
+            @"if(!add()){document.addEventListener('DOMContentLoaded',add);}"
+            @"}catch(e){}})();", cssArray];
+}
+
+static NSString *BrowserAdBlockRulesJSON(void) {
+    // Ad and tracking servers – blocked when a page loads them from another site (the site itself keeps working).
+    NSArray<NSString *> *domains = BrowserAdBlockDomains();
     NSMutableArray *rules = [NSMutableArray array];
     for (NSString *domain in domains) {
         NSString *escaped = [domain stringByReplacingOccurrencesOfString:@"." withString:@"\\."];
@@ -910,7 +962,17 @@ static void BrowserAdBlockPrepare(void) {
             BrowserLog(@"[AdBlock] content rules not available");
             return;
         }
-        id store = ((id (*)(id, SEL))objc_msgSend)((id)storeClass, defaultStore);
+        id store = nil;
+        SEL storeWithURL = NSSelectorFromString(@"storeWithURL:");
+        if ([storeClass respondsToSelector:storeWithURL]) {
+            NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+            NSURL *folder = [caches URLByAppendingPathComponent:@"OrbrisaContentRules" isDirectory:YES];
+            [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
+            store = ((id (*)(id, SEL, id))objc_msgSend)((id)storeClass, storeWithURL, folder);
+        }
+        if (store == nil) {
+            store = ((id (*)(id, SEL))objc_msgSend)((id)storeClass, defaultStore);
+        }
         if (![store respondsToSelector:compile]) {
             return;
         }
@@ -921,6 +983,7 @@ static void BrowserAdBlockPrepare(void) {
                     return;
                 }
                 BrowserAdBlockRuleList = ruleList;
+                BrowserLog(@"[AdBlock] content rules ready");
                 if ([BrowserWebView adBlockEnabled]) {
                     for (id controller in BrowserAdBlockControllers) {
                         BrowserAdBlockApply(controller, YES);
@@ -1006,6 +1069,15 @@ static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
     mediaScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(mediaScript, userScriptInitializer, BrowserMediaCaptureScript(), 0, NO);
     if (mediaScript != nil) {
         ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, mediaScript);
+    }
+
+    // Ad blocker: hide ad boxes and ad frames, in every frame, from the start.
+    if ([BrowserWebView adBlockEnabled]) {
+        id adScript = ((id (*)(id, SEL))objc_msgSend)((id)userScriptClass, @selector(alloc));
+        adScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(adScript, userScriptInitializer, BrowserAdBlockScript(), 0, NO);
+        if (adScript != nil) {
+            ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, adScript);
+        }
     }
 
     // Cookie banners: at document end (1), in every frame, because many banners live in an iframe.
@@ -1393,6 +1465,7 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
     for (id controller in BrowserAdBlockControllers) {
         BrowserAdBlockApply(controller, adBlockEnabled);
     }
+    [[NSNotificationCenter defaultCenter] postNotificationName:BrowserForceDarkPagesDidChangeNotification object:nil];
 }
 
 + (BOOL)autoAcceptCookies {
@@ -1889,6 +1962,13 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
         if (targetFrame != nil && [targetFrame respondsToSelector:mainFrameSelector]) {
             isMainFrameRequest = ((BOOL (*)(id, SEL))objc_msgSend)(targetFrame, mainFrameSelector);
         }
+    }
+
+    if (!isMainFrameRequest && [BrowserWebView adBlockEnabled] && BrowserAdBlockHostBlocked(request.URL.host)) {
+        if (decisionHandler != nil) {
+            decisionHandler(0); // an ad frame: not loaded at all
+        }
+        return;
     }
 
     BOOL shouldAllow = YES;
