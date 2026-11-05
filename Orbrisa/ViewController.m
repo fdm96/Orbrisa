@@ -1081,44 +1081,69 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)requestURLorSearchInput {
-    // The quick menu as a Liquid Glass panel on the right – the same look as the Reader's appearance panel.
+    // The quick menu, built like the Reader's "Appearance" panel: font size, page appearance, actions, ad blocker.
     BrowserQuickMenuViewController *menu = [[BrowserQuickMenuViewController alloc] initWithTitle:BrowserLocalized(@"Quick Menu")];
     __weak typeof(self) weakSelf = self;
+
+    [menu setFontSize:[self effectiveTextFontSize] changed:^(NSUInteger size) {
+        if (weakSelf.webAppMode && weakSelf.webAppURLString.length > 0) {
+            NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+            sizes[weakSelf.webAppURLString] = @(size);
+            [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
+        } else {
+            weakSelf.browserTextFontSize = size;
+        }
+        [weakSelf updateTextFontSize];
+    }];
+
+    // Original (the site's own look) · Automatic (follows the Apple TV) · Light · Dark
+    NSInteger appearance = BrowserWebView.forceDarkPages ? (BrowserWebView.appearanceMode == 1 ? 2 : (BrowserWebView.appearanceMode == 2 ? 3 : 1)) : 0;
+    [menu setAppearanceSelected:appearance changed:^(NSInteger index) {
+        if (index == 0) {
+            BrowserWebView.forceDarkPages = NO;
+            return;
+        }
+        BrowserWebView.appearanceMode = (index == 1) ? 0 : (index == 2 ? 1 : 2);
+        BrowserWebView.forceDarkPages = YES;
+    }];
+
     if (self.webAppMode) {
-        [menu addItemWithSymbol:@"textformat.size" title:BrowserLocalized(@"Text Size") action:^{
-            [weakSelf askWebAppTextSize];
-        }];
         [menu addItemWithSymbol:@"xmark.circle" title:BrowserLocalized(@"Leave Web App") action:^{
             [weakSelf browserLeaveWebApp];
             [weakSelf browserShowStartPage];
         }];
+    } else {
+        [menu addItemWithSymbol:@"house" title:BrowserLocalized(@"Start Page") action:^{
+            [weakSelf browserShowStartPage];
+        }];
     }
-    [menu addItemWithSymbol:@"magnifyingglass" title:BrowserLocalized(@"Enter Address or Search with Google") action:^{
+    [menu addItemWithSymbol:@"magnifyingglass" title:BrowserLocalized(@"Search") action:^{
         [weakSelf showInputURLorSearchGoogle];
     }];
     BOOL hasPage = self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0;
-    if (self.webview.canGoForward) {
-        [menu addItemWithSymbol:@"chevron.forward" title:BrowserLocalized(@"Go Forward") action:^{
-            [weakSelf.webview goForward];
-        }];
-    }
     if (hasPage) {
-        [menu addItemWithSymbol:@"text.alignleft" title:BrowserLocalized(@"Open in Reader") action:^{
+        [menu addItemWithSymbol:@"text.alignleft" title:BrowserLocalized(@"Reader") action:^{
             [weakSelf browserShowReader];
         }];
-        [menu addItemWithSymbol:@"arrow.clockwise" title:BrowserLocalized(@"Reload Page") action:^{
+        [menu addItemWithSymbol:@"arrow.clockwise" title:BrowserLocalized(@"Reload") action:^{
             weakSelf.tabCoordinator.previousURL = @"";
             [weakSelf.webview reload];
         }];
     }
-    if (!self.webAppMode) {
-        [menu addItemWithSymbol:@"house" title:BrowserLocalized(@"Start Page") action:^{
-            [weakSelf browserShowStartPage];
+    if (self.webview.canGoForward) {
+        [menu addItemWithSymbol:@"chevron.forward" title:BrowserLocalized(@"Forward") action:^{
+            [weakSelf.webview goForward];
         }];
     }
     [menu addItemWithSymbol:@"gearshape" title:BrowserLocalized(@"Settings") action:^{
         [weakSelf showAdvancedMenu];
     }];
+
+    [menu setToggleTitle:BrowserLocalized(@"Block Ads") value:BrowserWebView.adBlockEnabled changed:^(BOOL on) {
+        BrowserWebView.adBlockEnabled = on;
+        [weakSelf.webview reload];
+    }];
+
     [self deactivateTopBarFocusMode];
     [self presentViewController:menu animated:NO completion:nil];
 }
