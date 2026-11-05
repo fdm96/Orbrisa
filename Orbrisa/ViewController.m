@@ -270,8 +270,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         [self rowWithKind:BrowserRemoteIconKindCenter badge:@"2×"
                     title:BrowserLocalized(@"Press the center twice")
                      text:BrowserLocalized(@"Switches between cursor mode and scroll mode.")],
-        [self sectionLabel:@"Link-Navigation"],
-        [self rowWithKind:BrowserRemoteIconKindRingDown badge:@"halten"
+        [self sectionLabel:BrowserLocalized(@"Link Navigation")],
+        [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
                     title:BrowserLocalized(@"Hold the bottom of the ring")
                      text:BrowserLocalized(@"Turns link navigation on or off. A white frame shows the selected link.")],
         [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil

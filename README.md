@@ -13,7 +13,7 @@
 [![Downloads](https://img.shields.io/github/downloads/fdm96/Orbrisa/total?label=downloads)](https://github.com/fdm96/Orbrisa/releases)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Orbrisa-72a4f2?logo=ko-fi&logoColor=white)](https://ko-fi.com/T1M629LBVF)
 
-[Features](#features) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
+[Features](#features) · [Screenshots](#screenshots) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
 
 </div>
 
@@ -45,6 +45,17 @@
 | 🧭 **Top Shelf** *(in development)* | Open tabs and favorites on the Apple TV home screen |
 | 🌍 **English & German** | Follows the Apple TV language: German when it is set to German, English for every other language |
 | 📖 **Usage guide** | Built-in guide with Siri Remote illustrations |
+
+## Screenshots
+
+| | |
+|:---:|:---:|
+| <img src="docs/screenshots/browsing.jpg" alt="Browsing with the glass top bar"> | <img src="docs/screenshots/tab-strip.jpg" alt="Tab strip with site colours and preview"> |
+| **Browsing** – glass top bar | **Tab strip** – logos, site colours, preview |
+| <img src="docs/screenshots/settings.jpg" alt="Settings styled like tvOS"> | <img src="docs/screenshots/whats-new.jpg" alt="What's New screen"> |
+| **Settings** – styled like tvOS | **What's New** after every update |
+| <img src="docs/screenshots/remote-guide.jpg" alt="Siri Remote usage guide"> | <img src="docs/screenshots/top-shelf.jpg" alt="Top Shelf on the Apple TV home screen"> |
+| **Usage guide** for the Siri Remote | **Home screen** with Top Shelf |
 
 ## Install
 
