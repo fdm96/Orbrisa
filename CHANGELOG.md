@@ -2,6 +2,26 @@
 
 All notable changes to Orbrisa. The format follows [Keep a Changelog](https://keepachangelog.com), versions follow [Semantic Versioning](https://semver.org).
 
+## [1.1.0-beta.1] – 2026-11-05
+
+**Beta 1** – try the new Reader and RSS feeds. Things may still change; please report anything odd.
+
+### Added
+- **Reader mode** – only the article, no ads or menus. Calm, large text you scroll with the touch surface
+  - *Reader* button right inside the address bar as soon as a page has an article (found while the page is still loading)
+  - Appearance panel (Play/Pause): font size in five steps, background *Light*, *Sepia*, *Grey* or *Dark*, font *Serif* or *System*
+  - *Always Open in Reader* per website – articles of that site open straight in the Reader
+  - Images of the article are shown in the text
+- **RSS feeds**
+  - RSS button next to the address bar: orange when the page has a feed (subscribe in one click), grey otherwise (opens your feeds)
+  - Feeds overview below the top bar, like the tab overview – the address bar reads *Feeds* and the number of new articles
+  - Sidebar with all subscribed feeds and unread counts, *All* / *Unread* filter, article cards with picture
+  - *Add Feed* finds the feed of the page you are on; Play/Pause on a feed unsubscribes
+  - RSS and Atom supported
+- New *Reader & Feeds* section in Settings and *Open in Reader* in the quick menu
+- What's New shows the beta features; the version in Settings reads "1.1.0 Beta 1"
+- `make-ipa.sh` puts the beta label into the file name (`Orbrisa-1.1.0-Beta-1-unsigned.ipa`)
+
 ## [1.0.0] – 2026-11-03
 
 First release as **Orbrisa** (formerly tvOSBrowser).

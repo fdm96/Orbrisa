@@ -36,6 +36,11 @@ if [ ! -d "$APP" ]; then
 fi
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist" 2>/dev/null || echo dev)"
+# Beta builds carry their label in the name, e.g. Orbrisa-1.1.0-Beta-1-unsigned.ipa
+LABEL="$(/usr/libexec/PlistBuddy -c 'Print :OrbrisaReleaseLabel' "$APP/Info.plist" 2>/dev/null || true)"
+if [ -n "$LABEL" ]; then
+    VERSION="$VERSION-${LABEL// /-}"
+fi
 IPA="$OUTPUT_DIR/Orbrisa-$VERSION-unsigned.ipa"
 
 echo "▸ Packing $(basename "$IPA") …"

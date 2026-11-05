@@ -19,6 +19,9 @@
 
 ---
 
+> [!TIP]
+> 🧪 **Beta 1.1.0 is out – Reader mode and RSS feeds!** Download `Orbrisa-1.1.0-Beta-1-unsigned.ipa` from the [pre-release](https://github.com/fdm96/Orbrisa/releases) and tell me what you think. See the [changelog](CHANGELOG.md) for everything that's new.
+
 > [!IMPORTANT]
 > Orbrisa uses private Apple APIs (tvOS has no public WebKit). It can never be on the App Store and is meant for sideloading onto your own Apple TV. Use at your own risk.
 
@@ -97,8 +100,8 @@ These features are designed and planned for the next versions. The pictures are 
 
 | | Feature | |
 |:---:|---|---|
-| 📖 | **Reader mode** | Only the article – no ads, no menus. Large, calm text with your choice of size, background (light, sepia, grey, dark) and font. |
-| 📰 | **RSS feeds** | Subscribe to your favourite sites. Orbrisa spots a feed on a page and shows new articles in one overview. |
+| 📖 | **Reader mode** 🧪 *in Beta 1.1.0* | Only the article – no ads, no menus. Large, calm text with your choice of size, background (light, sepia, grey, dark) and font. |
+| 📰 | **RSS feeds** 🧪 *in Beta 1.1.0* | Subscribe to your favourite sites. Orbrisa spots a feed on a page and shows new articles in one overview. |
 | 🖼️ | **Picture in picture** | Keep the video playing in a small window while you go on browsing. |
 | 🔒 | **Private mode** | Tabs without history or cookies, locked with a 4-digit code. |
 
@@ -123,7 +126,7 @@ Got an idea for the roadmap? [Suggest it here](https://github.com/fdm96/Orbrisa/
 
 ### Option A – unsigned IPA (sideload)
 
-1. Download `Orbrisa-<version>-unsigned.ipa` from the [latest release](https://github.com/fdm96/Orbrisa/releases/latest).
+1. Download `Orbrisa-<version>-unsigned.ipa` from the [latest release](https://github.com/fdm96/Orbrisa/releases/latest) – or the newest beta from [all releases](https://github.com/fdm96/Orbrisa/releases).
 2. Sign and install it on your Apple TV with a sideloading tool that supports tvOS (for example [Sideloadly](https://sideloadly.io)) and your Apple ID.
 3. With a free Apple ID the app has to be re-installed every 7 days.
 
@@ -242,7 +245,9 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
 
-**Geplant** – Reader-Modus, RSS-Feeds, Bild-in-Bild (Video läuft weiter, während du surfst) und ein privater Modus mit Code-Sperre. Die Entwürfe findest du oben unter *Roadmap*.
+**Beta 1.1.0** 🧪 – Neu zum Ausprobieren: **Reader-Modus** (nur der Artikel, mit Schriftgrösse, Hintergrund Hell/Sepia/Grau/Dunkel, Schriftart und „Immer im Reader öffnen“) und **RSS-Feeds** (RSS-Knopf neben der Adressleiste, Feed-Übersicht mit ungelesenen Artikeln). Die IPA `Orbrisa-1.1.0-Beta-1-unsigned.ipa` gibt es unter [Releases](https://github.com/fdm96/Orbrisa/releases).
+
+**Geplant** – Bild-in-Bild (Video läuft weiter, während du surfst) und ein privater Modus mit Code-Sperre. Die Entwürfe findest du oben unter *Roadmap*.
 
 **Fehler oder Ideen?** – Bitte ein [Issue erstellen](https://github.com/fdm96/Orbrisa/issues/new/choose). Ein Foto vom Fernseher (einfach mit dem Handy) oder ein Log aus Xcode hilft am meisten.
 
