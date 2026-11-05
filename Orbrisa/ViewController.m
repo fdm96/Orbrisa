@@ -15,6 +15,7 @@
 #import "BrowserRemoteInputController.h"
 #import "BrowserSessionStore.h"
 #import "BrowserTabViewModel.h"
+#import "BrowserLog.h"
 #import "BrowserTabCoordinator.h"
 #import "BrowserTabOverviewController.h"
 #import "BrowserVideoPlaybackCoordinator.h"
@@ -1373,12 +1374,19 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self browserShowStartPage];
 }
 
+/// YES when the open tab shows no real web page (no address, about:blank, an empty data page ...).
+- (BOOL)browserActiveTabIsEmpty {
+    if (self.webview.request.URL.host.length > 0) {
+        return NO;
+    }
+    BrowserTabViewModel *tab = self.tabCoordinator.activeTab;
+    NSString *stored = tab.URLString.length > 0 ? tab.URLString : tab.requestURL;
+    return [NSURL URLWithString:stored ?: @""].host.length == 0;
+}
+
 /// Opens Google in the open tab when it shows nothing (no address, or about:blank).
 - (void)browserOpenGoogleIfTabEmpty {
-    NSString *current = self.webview.request.URL.absoluteString ?: @"";
-    BrowserTabViewModel *tab = self.tabCoordinator.activeTab;
-    BOOL empty = (current.length == 0 || [current isEqualToString:@"about:blank"]) && tab.URLString.length == 0 && tab.requestURL.length == 0;
-    if (!empty) {
+    if (![self browserActiveTabIsEmpty]) {
         return;
     }
     NSURLRequest *request = [self.navigationService requestForURLString:@"https://www.google.com"];
@@ -1406,7 +1414,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         return;
     }
     [self deactivateTopBarFocusMode];
-    BOOL hasPage = self.webview.request.URL.absoluteString.length > 0;
+    BOOL hasPage = ![self browserActiveTabIsEmpty];
+    BrowserLog(@"[StartPage] show: hasPage=%@ url=%@ tabs=%lu", hasPage ? @"YES" : @"NO", self.webview.request.URL.absoluteString ?: @"(nil)", (unsigned long)self.viewModel.tabs.count);
     BrowserStartPageViewController *start = [[BrowserStartPageViewController alloc] initWithTabCount:self.viewModel.tabs.count canGoBack:hasPage];
     __weak typeof(self) weakSelf = self;
     start.openURL = ^(NSString *URLString, BOOL asWebApp) {
