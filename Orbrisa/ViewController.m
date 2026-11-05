@@ -1710,7 +1710,9 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"if (feed && !document.getElementById('__tvFeedStyle')) {\n"
     @"  var fs = document.createElement('style');\n"
     @"  fs.id = '__tvFeedStyle';\n"
-    @"  fs.textContent = 'html{scroll-behavior:smooth !important;} .__tvLinkNavFocus{outline:5px solid #FFFFFF !important;outline-offset:6px !important;border-radius:16px !important;transform:scale(1.04) !important;position:relative !important;z-index:2147483000 !important;box-shadow:0 26px 60px rgba(0,0,0,0.55),0 0 0 10px rgba(0,0,0,0.25) !important;background-color:rgba(255,255,255,0.10) !important;transition:transform .18s ease, box-shadow .18s ease, outline-offset .18s ease !important;}';\n"
+    @"  var lum = 1; [document.body, document.documentElement].some(function(e){ if (!e) { return false; } var m = (getComputedStyle(e).backgroundColor || '').match(/[\\d.]+/g); if (m && (m.length < 4 || +m[3] > 0.1)) { lum = (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255; return true; } return false; });\n"
+    @"  var C = lum < 0.5 ? '10,132,255' : '52,199,89'; window.__orbDropTone = C;\n"
+    @"  fs.textContent = 'html{scroll-behavior:smooth !important;} .__tvLinkNavFocus{outline:none !important;border-radius:18px !important;position:relative !important;z-index:2147483000 !important;transform:scale(1.03) !important;background-color:rgba(' + C + ',0.06) !important;box-shadow:0 0 0 2px rgba(' + C + ',0.55),0 0 26px 6px rgba(' + C + ',0.26),inset 0 1px 0 rgba(255,255,255,0.55),inset 0 -10px 22px rgba(' + C + ',0.12),0 18px 40px rgba(0,0,0,0.28) !important;transition:transform .32s cubic-bezier(.2,1.35,.4,1), box-shadow .32s ease !important;} .__tvLinkNavFocus::after{content:\"\";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.06) 38%,rgba(255,255,255,0) 60%,rgba(' + C + ',0.10) 100%);}';\n"
     @"  (document.head || document.documentElement).appendChild(fs);\n"
     @"}\n"
     @"var SELECTOR = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=option],[onclick],[tabindex]:not([tabindex=\"-1\"])';\n"
@@ -1742,6 +1744,12 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  return 'point:' + Math.round(p.x) + ',' + Math.round(p.y);\n"
     @"}\n"
     @"var list = candidates();\n"
+    @"if (cmd === 'center') {\n"
+    @"  var cx = innerWidth / 2, cy = innerHeight / 2, nearest = null, nd = Infinity;\n"
+    @"  list.forEach(function(el){ var q = mid(el.getBoundingClientRect()), d = Math.abs(q.x - cx) * 0.6 + Math.abs(q.y - cy); if (d < nd) { nd = d; nearest = el; } });\n"
+    @"  if (nearest) { setCur(nearest); return 'ok'; }\n"
+    @"  return 'none';\n"
+    @"}\n"
     @"if (!N.cur || !document.contains(N.cur) || !shown(N.cur)) {\n"
     @"  if (!list.length) {\n"
     @"    if (cmd === 'down') { scrollBy(0, innerHeight * 0.6); return 'scrolled'; }\n"
@@ -1803,7 +1811,7 @@ static NSString *BrowserLinkNavigationScript(void) {
         [self setShowTopBarButtonSelected:NO animated:YES];
     }
     if (active) {
-        [self runLinkNavigationCommand:@"down"];
+        [self runLinkNavigationCommand:(self.webAppMode ? @"center" : @"down")]; // in a web app: the item in the middle of the screen
         if (!self.webAppMode) {
             [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
         }
