@@ -1510,6 +1510,16 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     }];
 }
 
+- (BrowserAdvancedMenuItem *)startPageAsHomeMenuItem {
+    // On: Home, new tabs and the app start show Orbrisa's start page. Off: Google (or the page set as home page).
+    __weak typeof(self) weakSelf = self;
+    return [self toggleMenuItemWithTitle:BrowserLocalized(@"Orbrisa Start Page as Home Page")
+                                   value:^BOOL{ return weakSelf.preferencesStore.homePageURLString.length == 0; }
+                                 changed:^(BOOL on) {
+        weakSelf.preferencesStore.homePageURLString = on ? @"" : @"https://www.google.com";
+    }];
+}
+
 - (BrowserAdvancedMenuItem *)setCurrentPageAsHomePageMenuItem {
     return [self advancedMenuItemWithTitle:BrowserLocalized(@"Set Current Page As Home Page")
                                      style:UIAlertActionStyleDefault
@@ -1753,6 +1763,7 @@ static NSUInteger const kBrowserFontSizeMax = 200;
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Navigation")
                                                items:@[
             [self homePageMenuItem],
+            [self startPageAsHomeMenuItem],
             [self setCurrentPageAsHomePageMenuItem],
             [self favoritesMenuItem],
             [self historyMenuItem],

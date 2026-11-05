@@ -60,6 +60,7 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
 @property (nonatomic) CFTimeInterval lastSelectPressTimestamp;
 @property (nonatomic) BOOL awaitingSecondSelectPress;
 @property (nonatomic, readwrite, getter=isLinkNavigationActive) BOOL linkNavigationActive;
+@property (nonatomic) CGPoint swipeAccumulation;
 @property (nonatomic) BOOL downArrowHoldFired;
 
 @end
@@ -512,6 +513,30 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
         return NO;
     }
     if (self.linkNavigationActive) {
+        // Like the Apple TV focus: a swipe on the touch surface moves to the next item, a long swipe keeps going.
+        UITouch *touch = touches.anyObject;
+        CGPoint location = [touch locationInView:self.rootView];
+        if (self.lastTouchLocation.x == -1 && self.lastTouchLocation.y == -1) {
+            self.lastTouchLocation = location;
+            self.swipeAccumulation = CGPointZero;
+            return YES;
+        }
+        CGPoint sum = self.swipeAccumulation;
+        sum.x += location.x - self.lastTouchLocation.x;
+        sum.y += location.y - self.lastTouchLocation.y;
+        self.lastTouchLocation = location;
+        static CGFloat const kSwipeStep = 240.0;
+        NSString *direction = nil;
+        if (fabs(sum.y) >= kSwipeStep && fabs(sum.y) >= fabs(sum.x)) {
+            direction = sum.y > 0 ? @"down" : @"up";
+        } else if (fabs(sum.x) >= kSwipeStep) {
+            direction = sum.x > 0 ? @"right" : @"left";
+        }
+        if (direction != nil) {
+            sum = CGPointZero;
+            [self.host browserRemoteInputControllerLinkNavigationMove:direction];
+        }
+        self.swipeAccumulation = sum;
         return YES;
     }
 
@@ -558,6 +583,7 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
 
 - (void)handleTouchesEnded {
     self.lastTouchLocation = CGPointMake(-1, -1);
+    self.swipeAccumulation = CGPointZero;
 }
 
 @end

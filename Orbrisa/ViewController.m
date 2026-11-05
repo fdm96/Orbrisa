@@ -540,8 +540,11 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic, copy) NSString *autoReaderURL;
 @property (nonatomic) BOOL webAppMode;
 @property (nonatomic) BOOL didHandleLaunchWebApp;
+@property (nonatomic) BOOL didShowLaunchStartPage;
 @property (nonatomic) UIView *webAppHintView;
 @property (nonatomic) UIView *webAppSplashView;
+@property (nonatomic, copy) NSString *webAppURLString;
+@property (nonatomic) BOOL webAppAskedTextSize;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -660,9 +663,13 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (launchWebApp != nil) {
         self.webAppMode = YES; // no start page underneath
     }
+    BOOL firstAppearance = !self.didShowLaunchStartPage;
+    self.didShowLaunchStartPage = YES;
     [self.tabCoordinator webViewDidAppear];
     if (launchWebApp != nil) {
         [self browserOpenWebAppWithURLString:launchWebApp];
+    } else if (firstAppearance && self.preferencesStore.homePageURLString.length == 0) {
+        [self browserShowStartPage]; // the open tabs stay behind it – Back goes to them
     }
     [BrowserWebView applyAppearanceToWindows];
     [self openPendingAppURL];
@@ -897,6 +904,37 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }
 }
 
+- (NSUInteger)effectiveTextFontSize {
+    // A web app keeps its own text size (asked the first time it opens).
+    NSNumber *size = self.webAppMode && self.webAppURLString.length > 0
+        ? [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"][self.webAppURLString] : nil;
+    return size != nil ? size.unsignedIntegerValue : self.viewModel.textFontSize;
+}
+
+- (void)askWebAppTextSize {
+    NSString *URLString = self.webAppURLString;
+    if (URLString.length == 0) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:BrowserLocalized(@"How large should the text be?")
+                                                                   message:BrowserLocalized(@"For this web app. You can change it later with Play/Pause → Text Size.")
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    NSArray<NSArray *> *choices = @[
+        @[BrowserLocalized(@"Normal"), @100], @[BrowserLocalized(@"Larger"), @125], @[BrowserLocalized(@"Large"), @150],
+        @[BrowserLocalized(@"Very Large"), @175], @[BrowserLocalized(@"Huge"), @200],
+    ];
+    __weak typeof(self) weakSelf = self;
+    for (NSArray *choice in choices) {
+        [alert addAction:[UIAlertAction actionWithTitle:choice[0] style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+            sizes[URLString] = choice[1];
+            [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
+            [weakSelf updateTextFontSize];
+        }]];
+    }
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)updateTextFontSize {
     if (self.webview == nil) {
         return;
@@ -936,8 +974,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
                            "}"
                            "return value;"
                           "})()",
-                          (unsigned long)self.viewModel.textFontSize,
-                          (unsigned long)self.viewModel.textFontSize];
+                          (unsigned long)[self effectiveTextFontSize],
+                          (unsigned long)[self effectiveTextFontSize]];
     [self.webview stringByEvaluatingJavaScriptFromString:jsString];
 }
 
@@ -1024,6 +1062,11 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
                                                           handler:^(__unused UIAlertAction *action) {
             [self browserLeaveWebApp];
         }]];
+        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Text Size")
+                                                            style:UIAlertActionStyleDefault
+                                                          handler:^(__unused UIAlertAction *action) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [self askWebAppTextSize]; });
+        }]];
     }
 
     if (self.webview.canGoForward) {
@@ -1071,7 +1114,12 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         ViewController *strongSelf = weakSelf;
-        if (strongSelf == nil || strongSelf.presentedViewController != nil || strongSelf.view.window == nil) {
+        UIViewController *presenter = strongSelf;
+        if ([strongSelf.presentedViewController isKindOfClass:[BrowserStartPageViewController class]] &&
+            strongSelf.presentedViewController.presentedViewController == nil) {
+            presenter = strongSelf.presentedViewController; // over the start page
+        }
+        if (strongSelf == nil || (presenter == strongSelf && strongSelf.presentedViewController != nil) || strongSelf.view.window == nil) {
             return; // try again at the next start
         }
         [defaults setObject:version forKey:@"BrowserWhatsNewShownVersion"];
@@ -1079,7 +1127,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         whatsNew.continueHandler = ^{
             [weakSelf showHintsAlert];
         };
-        [strongSelf presentViewController:whatsNew animated:YES completion:nil];
+        [presenter presentViewController:whatsNew animated:YES completion:nil];
     });
 }
 
@@ -1314,6 +1362,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         return;
     }
     self.webAppMode = YES;
+    self.webAppURLString = URLString;
+    self.webAppAskedTextSize = NO;
     [self deactivateTopBarFocusMode];
     self.viewModel.topNavigationBarVisible = NO; // only for now – the saved setting stays as it is
     [self.tabCoordinator setTopNavigationVisible:NO];
@@ -2155,6 +2205,11 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
         [self hideWebAppSplash];
         if (!self.remoteInputController.linkNavigationActive) {
             [self.remoteInputController setLinkNavigationActive:YES];
+        }
+        BOOL known = self.webAppURLString.length > 0 && [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"][self.webAppURLString] != nil;
+        if (!known && !self.webAppAskedTextSize && self.presentedViewController == nil) {
+            self.webAppAskedTextSize = YES;
+            [self askWebAppTextSize];
         }
     }
     if (webView == self.webview) {

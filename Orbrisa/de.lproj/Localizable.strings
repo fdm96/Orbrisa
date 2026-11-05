@@ -232,3 +232,12 @@
 "Orbrisa starts right away with this web app" = "Orbrisa startet direkt mit dieser Web-App";
 "Always Open as Web App" = "Immer als Web-App öffnen";
 "A click on the tile opens it full screen" = "Ein Klick auf die Kachel öffnet sie im Vollbild";
+"Orbrisa Start Page as Home Page" = "Orbrisa-Startseite als Startseite";
+"How large should the text be?" = "Wie gross soll die Schrift sein?";
+"For this web app. You can change it later with Play/Pause → Text Size." = "Für diese Web-App. Du kannst es später mit Play/Pause → Schriftgrösse ändern.";
+"Normal" = "Normal";
+"Larger" = "Etwas grösser";
+"Large" = "Gross";
+"Very Large" = "Sehr gross";
+"Huge" = "Riesig";
+"Text Size" = "Schriftgrösse";
