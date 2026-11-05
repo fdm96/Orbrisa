@@ -1374,6 +1374,10 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     static NSString * const script =
         @"(function(){var r=[];function add(k,v){r.push(k+': '+v);}"
         @"function t(f){try{return f();}catch(e){return 'error ('+(e&&e.message?e.message:e)+')';}}"
+        @"add('WebGPU (navigator.gpu)',typeof navigator.gpu);"
+        @"add('localStorage',t(function(){localStorage.setItem('__orb','1');var v=localStorage.getItem('__orb');localStorage.removeItem('__orb');return v==='1'?'works':'no';}));"
+        @"add('IndexedDB',(typeof indexedDB)+' · last test: '+(window.__orbIDB||'running – check again in a moment'));"
+        @"t(function(){var q=indexedDB.open('__orbrisa_check',1);q.onupgradeneeded=function(){q.result.createObjectStore('s');};q.onsuccess=function(){try{var tx=q.result.transaction('s','readwrite');tx.objectStore('s').put(1,'k');tx.oncomplete=function(){window.__orbIDB='works';q.result.close();};tx.onerror=function(){window.__orbIDB='write failed';};}catch(e){window.__orbIDB='error ('+e.message+')';}};q.onerror=function(){window.__orbIDB='error ('+(q.error?q.error.message:'?')+')';};return '';});"
         @"add('RTCPeerConnection',typeof RTCPeerConnection);"
         @"add('webkitRTCPeerConnection',typeof webkitRTCPeerConnection);"
         @"add('new RTCPeerConnection()',t(function(){var pc=new RTCPeerConnection();var dc=pc.createDataChannel('x');var ok='ok, data channel '+(dc?'ok':'missing');pc.close();return ok;}));"
@@ -1394,7 +1398,7 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     if (result.length == 0) {
         result = @"The page did not answer. Open any website first (e.g. play.geforcenow.com) and try again.";
     }
-    result = [NSString stringWithFormat:@"%@\n\nWebKit features:\n%@", result, [BrowserWebView cloudGamingFeatureReport]];
+    result = [NSString stringWithFormat:@"WebKit features:\n%@\n\n%@", [BrowserWebView cloudGamingFeatureReport], result];
     BrowserLog(@"[CloudGamingCheck]\n%@", result);
     UIAlertController *alertController = [self browserAlertControllerWithTitle:@"Cloud Gaming Check" message:result];
     [alertController addAction:[self browserCancelAction]];

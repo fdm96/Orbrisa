@@ -289,7 +289,7 @@ static void BrowserEnableCloudGamingFeatures(id preferences) {
         BrowserCloudGamingReport = [NSMutableString string];
     }
     [BrowserCloudGamingReport setString:@""];
-    for (NSString *selectorName in @[@"_setPeerConnectionEnabled:", @"_setMediaDevicesEnabled:", @"_setGamepadsEnabled:"]) {
+    for (NSString *selectorName in @[@"_setPeerConnectionEnabled:", @"_setMediaDevicesEnabled:", @"_setGamepadsEnabled:", @"_setWebGPUEnabled:"]) {
         BOOL available = [preferences respondsToSelector:NSSelectorFromString(selectorName)];
         BrowserSetBooleanSelectorIfAvailable(preferences, selectorName, YES);
         [BrowserCloudGamingReport appendFormat:@"%@ %@\n", selectorName, available ? @"set" : @"missing"];
@@ -318,7 +318,7 @@ static void BrowserEnableCloudGamingFeatures(id preferences) {
         NSString *key = BrowserStringValueForKnownSelectors(feature, @[@"key", @"name"]) ?: @"";
         NSString *lower = key.lowercaseString;
         BOOL wanted = [lower containsString:@"peerconnection"] || [lower containsString:@"webrtc"] || [lower containsString:@"gamepad"]
-            || [lower containsString:@"mediadevices"] || [lower containsString:@"mediastream"];
+            || [lower containsString:@"mediadevices"] || [lower containsString:@"mediastream"] || [lower containsString:@"webgpu"];
         BOOL reportOnly = [lower containsString:@"fullscreen"] || [lower containsString:@"pointerlock"];
         if (!wanted && !reportOnly) {
             continue;
@@ -332,6 +332,55 @@ static void BrowserEnableCloudGamingFeatures(id preferences) {
         [BrowserCloudGamingReport appendFormat:@"%@: %@%@\n", key, before ? @"on" : @"off", (after != before) ? @" → on" : @""];
     }
     [BrowserCloudGamingReport appendFormat:@"(%lu WebKit features, %lu related)", (unsigned long)features.count, (unsigned long)matches];
+}
+#endif
+
+#if DEBUG
+// Experiment (Debug builds only): website data (IndexedDB, local storage, caches) in our own Caches folder,
+// because the default location is not reachable for the web process on tvOS ("STORAGE-NONE" on some sites).
+static NSMutableString *BrowserStorageReport;
+
+static id BrowserSharedCustomDataStore(void) {
+    static id store;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        BrowserStorageReport = [NSMutableString string];
+        Class configurationClass = NSClassFromString(@"_WKWebsiteDataStoreConfiguration");
+        Class storeClass = NSClassFromString(@"WKWebsiteDataStore");
+        SEL initWithConfiguration = NSSelectorFromString(@"_initWithConfiguration:");
+        if (configurationClass == Nil || storeClass == Nil || ![storeClass instancesRespondToSelector:initWithConfiguration]) {
+            [BrowserStorageReport appendString:@"Own data store: not possible (private classes missing)"];
+            return;
+        }
+        id configuration = [[configurationClass alloc] init];
+        NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+        NSURL *base = [caches URLByAppendingPathComponent:@"OrbrisaWebData" isDirectory:YES];
+        NSDictionary<NSString *, NSString *> *folders = @{
+            @"_setIndexedDBDatabaseDirectory:": @"IndexedDB",
+            @"_setWebStorageDirectory:": @"LocalStorage",
+            @"_setCacheStorageDirectory:": @"CacheStorage",
+            @"setGeneralStorageDirectory:": @"General",
+            @"_setServiceWorkerRegistrationDirectory:": @"ServiceWorkers",
+            @"_setWebSQLDatabaseDirectory:": @"WebSQL",
+            @"_setResourceLoadStatisticsDirectory:": @"ResourceLoadStatistics",
+            @"setNetworkCacheDirectory:": @"NetworkCache",
+        };
+        NSUInteger set = 0;
+        for (NSString *selectorName in folders) {
+            SEL selector = NSSelectorFromString(selectorName);
+            if (![configuration respondsToSelector:selector]) {
+                continue;
+            }
+            NSURL *folder = [base URLByAppendingPathComponent:folders[selectorName] isDirectory:YES];
+            [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
+            ((void (*)(id, SEL, id))objc_msgSend)(configuration, selector, folder);
+            set++;
+        }
+        store = ((id (*)(id, SEL, id))objc_msgSend)([storeClass alloc], initWithConfiguration, configuration);
+        [BrowserStorageReport appendFormat:@"Own data store: %@ (%lu of %lu folders set, in Caches/OrbrisaWebData)",
+            store != nil ? @"active" : @"failed", (unsigned long)set, (unsigned long)folders.count];
+    });
+    return store;
 }
 #endif
 
@@ -922,6 +971,13 @@ static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
         ((void (*)(id, SEL, BOOL))objc_msgSend)(configuration, allowsInlineMediaPlaybackSelector, allowsInlineMediaPlayback);
     }
     BrowserConfigurePrivateMediaPreferences(configuration);
+#if DEBUG
+    id customDataStore = BrowserSharedCustomDataStore();
+    SEL setDataStore = NSSelectorFromString(@"setWebsiteDataStore:");
+    if (customDataStore != nil && [configuration respondsToSelector:setDataStore]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(configuration, setDataStore, customDataStore);
+    }
+#endif
     BrowserInstallYouTubeCaptureUserScript(configuration);
     [self installMediaMessageHandlerInConfiguration:configuration];
 
@@ -1463,7 +1519,8 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
 
 + (NSString *)cloudGamingFeatureReport {
 #if DEBUG
-    return BrowserCloudGamingReport.length > 0 ? [BrowserCloudGamingReport copy] : @"No WebKit preferences were configured yet.";
+    NSString *features = BrowserCloudGamingReport.length > 0 ? [BrowserCloudGamingReport copy] : @"No WebKit preferences were configured yet.";
+    return [NSString stringWithFormat:@"%@\n%@", BrowserStorageReport ?: @"Own data store: not tried", features];
 #else
     return @"";
 #endif
@@ -1753,6 +1810,12 @@ windowFeatures:(id)windowFeatures {
 
 + (id)defaultWebsiteDataStore {
     BrowserEnsureWebKitRuntimeLoaded();
+#if DEBUG
+    id customDataStore = BrowserSharedCustomDataStore(); // cookies and "Clear Cache" use the same store as the tabs
+    if (customDataStore != nil) {
+        return customDataStore;
+    }
+#endif
     Class dataStoreClass = NSClassFromString(kBrowserWebsiteDataStoreClassName);
     SEL selector = NSSelectorFromString(@"defaultDataStore");
     if (dataStoreClass == Nil || ![dataStoreClass respondsToSelector:selector]) {
