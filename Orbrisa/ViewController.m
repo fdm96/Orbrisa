@@ -545,6 +545,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) UIView *webAppSplashView;
 @property (nonatomic, copy) NSString *webAppURLString;
 @property (nonatomic) BOOL webAppAskedTextSize;
+@property (nonatomic) BOOL leavingWebApp;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -912,27 +913,24 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)askWebAppTextSize {
+    // The same font size slider as in Settings – but only for this web app.
     NSString *URLString = self.webAppURLString;
     if (URLString.length == 0) {
         return;
     }
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:BrowserLocalized(@"How large should the text be?")
-                                                                   message:BrowserLocalized(@"For this web app. You can change it later with Play/Pause → Text Size.")
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    NSArray<NSArray *> *choices = @[
-        @[BrowserLocalized(@"Normal"), @100], @[BrowserLocalized(@"Larger"), @125], @[BrowserLocalized(@"Large"), @150],
-        @[BrowserLocalized(@"Very Large"), @175], @[BrowserLocalized(@"Huge"), @200],
-    ];
     __weak typeof(self) weakSelf = self;
-    for (NSArray *choice in choices) {
-        [alert addAction:[UIAlertAction actionWithTitle:choice[0] style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
-            sizes[URLString] = choice[1];
-            [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
-            [weakSelf updateTextFontSize];
-        }]];
+    [self.menuCoordinator presentTextSizeSliderWithValue:[self effectiveTextFontSize] changed:^(NSUInteger size) {
+        NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+        sizes[URLString] = @(size);
+        [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
+        [weakSelf updateTextFontSize];
+    }];
+    // Asked once: even when the slider is closed without a change, the current size counts as chosen.
+    NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+    if (sizes[URLString] == nil) {
+        sizes[URLString] = @([self effectiveTextFontSize]);
+        [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
     }
-    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)updateTextFontSize {
@@ -1061,6 +1059,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
                                                             style:UIAlertActionStyleDefault
                                                           handler:^(__unused UIAlertAction *action) {
             [self browserLeaveWebApp];
+            [self browserShowStartPage];
         }]];
         [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Text Size")
                                                             style:UIAlertActionStyleDefault
@@ -1475,9 +1474,15 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)browserLeaveWebApp {
+    if (self.leavingWebApp) {
+        return;
+    }
+    self.leavingWebApp = YES;
     [self hideWebAppSplash];
     [self.remoteInputController setLinkNavigationActive:NO]; // while still in the web app: no "mouse on" hint
     self.webAppMode = NO;
+    self.leavingWebApp = NO;
+    [self updateTextFontSize]; // back to the normal text size
     BOOL visible = self.preferencesStore.topNavigationBarVisible;
     self.viewModel.topNavigationBarVisible = visible;
     [self.tabCoordinator setTopNavigationVisible:visible];
@@ -1759,6 +1764,12 @@ static NSString *BrowserLinkNavigationScript(void) {
         if (!self.webAppMode) {
             [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
         }
+    } else if (self.webAppMode && !self.leavingWebApp) {
+        // Taking the mouse in a web app means leaving it: back to the start page.
+        [self runLinkNavigationCommand:@"clear"];
+        cursorView.alpha = 1.0;
+        [self browserLeaveWebApp];
+        [self browserShowStartPage];
     } else if (self.webAppMode) {
         [self runLinkNavigationCommand:@"clear"];
     } else {

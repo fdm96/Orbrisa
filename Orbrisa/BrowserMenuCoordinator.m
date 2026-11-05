@@ -1666,6 +1666,36 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
 static NSUInteger const kBrowserFontSizeMin = 50;
 static NSUInteger const kBrowserFontSizeMax = 200;
 
+- (void)presentTextSizeSliderWithValue:(NSUInteger)value changed:(void (^)(NSUInteger size))changed {
+    __block NSUInteger current = MIN(MAX(value, kBrowserFontSizeMin), kBrowserFontSizeMax);
+    BrowserGlassSliderViewController *slider = [BrowserGlassSliderViewController new];
+    CGFloat range = (CGFloat)(kBrowserFontSizeMax - kBrowserFontSizeMin);
+    slider.sliderTitle = BrowserLocalized(@"Font Size");
+    slider.lowText = [NSString stringWithFormat:@"%lu %%", (unsigned long)kBrowserFontSizeMin];
+    slider.highText = [NSString stringWithFormat:@"%lu %%", (unsigned long)kBrowserFontSizeMax];
+    slider.lowSymbol = @"textformat.size.smaller";
+    slider.highSymbol = @"textformat.size.larger";
+    slider.steps = range / 5.0;
+    slider.pressStep = 5.0 / range;
+    slider.getValue = ^CGFloat{
+        return (CGFloat)(current - kBrowserFontSizeMin) / range;
+    };
+    slider.setValue = ^(CGFloat sliderValue) {
+        NSUInteger size = kBrowserFontSizeMin + (NSUInteger)lround(sliderValue * range / 5.0) * 5;
+        if (size != current) {
+            current = size;
+            if (changed != nil) {
+                changed(size);
+            }
+        }
+    };
+    slider.valueText = ^NSString *(CGFloat sliderValue) {
+        NSUInteger size = kBrowserFontSizeMin + (NSUInteger)lround(sliderValue * range / 5.0) * 5;
+        return size == 100 ? BrowserLocalized(@"100 % (Default)") : [NSString stringWithFormat:@"%lu %%", (unsigned long)size];
+    };
+    [self.host browserPresentViewController:slider];
+}
+
 - (BrowserAdvancedMenuItem *)fontSizeMenuItem {
     __weak typeof(self) weakSelf = self;
     BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"Font Size")
