@@ -25,6 +25,7 @@
 #import "BrowserStartPageViewController.h"
 #import "BrowserQuickMenuViewController.h"
 #import "ViewController.h"
+#import <objc/runtime.h>
 
 static NSString * const kBrowserGlobalSelectPressEndedNotification = @"BrowserGlobalSelectPressEndedNotification";
 
@@ -568,6 +569,37 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) CGFloat lastScrollPosition;
 @property (nonatomic, weak) UIScrollView *lastScrollView;
 @property (nonatomic, getter=isTopBarScrolledAway) BOOL topBarScrolledAway;
+
+@end
+
+#pragma mark - Keep closed screens alive a moment
+
+// A screen that closes while a finger still rests on the clickpad (a click IS a touch) was freed before UIKit had
+// finished that touch. UIKit then sent the touch's end to the freed memory – by then reused by a "UIDropShadowView" –
+// and crashed with "-[UIDropShadowView (null selector)]: unrecognized selector". Holding every closed screen for
+// three seconds lets the touch finish first.
+@implementation UIViewController (BrowserKeepAliveAfterDismiss)
+
++ (void)load {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        Method original = class_getInstanceMethod(self, @selector(viewDidDisappear:));
+        Method replacement = class_getInstanceMethod(self, @selector(browser_viewDidDisappear:));
+        if (original != NULL && replacement != NULL) {
+            method_exchangeImplementations(original, replacement);
+        }
+    });
+}
+
+- (void)browser_viewDidDisappear:(BOOL)animated {
+    [self browser_viewDidDisappear:animated]; // the original implementation
+    if (self.isBeingDismissed) {
+        UIViewController *keep = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            (void)keep;
+        });
+    }
+}
 
 @end
 
