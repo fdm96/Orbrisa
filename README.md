@@ -11,6 +11,7 @@
 [![Release](https://img.shields.io/github/v/release/fdm96/Orbrisa?include_prereleases&label=release)](https://github.com/fdm96/Orbrisa/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/fdm96/Orbrisa/ci.yml?branch=main&label=build)](https://github.com/fdm96/Orbrisa/actions/workflows/ci.yml)
 [![Downloads](https://img.shields.io/github/downloads/fdm96/Orbrisa/total?label=downloads)](https://github.com/fdm96/Orbrisa/releases)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Orbrisa-72a4f2?logo=ko-fi&logoColor=white)](https://ko-fi.com/T1M629LBVF)
 
 [Features](#features) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
 
@@ -133,6 +134,12 @@ Orbrisa builds on [tvOSBrowser](https://github.com/jvanakker/tvOSBrowser) by **J
 Developed with the help of [Claude](https://claude.ai) (Anthropic).
 Video playback fallback by [VLCKit](https://code.videolan.org/videolan/VLCKit) (LGPL-2.1) – see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+## Support Orbrisa
+
+Orbrisa is free and made in my spare time. If you enjoy it, you can support its further development with a coffee on Ko-fi – thank you! ☕
+
+[![Support me on Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-72a4f2?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/T1M629LBVF)
+
 ## Disclaimer
 
 This project is not affiliated with Apple. It is provided as is, without warranty or liability. Do not submit builds of this project to the App Store.
@@ -152,6 +159,8 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 **Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü, zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
+
+**Unterstützen** – Orbrisa ist kostenlos. Wenn dir die App gefällt, kannst du die Weiterentwicklung mit einem Kaffee auf [Ko-fi](https://ko-fi.com/T1M629LBVF) unterstützen – danke! ☕
 
 ---
 

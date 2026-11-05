@@ -19,6 +19,7 @@ First release as **Orbrisa** (formerly tvOSBrowser).
 - Usage guide with Siri Remote illustrations
 - `scripts/make-ipa.sh` builds an unsigned IPA with one command
 - Credits for Steven Troughton-Smith, Jip van Akker and Claude (Anthropic) in the README
+- Ko-fi link to support Orbrisa (Sponsor button, README)
 - English and German: the app follows the Apple TV language (German for German, English for everything else)
 - Version number and studio logo in the menu
 - Tab strip under the address bar with site logos, a large preview of the focused tab and optional site colours
