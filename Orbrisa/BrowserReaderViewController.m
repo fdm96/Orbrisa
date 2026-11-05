@@ -61,6 +61,15 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
 
 @implementation BrowserReaderViewController
 
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    if (self.isBeingDismissed && self.didClose != nil) {
+        void (^didClose)(void) = self.didClose;
+        self.didClose = nil;
+        didClose();
+    }
+}
+
 #pragma mark - Page script
 
 + (NSString *)extractionScript {

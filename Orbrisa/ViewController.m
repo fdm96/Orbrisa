@@ -540,6 +540,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL pageHasFeed;
 @property (nonatomic) NSUInteger pageProbeGeneration;
 @property (nonatomic, copy) NSString *autoReaderURL;
+@property (nonatomic) CFTimeInterval feedReaderPendingUntil; // an article opened from the feeds: show it in the Reader once it has loaded
 @property (nonatomic) BOOL webAppMode;
 @property (nonatomic) BOOL didHandleLaunchWebApp;
 @property (nonatomic) BOOL didShowLaunchStartPage;
@@ -1307,8 +1308,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     // "Always Open in Reader" for this site: open each article once, as soon as its text is there.
     NSURL *URL = self.webview.request.URL;
     NSString *page = URL.absoluteString ?: @"";
+    BOOL fromFeeds = CACurrentMediaTime() < self.feedReaderPendingUntil;
     if (!readerAvailable || page.length == 0 || [self.autoReaderURL isEqualToString:page] || self.presentedViewController != nil
-        || ![BrowserReaderViewController opensAutomaticallyForURL:URL]) {
+        || !(fromFeeds || [BrowserReaderViewController opensAutomaticallyForURL:URL])) {
         return;
     }
     NSString *script = [BrowserReaderViewController extractionScript];
@@ -1320,7 +1322,16 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     self.autoReaderURL = page;
     self.pageArticle = article;
     self.pageArticleURL = page;
-    [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
+    BrowserReaderViewController *reader = [[BrowserReaderViewController alloc] initWithArticle:article];
+    if (fromFeeds) {
+        // Read from the feeds: Back from the Reader returns to the feed list.
+        self.feedReaderPendingUntil = 0;
+        __weak typeof(self) weakSelf = self;
+        reader.didClose = ^{
+            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf browserShowFeeds]; });
+        };
+    }
+    [self browserPresentViewController:reader];
 }
 
 - (void)schedulePageFeatureChecksForWebView:(id)webView delays:(NSArray<NSNumber *> *)delays {
@@ -1685,6 +1696,7 @@ static NSString *BrowserWebAppPagingScript(void) {
     feeds.openArticle = ^(NSString *URLString) {
         NSURLRequest *request = [weakSelf.navigationService requestForURLString:URLString];
         if (request != nil) {
+            weakSelf.feedReaderPendingUntil = CACurrentMediaTime() + 25.0;
             [weakSelf.webview loadRequest:request];
         }
     };

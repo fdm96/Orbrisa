@@ -17,6 +17,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
 
 /// Runs ReaderExtract.js in the page; returns the article, or nil when the page has no readable article.
+/// Runs once the Reader has closed (e.g. to go back to the feed list).
+@property (nonatomic, copy, nullable) void (^didClose)(void);
+
 + (nullable NSDictionary *)articleFromJavaScriptResult:(nullable NSString *)result;
 /// YES when the user chose "Always Open in Reader" for this site.
 + (BOOL)opensAutomaticallyForURL:(nullable NSURL *)URL;
