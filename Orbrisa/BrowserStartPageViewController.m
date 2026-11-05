@@ -1079,10 +1079,19 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
+    if (press.type == UIPressTypeMenu && [self backLeavesApp]) {
+        [super pressesBegan:presses withEvent:event]; // the only, empty tab: Back goes to the Home screen as usual
+        return;
+    }
     if (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause) {
         return;
     }
     [super pressesBegan:presses withEvent:event];
+}
+
+/// YES when Back has nowhere to go inside Orbrisa: the only tab, and it is empty.
+- (BOOL)backLeavesApp {
+    return self.panel == nil && !self.canGoBack && (self.closeEmptyTab == nil || self.tabCount <= 1);
 }
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
@@ -1095,7 +1104,13 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         return;
     }
     if (press.type == UIPressTypeMenu) {
-        [self closeThen:nil];
+        if ([self backLeavesApp]) {
+            [super pressesEnded:presses withEvent:event];
+        } else if (!self.canGoBack && self.closeEmptyTab != nil) {
+            [self closeThen:self.closeEmptyTab]; // an empty tab: close it and go back into the previous tab
+        } else {
+            [self closeThen:nil];
+        }
         return;
     }
     if (press.type == UIPressTypePlayPause) {

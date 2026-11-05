@@ -1394,6 +1394,11 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     start.showSettings = ^{ [weakSelf showAdvancedMenu]; };
     start.showFeeds = ^{ [weakSelf browserShowFeeds]; };
     start.favoritesChanged = ^{ [weakSelf.tabCoordinator updateTopShelf]; };
+    if (!hasPage && self.viewModel.tabs.count > 1) {
+        start.closeEmptyTab = ^{
+            [weakSelf.tabCoordinator closeTabAtIndex:weakSelf.viewModel.activeTabIndex];
+        };
+    }
     [self presentViewController:start animated:YES completion:nil];
 }
 

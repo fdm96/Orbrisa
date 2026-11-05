@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) void (^showTabs)(void);
 @property (nonatomic, copy, nullable) void (^showSettings)(void);
 @property (nonatomic, copy, nullable) void (^showFeeds)(void);
+/// Back on a start page of an empty tab: closes that tab and returns to another one (only when other tabs exist).
+@property (nonatomic, copy, nullable) void (^closeEmptyTab)(void);
 /// Runs right away when favorites were added, renamed or removed (e.g. to refresh the Top Shelf).
 @property (nonatomic, copy, nullable) void (^favoritesChanged)(void);
 
