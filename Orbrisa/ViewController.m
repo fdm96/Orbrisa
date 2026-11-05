@@ -1265,7 +1265,21 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)browserShowStartPage {
-    if (self.webAppMode || self.presentedViewController != nil || self.view.window == nil) {
+    [self showStartPageAttempt:0];
+}
+
+- (void)showStartPageAttempt:(NSUInteger)attempt {
+    if (self.webAppMode || self.view.window == nil) {
+        return;
+    }
+    if (self.presentedViewController != nil) {
+        // New tabs come from the tab overview or Settings – wait until they have closed.
+        if (![self.presentedViewController isKindOfClass:[BrowserStartPageViewController class]] && attempt < 12) {
+            __weak typeof(self) weakSelf = self;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [weakSelf showStartPageAttempt:attempt + 1];
+            });
+        }
         return;
     }
     [self deactivateTopBarFocusMode];
