@@ -1,0 +1,56 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! The more precise, the faster it gets fixed.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: And what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open https://…
+        2. Start the video
+        3. Choose "Fullscreen"
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Website
+      description: Where does it happen?
+  - type: input
+    id: version
+    attributes:
+      label: Orbrisa version
+      placeholder: "1.0.0 (Menu → bottom)"
+    validations:
+      required: true
+  - type: input
+    id: tvos
+    attributes:
+      label: Apple TV model & tvOS version
+      placeholder: "Apple TV 4K (3rd gen), tvOS 26.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed via
+      options:
+        - Xcode
+        - Sideloaded IPA
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output (optional)
+      description: Lines starting with [MediaCapture], [VideoChoice], [AdDbg] or [TopShelf]
+      render: text
