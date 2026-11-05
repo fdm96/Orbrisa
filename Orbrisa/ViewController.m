@@ -1516,6 +1516,13 @@ static NSString *BrowserWebAppPagingScript(void) {
     @"return 'ok';}catch(e){return 'none';}})";
 }
 
+- (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu {
+    if ([self.presentedViewController isKindOfClass:[BrowserStartPageViewController class]]) {
+        return [(BrowserStartPageViewController *)self.presentedViewController consumeMenuPress];
+    }
+    return NO;
+}
+
 - (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction {
     if (!self.webAppMode || self.webview == nil) {
         return NO;

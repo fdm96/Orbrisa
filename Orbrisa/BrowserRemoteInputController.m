@@ -463,6 +463,10 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
             return NO;
         }
         if (press.type == UIPressTypeMenu) {
+            if ([self.host respondsToSelector:@selector(browserRemoteInputControllerPresentedViewControllerHandlesMenu)] &&
+                [self.host browserRemoteInputControllerPresentedViewControllerHandlesMenu]) {
+                return YES;
+            }
             [presentedViewController dismissViewControllerAnimated:YES completion:nil];
             return YES;
         }

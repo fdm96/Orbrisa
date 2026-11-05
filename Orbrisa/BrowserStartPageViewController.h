@@ -25,6 +25,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) void (^favoritesChanged)(void);
 
 /// YES when this favorite always opens as a web app (full screen, no bar).
+/// Back while the favorite panel is open (or was just closed): closes only the panel. YES when it was used.
+- (BOOL)consumeMenuPress;
+
 + (BOOL)isWebAppURL:(nullable NSString *)URLString;
 /// The web app Orbrisa opens when it starts, or nil.
 + (nullable NSString *)launchWebAppURL;

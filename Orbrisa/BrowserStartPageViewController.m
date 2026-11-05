@@ -406,6 +406,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 @property (nonatomic) UIView *panel;
 @property (nonatomic) BrowserStartPanelRow *panelFirstRow;
 @property (nonatomic) BOOL focusFavoritesNext;
+@property (nonatomic) CFTimeInterval panelClosedTime;
 @end
 
 @implementation BrowserStartPageViewController
@@ -549,7 +550,8 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     UICollectionView *collectionView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout];
     collectionView.translatesAutoresizingMaskIntoConstraints = NO;
     collectionView.backgroundColor = UIColor.clearColor;
-    collectionView.clipsToBounds = NO;
+    collectionView.clipsToBounds = YES; // scrolled content disappears below the bar instead of sliding under it
+    collectionView.contentInset = UIEdgeInsetsMake(20.0, 0.0, 40.0, 0.0);
     collectionView.remembersLastFocusedIndexPath = YES;
     collectionView.dataSource = self;
     collectionView.delegate = self;
@@ -565,7 +567,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [collectionView addGestureRecognizer:hold];
 
     NSMutableArray *constraints = [@[
-        [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:170.0],
+        [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:150.0],
         [collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
         [collectionView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
@@ -866,6 +868,14 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [self updateFocusIfNeeded];
 }
 
+- (BOOL)consumeMenuPress {
+    if (self.panel != nil) {
+        [self closePanel];
+        return YES;
+    }
+    return CACurrentMediaTime() - self.panelClosedTime < 0.4; // the same press, seen a second time
+}
+
 - (void)closePanel {
     if (self.panel == nil) {
         return;
@@ -875,6 +885,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     self.panel = nil;
     self.panelBackdrop = nil;
     self.panelFirstRow = nil;
+    self.panelClosedTime = CACurrentMediaTime();
     self.collectionView.userInteractionEnabled = YES;
     self.topBar.userInteractionEnabled = YES;
     self.focusFavoritesNext = YES;
@@ -1013,7 +1024,10 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
-    if (self.panel != nil && (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause)) {
+    if (press.type == UIPressTypeMenu && [self consumeMenuPress]) {
+        return; // Back closes only the panel – the start page stays
+    }
+    if (self.panel != nil && press.type == UIPressTypePlayPause) {
         [self closePanel];
         return;
     }

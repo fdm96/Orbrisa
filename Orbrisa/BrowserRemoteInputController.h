@@ -32,6 +32,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled;
 /// Left / right click while scrolling (no cursor, no link navigation). Return YES when handled.
 - (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction;
+/// Back while a screen is open: YES when that screen used it itself (e.g. closed a panel) and must stay.
+- (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu;
 @required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;

@@ -1511,13 +1511,24 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
 }
 
 - (BrowserAdvancedMenuItem *)startPageAsHomeMenuItem {
-    // On: Home, new tabs and the app start show Orbrisa's start page. Off: Google (or the page set as home page).
+    // "Home Page   Orbrisa Start Page" – a click switches between the start page and Google.
     __weak typeof(self) weakSelf = self;
-    return [self toggleMenuItemWithTitle:BrowserLocalized(@"Orbrisa Start Page as Home Page")
-                                   value:^BOOL{ return weakSelf.preferencesStore.homePageURLString.length == 0; }
-                                 changed:^(BOOL on) {
-        weakSelf.preferencesStore.homePageURLString = on ? @"" : @"https://www.google.com";
+    BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"Home Page")
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^{
+        NSString *current = weakSelf.preferencesStore.homePageURLString;
+        weakSelf.preferencesStore.homePageURLString = current.length == 0 ? @"https://www.google.com" : @"";
     }];
+    item.stayOpen = YES;
+    item.detailValue = ^NSString *{
+        NSString *current = weakSelf.preferencesStore.homePageURLString;
+        if (current.length == 0) {
+            return BrowserLocalized(@"Orbrisa Start Page");
+        }
+        NSString *host = [NSURL URLWithString:current].host ?: current;
+        return [host hasPrefix:@"www."] ? [host substringFromIndex:4] : host;
+    };
+    return item;
 }
 
 - (BrowserAdvancedMenuItem *)setCurrentPageAsHomePageMenuItem {
