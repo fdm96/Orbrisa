@@ -61,6 +61,7 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
 @property (nonatomic) BOOL awaitingSecondSelectPress;
 @property (nonatomic, readwrite, getter=isLinkNavigationActive) BOOL linkNavigationActive;
 @property (nonatomic) CGPoint swipeAccumulation;
+@property (nonatomic) CFTimeInterval lastSwipeStepTime;
 @property (nonatomic) BOOL downArrowHoldFired;
 
 @end
@@ -109,6 +110,7 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
     UIScrollView *scrollView = [self.host browserRemoteInputControllerActiveScrollView];
     BOOL topBarFocusActive = [self.host browserRemoteInputControllerTopBarFocusActive];
     BOOL shouldAllowWebInteraction = !self.cursorModeEnabled &&
+        !self.linkNavigationActive &&
         ![self.host browserRemoteInputControllerTabOverviewVisible] &&
         !topBarFocusActive;
     scrollView.scrollEnabled = shouldAllowWebInteraction;
@@ -232,6 +234,7 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
     if (linkNavigationActive) {
         [self stopManualScrollInertia];
     }
+    [self refreshInteractionState];
     [self.host browserRemoteInputControllerLinkNavigationDidChangeActive:linkNavigationActive];
 }
 
@@ -509,9 +512,6 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
     if ([self.host browserRemoteInputControllerTabOverviewVisible]) {
         return NO;
     }
-    if (!self.cursorModeEnabled) {
-        return NO;
-    }
     if (self.linkNavigationActive) {
         // Like the Apple TV focus: a swipe on the touch surface moves to the next item, a long swipe keeps going.
         UITouch *touch = touches.anyObject;
@@ -525,21 +525,29 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
         sum.x += location.x - self.lastTouchLocation.x;
         sum.y += location.y - self.lastTouchLocation.y;
         self.lastTouchLocation = location;
-        static CGFloat const kSwipeStep = 240.0;
+        static CGFloat const kSwipeStep = 320.0;
         NSString *direction = nil;
         if (fabs(sum.y) >= kSwipeStep && fabs(sum.y) >= fabs(sum.x)) {
             direction = sum.y > 0 ? @"down" : @"up";
         } else if (fabs(sum.x) >= kSwipeStep) {
             direction = sum.x > 0 ? @"right" : @"left";
         }
-        if (direction != nil) {
+        CFTimeInterval now = CACurrentMediaTime();
+        if (direction != nil && now - self.lastSwipeStepTime > 0.16) {
+            // One item per step, a short pause between steps – a fast swipe must not race to the end of the page.
             sum = CGPointZero;
+            self.lastSwipeStepTime = now;
             [self.host browserRemoteInputControllerLinkNavigationMove:direction];
+        } else if (direction != nil) {
+            sum = CGPointZero;
         }
         self.swipeAccumulation = sum;
         return YES;
     }
 
+    if (!self.cursorModeEnabled) {
+        return NO;
+    }
     for (UITouch *touch in touches) {
         UIScrollView *activeScrollView = [self.host browserRemoteInputControllerActiveScrollView];
         UIView *targetView = activeScrollView ?: self.rootView;
