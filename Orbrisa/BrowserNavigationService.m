@@ -89,8 +89,16 @@ static NSUInteger const kMaximumHistoryCount = 100;
 }
 
 - (BOOL)shouldIgnoreLoadError:(NSError *)error {
+    // Not real errors: a load that was cancelled because another one started (going back, a new link, a redirect),
+    // or a frame load that WebKit stopped on purpose.
     NSInteger errorCode = error.code;
-    return errorCode == 999 || errorCode == 204;
+    if ([error.domain isEqualToString:NSURLErrorDomain] && errorCode == NSURLErrorCancelled) {
+        return YES;
+    }
+    if ([error.domain isEqualToString:@"WebKitErrorDomain"] && (errorCode == 102 || errorCode == 204)) {
+        return YES; // frame load interrupted / handled by a plug-in
+    }
+    return errorCode == 999 || errorCode == -999 || errorCode == 204;
 }
 
 - (NSURLRequest *)requestForURLString:(NSString *)URLString {
