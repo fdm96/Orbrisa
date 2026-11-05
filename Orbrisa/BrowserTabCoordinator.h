@@ -17,6 +17,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)browserTabCoordinatorUpdateTextFontSize;
 - (BOOL)browserTabCoordinatorIsCursorModeEnabled;
 - (BOOL)browserTabCoordinatorIsTabOverviewVisible;
+@optional
+/// No own home page set: show Orbrisa's start page instead.
+- (void)browserTabCoordinatorShowStartPage;
 
 @end
 

@@ -392,6 +392,13 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 }
 
 - (void)loadHomePage {
+    if (self.preferencesStore.homePageURLString.length == 0 && [self.host respondsToSelector:@selector(browserTabCoordinatorShowStartPage)]) {
+        id<BrowserTabCoordinatorHost> host = self.host;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [host browserTabCoordinatorShowStartPage];
+        });
+        return;
+    }
     NSURLRequest *homePageRequest = [self.navigationService homePageRequest];
     if (homePageRequest != nil) {
         [self.activeWebView loadRequest:homePageRequest];

@@ -22,6 +22,7 @@
 #import "BrowserReaderViewController.h"
 #import "BrowserFeedStore.h"
 #import "BrowserFeedsViewController.h"
+#import "BrowserStartPageViewController.h"
 #import "ViewController.h"
 
 static NSString * const kBrowserGlobalSelectPressEndedNotification = @"BrowserGlobalSelectPressEndedNotification";
@@ -537,6 +538,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL pageHasFeed;
 @property (nonatomic) NSUInteger pageProbeGeneration;
 @property (nonatomic, copy) NSString *autoReaderURL;
+@property (nonatomic) BOOL webAppMode;
+@property (nonatomic) BOOL didHandleLaunchWebApp;
+@property (nonatomic) UIView *webAppHintView;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -650,7 +654,15 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    NSString *launchWebApp = self.didHandleLaunchWebApp ? nil : [BrowserStartPageViewController launchWebAppURL];
+    self.didHandleLaunchWebApp = YES;
+    if (launchWebApp != nil) {
+        self.webAppMode = YES; // no start page underneath
+    }
     [self.tabCoordinator webViewDidAppear];
+    if (launchWebApp != nil) {
+        [self browserOpenWebAppWithURLString:launchWebApp];
+    }
     [BrowserWebView applyAppearanceToWindows];
     [self openPendingAppURL];
     // The tips dialog used to pop up at every launch; it stays available in Settings → Help.
@@ -1005,6 +1017,14 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
                                                                              message:@""
                                                                       preferredStyle:UIAlertControllerStyleAlert];
 
+    if (self.webAppMode) {
+        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Leave Web App")
+                                                            style:UIAlertActionStyleDefault
+                                                          handler:^(__unused UIAlertAction *action) {
+            [self browserLeaveWebApp];
+        }]];
+    }
+
     if (self.webview.canGoForward) {
         [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Go Forward")
                                                             style:UIAlertActionStyleDefault
@@ -1238,6 +1258,98 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         return;
     }
     [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
+}
+
+- (void)browserTabCoordinatorShowStartPage {
+    [self browserShowStartPage];
+}
+
+- (void)browserShowStartPage {
+    if (self.webAppMode || self.presentedViewController != nil || self.view.window == nil) {
+        return;
+    }
+    [self deactivateTopBarFocusMode];
+    BOOL hasPage = self.webview.request.URL.absoluteString.length > 0;
+    BrowserStartPageViewController *start = [[BrowserStartPageViewController alloc] initWithTabCount:self.viewModel.tabs.count canGoBack:hasPage];
+    __weak typeof(self) weakSelf = self;
+    start.openURL = ^(NSString *URLString, BOOL asWebApp) {
+        if (asWebApp) {
+            [weakSelf browserOpenWebAppWithURLString:URLString];
+            return;
+        }
+        NSURLRequest *request = [weakSelf.navigationService requestForURLString:URLString];
+        if (request != nil) {
+            [weakSelf.webview loadRequest:request];
+        }
+    };
+    start.search = ^{ [weakSelf showInputURLorSearchGoogle]; };
+    start.showTabs = ^{ [weakSelf browserShowTabOverview]; };
+    start.showSettings = ^{ [weakSelf showAdvancedMenu]; };
+    start.favoritesChanged = ^{ [weakSelf.tabCoordinator updateTopShelf]; };
+    [self presentViewController:start animated:YES completion:nil];
+}
+
+#pragma mark - Web app mode
+
+- (void)browserOpenWebAppWithURLString:(NSString *)URLString {
+    // A favorite as an app: full screen, no bar. Play/Pause → "Leave Web App" brings the bar back.
+    NSURLRequest *request = [self.navigationService requestForURLString:URLString];
+    if (request == nil) {
+        return;
+    }
+    self.webAppMode = YES;
+    [self deactivateTopBarFocusMode];
+    self.viewModel.topNavigationBarVisible = NO; // only for now – the saved setting stays as it is
+    [self.tabCoordinator setTopNavigationVisible:NO];
+    [self updateShowTopBarButtonAnimated:YES];
+    [self.webview loadRequest:request];
+    [self showWebAppHint];
+}
+
+- (void)browserLeaveWebApp {
+    self.webAppMode = NO;
+    BOOL visible = self.preferencesStore.topNavigationBarVisible;
+    self.viewModel.topNavigationBarVisible = visible;
+    [self.tabCoordinator setTopNavigationVisible:visible];
+    [self updateShowTopBarButtonAnimated:YES];
+}
+
+- (void)showWebAppHint {
+    [self.webAppHintView removeFromSuperview];
+    UIVisualEffectView *pill = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    pill.layer.cornerRadius = 32.0;
+    pill.clipsToBounds = YES;
+    pill.contentView.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.5];
+    UILabel *label = [UILabel new];
+    label.text = BrowserLocalized(@"Web App · Play/Pause opens the menu");
+    label.font = [UIFont systemFontOfSize:23.0 weight:UIFontWeightSemibold];
+    label.textColor = UIColor.whiteColor;
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right"
+                                                                    withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22.0 weight:UIImageSymbolWeightSemibold]]];
+    icon.tintColor = UIColor.whiteColor;
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[icon, label]];
+    row.spacing = 14.0;
+    row.alignment = UIStackViewAlignmentCenter;
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    [pill.contentView addSubview:row];
+    pill.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:pill];
+    [NSLayoutConstraint activateConstraints:@[
+        [row.leadingAnchor constraintEqualToAnchor:pill.contentView.leadingAnchor constant:30.0],
+        [row.trailingAnchor constraintEqualToAnchor:pill.contentView.trailingAnchor constant:-30.0],
+        [row.centerYAnchor constraintEqualToAnchor:pill.contentView.centerYAnchor],
+        [pill.heightAnchor constraintEqualToConstant:64.0],
+        [pill.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:40.0],
+        [pill.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+    ]];
+    self.webAppHintView = pill;
+    pill.alpha = 0.0;
+    [UIView animateWithDuration:0.3 animations:^{ pill.alpha = 1.0; }];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [UIView animateWithDuration:0.5 animations:^{ pill.alpha = 0.0; } completion:^(__unused BOOL finished) {
+            [pill removeFromSuperview];
+        }];
+    });
 }
 
 - (void)browserShowFeeds {
@@ -1636,7 +1748,7 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     if (button == nil) {
         return;
     }
-    BOOL shouldShow = !self.viewModel.topNavigationBarVisible;
+    BOOL shouldShow = !self.viewModel.topNavigationBarVisible && !self.webAppMode;
     CGFloat targetAlpha = shouldShow ? 1.0 : 0.0;
     if (button.alpha == targetAlpha && button.hidden == !shouldShow) {
         return;
@@ -1650,7 +1762,7 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
         button.transform = shouldShow ? CGAffineTransformIdentity : CGAffineTransformMakeScale(0.6, 0.6);
     };
     void (^completion)(BOOL) = ^(__unused BOOL finished) {
-        button.hidden = self.viewModel.topNavigationBarVisible;
+        button.hidden = self.viewModel.topNavigationBarVisible || self.webAppMode;
     };
     if (animated) {
         [UIView animateWithDuration:0.25 animations:changes completion:completion];
