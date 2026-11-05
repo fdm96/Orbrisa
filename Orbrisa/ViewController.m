@@ -23,6 +23,7 @@
 #import "BrowserFeedStore.h"
 #import "BrowserFeedsViewController.h"
 #import "BrowserStartPageViewController.h"
+#import "BrowserQuickMenuViewController.h"
 #import "ViewController.h"
 
 static NSString * const kBrowserGlobalSelectPressEndedNotification = @"BrowserGlobalSelectPressEndedNotification";
@@ -1048,57 +1049,46 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)requestURLorSearchInput {
-    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:BrowserLocalized(@"Quick Menu")
-                                                                             message:@""
-                                                                      preferredStyle:UIAlertControllerStyleAlert];
-
+    // The quick menu as a Liquid Glass panel on the right – the same look as the Reader's appearance panel.
+    BrowserQuickMenuViewController *menu = [[BrowserQuickMenuViewController alloc] initWithTitle:BrowserLocalized(@"Quick Menu")];
+    __weak typeof(self) weakSelf = self;
     if (self.webAppMode) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Leave Web App")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            [self browserLeaveWebApp];
-            [self browserShowStartPage];
-        }]];
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Text Size")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [self askWebAppTextSize]; });
-        }]];
+        [menu addItemWithSymbol:@"textformat.size" title:BrowserLocalized(@"Text Size") action:^{
+            [weakSelf askWebAppTextSize];
+        }];
+        [menu addItemWithSymbol:@"xmark.circle" title:BrowserLocalized(@"Leave Web App") action:^{
+            [weakSelf browserLeaveWebApp];
+            [weakSelf browserShowStartPage];
+        }];
     }
-
+    [menu addItemWithSymbol:@"magnifyingglass" title:BrowserLocalized(@"Enter Address or Search with Google") action:^{
+        [weakSelf showInputURLorSearchGoogle];
+    }];
+    BOOL hasPage = self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0;
     if (self.webview.canGoForward) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Go Forward")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            [self.webview goForward];
-        }]];
+        [menu addItemWithSymbol:@"chevron.forward" title:BrowserLocalized(@"Go Forward") action:^{
+            [weakSelf.webview goForward];
+        }];
     }
-
-    [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Enter Address or Search with Google")
-                                                        style:UIAlertActionStyleDefault
-                                                      handler:^(__unused UIAlertAction *action) {
-        [self showInputURLorSearchGoogle];
-    }]];
-
-    if (self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Open in Reader")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            [self browserShowReader];
-        }]];
+    if (hasPage) {
+        [menu addItemWithSymbol:@"text.alignleft" title:BrowserLocalized(@"Open in Reader") action:^{
+            [weakSelf browserShowReader];
+        }];
+        [menu addItemWithSymbol:@"arrow.clockwise" title:BrowserLocalized(@"Reload Page") action:^{
+            weakSelf.tabCoordinator.previousURL = @"";
+            [weakSelf.webview reload];
+        }];
     }
-
-    if (self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Reload Page")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            self.tabCoordinator.previousURL = @"";
-            [self.webview reload];
-        }]];
+    if (!self.webAppMode) {
+        [menu addItemWithSymbol:@"house" title:BrowserLocalized(@"Start Page") action:^{
+            [weakSelf browserShowStartPage];
+        }];
     }
-
-    [alertController addAction:[UIAlertAction actionWithTitle:nil style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alertController animated:YES completion:nil];
+    [menu addItemWithSymbol:@"gearshape" title:BrowserLocalized(@"Settings") action:^{
+        [weakSelf showAdvancedMenu];
+    }];
+    [self deactivateTopBarFocusMode];
+    [self presentViewController:menu animated:NO completion:nil];
 }
 
 /// First start of a new version: "What's New", then the usage guide.
