@@ -130,6 +130,7 @@ Page scripts report every video stream a page loads; the video player picks the 
 ## Credits
 
 Orbrisa builds on [tvOSBrowser](https://github.com/jvanakker/tvOSBrowser) by **Jip van Akker**, which is itself a fork of the original [tvOSBrowser](https://github.com/steventroughtonsmith/tvOSBrowser) by **Steven Troughton-Smith**.
+Developed with the help of [Claude](https://claude.ai) (Anthropic).
 Video playback fallback by [VLCKit](https://code.videolan.org/videolan/VLCKit) (LGPL-2.1) – see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Disclaimer
