@@ -562,7 +562,31 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 
     if (snapshotImage != nil) {
         tab.snapshotImage = snapshotImage;
+        [self saveThumbnail:snapshotImage forURL:webView.request.URL];
     }
+}
+
+/// A small picture of the page per site, for "Recently Visited" on the start page.
+- (void)saveThumbnail:(UIImage *)image forURL:(NSURL *)URL {
+    NSString *host = URL.host.lowercaseString;
+    if ([host hasPrefix:@"www."]) {
+        host = [host substringFromIndex:4];
+    }
+    if (host.length == 0 || image.size.width < 10.0) {
+        return;
+    }
+    CGSize size = CGSizeMake(640.0, round(640.0 * image.size.height / image.size.width));
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+    format.scale = 1.0;
+    UIImage *small = [[[UIGraphicsImageRenderer alloc] initWithSize:size format:format] imageWithActions:^(__unused UIGraphicsImageRendererContext *context) {
+        [image drawInRect:CGRectMake(0.0, 0.0, size.width, size.height)];
+    }];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+        NSURL *folder = [caches URLByAppendingPathComponent:@"OrbrisaThumbnails" isDirectory:YES];
+        [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
+        [UIImageJPEGRepresentation(small, 0.7) writeToURL:[folder URLByAppendingPathComponent:[host stringByAppendingString:@".jpg"]] atomically:YES];
+    });
 }
 
 - (void)captureSnapshotForCurrentTab {

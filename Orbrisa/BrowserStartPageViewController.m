@@ -181,6 +181,8 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 @property (nonatomic) UILabel *letterLabel;
 @property (nonatomic) UILabel *titleLabel;
 @property (nonatomic) UILabel *hostLabel;
+@property (nonatomic) UIImageView *thumbnailView;
+@property (nonatomic, copy) NSString *thumbnailHost;
 @end
 
 @implementation BrowserStartRecentCell
@@ -206,6 +208,14 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         _letterLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.9];
         [_card addSubview:_letterLabel];
 
+        _thumbnailView = [UIImageView new];
+        _thumbnailView.translatesAutoresizingMaskIntoConstraints = NO;
+        _thumbnailView.contentMode = UIViewContentModeScaleAspectFill;
+        _thumbnailView.layer.cornerRadius = 24.0;
+        _thumbnailView.clipsToBounds = YES;
+        _thumbnailView.hidden = YES;
+        [_card addSubview:_thumbnailView];
+
         _titleLabel = [UILabel new];
         _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
         _titleLabel.font = [UIFont systemFontOfSize:26.0 weight:UIFontWeightSemibold];
@@ -225,6 +235,10 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
             [_card.heightAnchor constraintEqualToConstant:270.0],
             [_letterLabel.centerXAnchor constraintEqualToAnchor:_card.centerXAnchor],
             [_letterLabel.centerYAnchor constraintEqualToAnchor:_card.centerYAnchor],
+            [_thumbnailView.topAnchor constraintEqualToAnchor:_card.topAnchor],
+            [_thumbnailView.bottomAnchor constraintEqualToAnchor:_card.bottomAnchor],
+            [_thumbnailView.leadingAnchor constraintEqualToAnchor:_card.leadingAnchor],
+            [_thumbnailView.trailingAnchor constraintEqualToAnchor:_card.trailingAnchor],
             [_titleLabel.topAnchor constraintEqualToAnchor:_card.bottomAnchor constant:20.0],
             [_titleLabel.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
             [_titleLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
@@ -399,7 +413,9 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 @property (nonatomic) NSUInteger tabCount;
 @property (nonatomic) BOOL canGoBack;
 @property (nonatomic) BrowserTopBarView *topBar;
-@property (nonatomic) UICollectionView *collectionView;
+@property (nonatomic) UICollectionView *collectionView;   // favorites: one row, scrolls left and right, stays in place
+@property (nonatomic) UICollectionView *recentsView;      // recently visited: scrolls up and down below
+@property (nonatomic) UILabel *recentsLabel;
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *favorites; // [url, title]
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *recents;   // [url, title]
 @property (nonatomic) UIView *panelBackdrop;
@@ -505,6 +521,8 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     }
     self.recents = recents;
     [self.collectionView reloadData];
+    [self.recentsView reloadData];
+    self.recentsLabel.hidden = (self.recents.count == 0);
 }
 
 - (void)saveFavorites:(NSArray *)favorites {
@@ -544,20 +562,28 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [self.view addSubview:topBar];
     self.topBar = topBar;
 
+    UILabel *favoritesLabel = [UILabel new];
+    favoritesLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    favoritesLabel.text = BrowserLocalized(@"Favorites");
+    favoritesLabel.font = [UIFont systemFontOfSize:38.0 weight:UIFontWeightBold];
+    favoritesLabel.textColor = UIColor.whiteColor;
+    [self.view addSubview:favoritesLabel];
+
+    // Favorites: one row that stays where it is and scrolls left / right.
     UICollectionViewFlowLayout *layout = [UICollectionViewFlowLayout new];
-    layout.minimumInteritemSpacing = 40.0;
-    layout.minimumLineSpacing = 50.0;
+    layout.scrollDirection = UICollectionViewScrollDirectionHorizontal;
+    layout.itemSize = CGSizeMake(220.0, 280.0);
+    layout.minimumLineSpacing = 34.0;
+    layout.sectionInset = UIEdgeInsetsMake(0.0, kStartSideInset - 20.0, 0.0, kStartSideInset - 20.0);
     UICollectionView *collectionView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout];
     collectionView.translatesAutoresizingMaskIntoConstraints = NO;
     collectionView.backgroundColor = UIColor.clearColor;
-    collectionView.clipsToBounds = YES; // scrolled content disappears below the bar instead of sliding under it
-    collectionView.contentInset = UIEdgeInsetsMake(20.0, 0.0, 40.0, 0.0);
+    collectionView.clipsToBounds = NO;
+    collectionView.showsHorizontalScrollIndicator = NO;
     collectionView.remembersLastFocusedIndexPath = YES;
     collectionView.dataSource = self;
     collectionView.delegate = self;
     [collectionView registerClass:[BrowserStartFavoriteCell class] forCellWithReuseIdentifier:@"favorite"];
-    [collectionView registerClass:[BrowserStartRecentCell class] forCellWithReuseIdentifier:@"recent"];
-    [collectionView registerClass:[BrowserStartHeaderView class] forSupplementaryViewOfKind:UICollectionElementKindSectionHeader withReuseIdentifier:@"header"];
     [self.view insertSubview:collectionView atIndex:0];
     self.collectionView = collectionView;
 
@@ -566,13 +592,44 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     hold.minimumPressDuration = 0.6;
     [collectionView addGestureRecognizer:hold];
 
-    NSMutableArray *constraints = [@[
-        [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:150.0],
-        [collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+    UILabel *recentsLabel = [UILabel new];
+    recentsLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    recentsLabel.text = BrowserLocalized(@"Recently Visited");
+    recentsLabel.font = [UIFont systemFontOfSize:38.0 weight:UIFontWeightBold];
+    recentsLabel.textColor = UIColor.whiteColor;
+    [self.view addSubview:recentsLabel];
+    self.recentsLabel = recentsLabel;
+
+    // Recently visited: the only part that scrolls up and down, cut off cleanly at its top edge.
+    UICollectionViewFlowLayout *recentsLayout = [UICollectionViewFlowLayout new];
+    recentsLayout.minimumInteritemSpacing = 40.0;
+    recentsLayout.minimumLineSpacing = 50.0;
+    recentsLayout.sectionInset = UIEdgeInsetsMake(24.0, kStartSideInset, 60.0, kStartSideInset);
+    UICollectionView *recentsView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:recentsLayout];
+    recentsView.translatesAutoresizingMaskIntoConstraints = NO;
+    recentsView.backgroundColor = UIColor.clearColor;
+    recentsView.clipsToBounds = YES;
+    recentsView.remembersLastFocusedIndexPath = YES;
+    recentsView.dataSource = self;
+    recentsView.delegate = self;
+    [recentsView registerClass:[BrowserStartRecentCell class] forCellWithReuseIdentifier:@"recent"];
+    [self.view insertSubview:recentsView atIndex:0];
+    self.recentsView = recentsView;
+
+    [NSLayoutConstraint activateConstraints:@[
+        [favoritesLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kStartSideInset],
+        [favoritesLabel.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:165.0],
+        [collectionView.topAnchor constraintEqualToAnchor:favoritesLabel.bottomAnchor constant:28.0],
         [collectionView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-    ] mutableCopy];
-    [NSLayoutConstraint activateConstraints:constraints];
+        [collectionView.heightAnchor constraintEqualToConstant:290.0],
+        [recentsLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kStartSideInset],
+        [recentsLabel.topAnchor constraintEqualToAnchor:collectionView.bottomAnchor constant:22.0],
+        [recentsView.topAnchor constraintEqualToAnchor:recentsLabel.bottomAnchor constant:4.0],
+        [recentsView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [recentsView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [recentsView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+    ]];
     [self reloadData];
 }
 
@@ -614,16 +671,15 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 #pragma mark Collection
 
-- (NSInteger)numberOfSectionsInCollectionView:(__unused UICollectionView *)collectionView {
-    return 2;
-}
-
-- (NSInteger)collectionView:(__unused UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
-    return section == 0 ? (NSInteger)self.favorites.count + 1 : (NSInteger)self.recents.count; // + "Add Favorite"
+- (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(__unused NSInteger)section {
+    if (collectionView == self.recentsView) {
+        return (NSInteger)self.recents.count;
+    }
+    return (NSInteger)self.favorites.count + 1; // + "Add Favorite"
 }
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == 0) {
+    if (collectionView != self.recentsView) {
         BrowserStartFavoriteCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"favorite" forIndexPath:indexPath];
         if (indexPath.item < (NSInteger)self.favorites.count) {
             NSArray<NSString *> *favorite = self.favorites[(NSUInteger)indexPath.item];
@@ -668,37 +724,42 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     cell.hostLabel.text = host;
     cell.letterLabel.text = StartLetterForName(host, recent[0]);
     cell.card.backgroundColor = [[BrowserFeedStore colorForFeedURL:host] colorWithAlphaComponent:0.55];
+    // The real page as it looked on the last visit (saved by the tabs), else colour and letter.
+    cell.thumbnailHost = host;
+    cell.thumbnailView.image = nil;
+    cell.thumbnailView.hidden = YES;
+    cell.letterLabel.hidden = NO;
+    __weak BrowserStartRecentCell *weakCell = cell;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+        NSURL *file = [[caches URLByAppendingPathComponent:@"OrbrisaThumbnails" isDirectory:YES] URLByAppendingPathComponent:[host stringByAppendingString:@".jpg"]];
+        UIImage *image = [UIImage imageWithContentsOfFile:file.path];
+        if (image == nil) {
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![weakCell.thumbnailHost isEqualToString:host]) {
+                return;
+            }
+            weakCell.thumbnailView.image = image;
+            weakCell.thumbnailView.hidden = NO;
+            weakCell.letterLabel.hidden = YES;
+        });
+    });
     [cell applyFocused:cell.isFocused];
     return cell;
 }
 
-- (UICollectionReusableView *)collectionView:(UICollectionView *)collectionView viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)indexPath {
-    BrowserStartHeaderView *header = [collectionView dequeueReusableSupplementaryViewOfKind:kind withReuseIdentifier:@"header" forIndexPath:indexPath];
-    header.label.text = indexPath.section == 0 ? BrowserLocalized(@"Favorites") : BrowserLocalized(@"Recently Visited");
-    return header;
-}
-
-- (CGSize)collectionView:(UICollectionView *)collectionView layout:(__unused UICollectionViewLayout *)layout referenceSizeForHeaderInSection:(NSInteger)section {
-    if (section == 1 && self.recents.count == 0) {
-        return CGSizeZero;
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)layout sizeForItemAtIndexPath:(__unused NSIndexPath *)indexPath {
+    if (collectionView != self.recentsView) {
+        return ((UICollectionViewFlowLayout *)layout).itemSize;
     }
-    return CGSizeMake(CGRectGetWidth(collectionView.bounds), section == 0 ? 80.0 : 110.0);
-}
-
-- (UIEdgeInsets)collectionView:(__unused UICollectionView *)collectionView layout:(__unused UICollectionViewLayout *)layout insetForSectionAtIndex:(NSInteger)section {
-    return UIEdgeInsetsMake(0.0, kStartSideInset, section == 0 ? 10.0 : 80.0, kStartSideInset);
-}
-
-- (CGSize)collectionView:(UICollectionView *)collectionView layout:(__unused UICollectionViewLayout *)layout sizeForItemAtIndexPath:(NSIndexPath *)indexPath {
     CGFloat available = CGRectGetWidth(collectionView.bounds) - kStartSideInset * 2.0;
-    if (indexPath.section == 0) {
-        return CGSizeMake(floor((available - 5.0 * 40.0) / 6.0), 280.0);
-    }
     return CGSizeMake(floor((available - 2.0 * 40.0) / 3.0), 360.0);
 }
 
-- (void)collectionView:(__unused UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == 0) {
+- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    if (collectionView != self.recentsView) {
         if (indexPath.item >= (NSInteger)self.favorites.count) {
             [self presentAddFavorite];
             return;
@@ -857,6 +918,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     self.panelFirstRow = open;
 
     self.collectionView.userInteractionEnabled = NO;
+    self.recentsView.userInteractionEnabled = NO;
     self.topBar.userInteractionEnabled = NO;
     panel.alpha = 0.0;
     backdrop.alpha = 0.0;
@@ -887,6 +949,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     self.panelFirstRow = nil;
     self.panelClosedTime = CACurrentMediaTime();
     self.collectionView.userInteractionEnabled = YES;
+    self.recentsView.userInteractionEnabled = YES;
     self.topBar.userInteractionEnabled = YES;
     self.focusFavoritesNext = YES;
     [UIView animateWithDuration:0.18 animations:^{
