@@ -416,6 +416,14 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
         self.ignoreNextSelectEnd = NO;
         return YES;
     }
+    if ((press.type == UIPressTypeLeftArrow || press.type == UIPressTypeRightArrow) &&
+        !self.cursorModeEnabled && !self.linkNavigationActive &&
+        [self.host browserRemoteInputControllerPresentedViewController] == nil &&
+        ![self.host browserRemoteInputControllerTopBarFocusActive] &&
+        [self.host respondsToSelector:@selector(browserRemoteInputControllerHandleSideArrow:)] &&
+        [self.host browserRemoteInputControllerHandleSideArrow:(press.type == UIPressTypeRightArrow ? @"next" : @"prev")]) {
+        return YES;
+    }
 
     if (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause || press.type == UIPressTypeSelect) {
         BrowserLog(@"[InputTrace][Root] pressesEnded type=%@ phase=%@ presented=%@ tabOverview=%@",

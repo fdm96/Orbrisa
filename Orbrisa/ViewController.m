@@ -1496,6 +1496,39 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }
 }
 
+static NSString *BrowserWebAppPagingScript(void) {
+    // Right / left in a web app: the page's own "next" / "previous" (rel=next, "Weiter", "»", or the next page number).
+    return
+    @"(function(dir){try{"
+    @"function vis(e){var r=e.getBoundingClientRect();return r.width>0&&r.height>0;}"
+    @"function label(e){return ((e.textContent||'')+' '+(e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')).replace(/\\s+/g,' ').trim();}"
+    @"var rel=document.querySelector(dir==='next'?'a[rel~=next][href],link[rel~=next][href]':'a[rel~=prev][href],link[rel~=prev][href]');"
+    @"if(rel&&rel.href){location.href=rel.href;return 'ok';}"
+    @"var words=dir==='next'?/^(next|weiter|nächste|older|ältere|mehr laden|load more|›|»|→)/i:/^(prev|previous|zurück|vorherige|newer|neuere|‹|«|←)/i;"
+    @"var links=Array.prototype.filter.call(document.querySelectorAll('a[href],button,[role=button]'),vis);"
+    @"var hit=null;"
+    @"for(var i=0;i<links.length&&!hit;i++){var t=label(links[i]);if(t.length&&t.length<30&&words.test(t)){hit=links[i];}}"
+    @"if(!hit){var cur=document.querySelector('[aria-current=page],.page-numbers.current,.pagination .active,.pagination .current,.pager .active');"
+    @"var n=cur?parseInt((cur.textContent||'').trim(),10):NaN;"
+    @"if(!isNaN(n)){var want=String(n+(dir==='next'?1:-1));for(var j=0;j<links.length&&!hit;j++){if((links[j].textContent||'').trim()===want){hit=links[j];}}}}"
+    @"if(!hit){return 'none';}"
+    @"if(hit.href&&hit.href.indexOf('javascript:')!==0){location.href=hit.href;}else{hit.click();}"
+    @"return 'ok';}catch(e){return 'none';}})";
+}
+
+- (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction {
+    if (!self.webAppMode || self.webview == nil) {
+        return NO;
+    }
+    NSString *script = [NSString stringWithFormat:@"%@('%@')", BrowserWebAppPagingScript(), direction];
+    NSString *result = [self.webview stringByEvaluatingJavaScriptFromString:script] ?: @"none";
+    if ([result isEqualToString:@"ok"]) {
+        [self showLinkNavigationHint:[direction isEqualToString:@"next"] ? BrowserLocalized(@"Next page →") : BrowserLocalized(@"← Previous page")];
+        return YES;
+    }
+    return NO;
+}
+
 - (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu {
     if (!self.webAppMode) {
         return NO;
@@ -1711,7 +1744,8 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  var fs = document.createElement('style');\n"
     @"  fs.id = '__tvFeedStyle';\n"
     @"  var lum = 1; [document.body, document.documentElement].some(function(e){ if (!e) { return false; } var m = (getComputedStyle(e).backgroundColor || '').match(/[\\d.]+/g); if (m && (m.length < 4 || +m[3] > 0.1)) { lum = (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255; return true; } return false; });\n"
-    @"  var C = lum < 0.5 ? '10,132,255' : '52,199,89'; window.__orbDropTone = C;\n"
+    @"  var forcedDark = !!document.getElementById('__tvForceDarkStyle');\n"
+    @"  var C = (forcedDark || lum < 0.5) ? '10,132,255' : '52,199,89'; window.__orbDropTone = C;\n"
     @"  fs.textContent = 'html{scroll-behavior:smooth !important;} .__tvLinkNavFocus{outline:none !important;border-radius:18px !important;position:relative !important;z-index:2147483000 !important;transform:scale(1.03) !important;background-color:rgba(' + C + ',0.06) !important;box-shadow:0 0 0 2px rgba(' + C + ',0.55),0 0 26px 6px rgba(' + C + ',0.26),inset 0 1px 0 rgba(255,255,255,0.55),inset 0 -10px 22px rgba(' + C + ',0.12),0 18px 40px rgba(0,0,0,0.28) !important;transition:transform .32s cubic-bezier(.2,1.35,.4,1), box-shadow .32s ease !important;} .__tvLinkNavFocus::after{content:\"\";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.06) 38%,rgba(255,255,255,0) 60%,rgba(' + C + ',0.10) 100%);}';\n"
     @"  (document.head || document.documentElement).appendChild(fs);\n"
     @"}\n"
@@ -1882,6 +1916,9 @@ static NSString *BrowserLinkNavigationScript(void) {
     }
     CGPoint domPoint = CGPointMake(parts[0].doubleValue, parts[1].doubleValue);
     [self runLinkNavigationCommand:@"clear"];
+    if (self.webAppMode) {
+        [self.remoteInputController setLinkNavigationActive:NO]; // picked something: back to scrolling freely
+    }
     // Same path as a cursor click, so links, text fields and videos behave exactly as before.
     [self.pageActionCoordinator handlePageSelectionAtDOMPoint:domPoint webView:self.webview];
 }

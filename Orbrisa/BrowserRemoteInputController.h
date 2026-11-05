@@ -30,6 +30,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu;
 /// The cursor (mouse) was switched on or off.
 - (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled;
+/// Left / right click while scrolling (no cursor, no link navigation). Return YES when handled.
+- (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction;
 @required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;
