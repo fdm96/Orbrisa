@@ -18,3 +18,8 @@ body:
     id: alternatives
     attributes:
       label: Alternatives you considered
+  - type: textarea
+    id: sketch
+    attributes:
+      label: Sketch, mockup or example (optional)
+      description: A drawing, a screenshot from another app or a photo helps a lot – just drag and drop it here.

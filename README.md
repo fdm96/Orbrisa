@@ -179,6 +179,15 @@ Orbrisa builds on [tvOSBrowser](https://github.com/jvanakker/tvOSBrowser) by **J
 Developed with the help of [Claude](https://claude.ai) (Anthropic).
 Video playback fallback by [VLCKit](https://code.videolan.org/videolan/VLCKit) (LGPL-2.1) – see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+## Feedback, bugs & ideas
+
+Found a bug or have an idea? Please open an issue – it only takes a minute:
+
+- 🐞 **[Report a bug](https://github.com/fdm96/Orbrisa/issues/new?template=bug_report.yml)** – what happened, on which website, your Apple TV model and tvOS version.
+- 💡 **[Suggest an idea](https://github.com/fdm96/Orbrisa/issues/new?template=feature_request.yml)** – what you would like and why.
+
+**A photo or log helps the most:** a quick photo of the TV with your phone is perfect – just drag it into the issue. If you build Orbrisa with Xcode, copy the console lines starting with `[MediaCapture]`, `[VideoChoice]` or `[AdDbg]` as well.
+
 ## Support Orbrisa
 
 Orbrisa is free and made in my spare time. If you enjoy it, you can support its further development with a coffee on Ko-fi – thank you! ☕
@@ -204,6 +213,8 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 **Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü, zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
+
+**Fehler oder Ideen?** – Bitte ein [Issue erstellen](https://github.com/fdm96/Orbrisa/issues/new/choose). Ein Foto vom Fernseher (einfach mit dem Handy) oder ein Log aus Xcode hilft am meisten.
 
 **Unterstützen** – Orbrisa ist kostenlos. Wenn dir die App gefällt, kannst du die Weiterentwicklung mit einem Kaffee auf [Ko-fi](https://ko-fi.com/T1M629LBVF) unterstützen – danke! ☕
 
