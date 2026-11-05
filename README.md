@@ -48,14 +48,25 @@
 
 ## Screenshots
 
+<p align="center">
+  <img src="docs/screenshots/tab-strip.jpg" width="820" alt="Tab strip with site colours and a preview of the selected tab">
+  <br><sub><b>Tab strip</b> – logos, site colours and a preview of the selected tab</sub>
+</p>
+
+<details>
+<summary><b>📸 Show more screenshots (5)</b></summary>
+<br>
+
 | | |
 |:---:|:---:|
-| <img src="docs/screenshots/browsing.jpg" alt="Browsing with the glass top bar"> | <img src="docs/screenshots/tab-strip.jpg" alt="Tab strip with site colours and preview"> |
-| **Browsing** – glass top bar | **Tab strip** – logos, site colours, preview |
-| <img src="docs/screenshots/settings.jpg" alt="Settings styled like tvOS"> | <img src="docs/screenshots/whats-new.jpg" alt="What's New screen"> |
-| **Settings** – styled like tvOS | **What's New** after every update |
-| <img src="docs/screenshots/remote-guide.jpg" alt="Siri Remote usage guide"> | <img src="docs/screenshots/top-shelf.jpg" alt="Top Shelf on the Apple TV home screen"> |
-| **Usage guide** for the Siri Remote | **Home screen** with Top Shelf |
+| <img src="docs/screenshots/browsing.jpg" alt="Browsing with the glass top bar"> | <img src="docs/screenshots/settings.jpg" alt="Settings styled like tvOS"> |
+| **Browsing** – glass top bar | **Settings** – styled like tvOS |
+| <img src="docs/screenshots/whats-new.jpg" alt="What's New screen"> | <img src="docs/screenshots/remote-guide.jpg" alt="Siri Remote usage guide"> |
+| **What's New** after every update | **Usage guide** for the Siri Remote |
+| <img src="docs/screenshots/top-shelf.jpg" alt="Top Shelf on the Apple TV home screen"> | |
+| **Home screen** with Top Shelf | |
+
+</details>
 
 ## Install
 
