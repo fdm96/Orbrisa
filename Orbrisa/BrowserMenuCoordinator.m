@@ -1394,6 +1394,7 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     if (result.length == 0) {
         result = @"The page did not answer. Open any website first (e.g. play.geforcenow.com) and try again.";
     }
+    result = [NSString stringWithFormat:@"%@\n\nWebKit features:\n%@", result, [BrowserWebView cloudGamingFeatureReport]];
     BrowserLog(@"[CloudGamingCheck]\n%@", result);
     UIAlertController *alertController = [self browserAlertControllerWithTitle:@"Cloud Gaming Check" message:result];
     [alertController addAction:[self browserCancelAction]];

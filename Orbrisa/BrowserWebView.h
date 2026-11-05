@@ -37,6 +37,8 @@ FOUNDATION_EXPORT NSString * const BrowserForceDarkPagesDidChangeNotification;
 - (void)goForward;
 - (nullable NSString *)stringByEvaluatingJavaScriptFromString:(NSString * _Nonnull)script;
 - (NSString * _Nonnull)runtimeMediaPreferenceReport;
+/// Debug builds: which WebRTC / gamepad features this WebKit has and whether Orbrisa could switch them on.
++ (NSString * _Nonnull)cloudGamingFeatureReport;
 - (void)setUserAgent:(NSString * _Nullable)userAgent;
 - (void)pauseAllMediaPlayback;
 /// Dark mode for websites: light pages are shown dark. Saved across launches.

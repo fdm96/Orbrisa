@@ -280,6 +280,61 @@ static void BrowserSetBooleanSelectorIfAvailable(id object, NSString *selectorNa
     }
 }
 
+#if DEBUG
+// Experiment (Debug builds only): switch on the WebKit features cloud gaming needs, if this WebKit has them.
+static NSMutableString *BrowserCloudGamingReport;
+
+static void BrowserEnableCloudGamingFeatures(id preferences) {
+    if (BrowserCloudGamingReport == nil) {
+        BrowserCloudGamingReport = [NSMutableString string];
+    }
+    [BrowserCloudGamingReport setString:@""];
+    for (NSString *selectorName in @[@"_setPeerConnectionEnabled:", @"_setMediaDevicesEnabled:", @"_setGamepadsEnabled:"]) {
+        BOOL available = [preferences respondsToSelector:NSSelectorFromString(selectorName)];
+        BrowserSetBooleanSelectorIfAvailable(preferences, selectorName, YES);
+        [BrowserCloudGamingReport appendFormat:@"%@ %@\n", selectorName, available ? @"set" : @"missing"];
+    }
+
+    NSArray *features = nil;
+    for (id target in @[preferences, [preferences class]]) {
+        for (NSString *name in @[@"_features", @"_experimentalFeatures", @"_internalDebugFeatures"]) {
+            SEL selector = NSSelectorFromString(name);
+            if (![target respondsToSelector:selector]) {
+                continue;
+            }
+            id list = ((id (*)(id, SEL))objc_msgSend)(target, selector);
+            if ([list isKindOfClass:[NSArray class]]) {
+                features = [(features ?: @[]) arrayByAddingObjectsFromArray:list];
+            }
+        }
+        if (features.count > 0) {
+            break;
+        }
+    }
+    SEL setEnabled = NSSelectorFromString(@"_setEnabled:forFeature:");
+    SEL isEnabled = NSSelectorFromString(@"_isEnabledForFeature:");
+    NSUInteger matches = 0;
+    for (id feature in features) {
+        NSString *key = BrowserStringValueForKnownSelectors(feature, @[@"key", @"name"]) ?: @"";
+        NSString *lower = key.lowercaseString;
+        BOOL wanted = [lower containsString:@"peerconnection"] || [lower containsString:@"webrtc"] || [lower containsString:@"gamepad"]
+            || [lower containsString:@"mediadevices"] || [lower containsString:@"mediastream"];
+        BOOL reportOnly = [lower containsString:@"fullscreen"] || [lower containsString:@"pointerlock"];
+        if (!wanted && !reportOnly) {
+            continue;
+        }
+        matches++;
+        BOOL before = [preferences respondsToSelector:isEnabled] ? ((BOOL (*)(id, SEL, id))objc_msgSend)(preferences, isEnabled, feature) : NO;
+        if (wanted && !before && [preferences respondsToSelector:setEnabled]) {
+            ((void (*)(id, SEL, BOOL, id))objc_msgSend)(preferences, setEnabled, YES, feature);
+        }
+        BOOL after = [preferences respondsToSelector:isEnabled] ? ((BOOL (*)(id, SEL, id))objc_msgSend)(preferences, isEnabled, feature) : before;
+        [BrowserCloudGamingReport appendFormat:@"%@: %@%@\n", key, before ? @"on" : @"off", (after != before) ? @" → on" : @""];
+    }
+    [BrowserCloudGamingReport appendFormat:@"(%lu WebKit features, %lu related)", (unsigned long)features.count, (unsigned long)matches];
+}
+#endif
+
 static void BrowserConfigurePrivateMediaPreferences(id configuration) {
     if (configuration == nil) {
         return;
@@ -299,6 +354,9 @@ static void BrowserConfigurePrivateMediaPreferences(id configuration) {
     BrowserSetBooleanSelectorIfAvailable(preferences, @"_setManagedMediaSourceEnabled:", YES);
     BrowserSetBooleanSelectorIfAvailable(preferences, @"_setMediaCapabilityGrantsEnabled:", YES);
     BrowserSetBooleanSelectorIfAvailable(preferences, @"_setVideoQualityIncludesDisplayCompositingEnabled:", YES);
+#if DEBUG
+    BrowserEnableCloudGamingFeatures(preferences);
+#endif
 }
 
 static NSString *BrowserYouTubeRequestCaptureScript(void) {
@@ -1401,6 +1459,14 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
             "}"
         "})();";
     [self stringByEvaluatingJavaScriptFromString:pauseScript];
+}
+
++ (NSString *)cloudGamingFeatureReport {
+#if DEBUG
+    return BrowserCloudGamingReport.length > 0 ? [BrowserCloudGamingReport copy] : @"No WebKit preferences were configured yet.";
+#else
+    return @"";
+#endif
 }
 
 - (NSString *)runtimeMediaPreferenceReport {
