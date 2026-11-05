@@ -928,7 +928,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
             break;
         case BrowserTopBarActionFeed:
             [self deactivateTopBarFocusMode];
-            if (self.pageHasFeed) {
+            if (self.pageHasFeed && ![self browserPageFeedIsSubscribed]) {
                 [self browserSubscribeToPageFeed];
             } else {
                 [self browserShowFeeds];
@@ -1689,6 +1689,21 @@ static NSString *BrowserWebAppPagingScript(void) {
         }
     };
     [self browserPresentViewController:feeds];
+}
+
+/// YES when the feed this page offers is already in the subscriptions (the feed button then just opens the feeds).
+- (BOOL)browserPageFeedIsSubscribed {
+    NSString *script = [BrowserFeedStore detectionScript];
+    NSString *result = (script.length > 0 && self.webview != nil) ? [self.webview stringByEvaluatingJavaScriptFromString:script] : nil;
+    id json = result.length > 0 ? [NSJSONSerialization JSONObjectWithData:[result dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
+    NSArray *feeds = ([json isKindOfClass:[NSDictionary class]] && [json[@"feeds"] isKindOfClass:[NSArray class]]) ? json[@"feeds"] : @[];
+    for (id feed in feeds) {
+        NSString *URLString = [feed isKindOfClass:[NSDictionary class]] && [feed[@"url"] isKindOfClass:[NSString class]] ? feed[@"url"] : nil;
+        if (URLString.length > 0 && [[BrowserFeedStore sharedStore] isSubscribedToURL:URLString]) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 - (void)browserSubscribeToPageFeed {

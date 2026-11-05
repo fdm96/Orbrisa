@@ -25,13 +25,27 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     return cache;
 }
 
+#pragma mark - Unread badge
+
+/// The red count bubble like on iPhone and Apple TV: a circle for one digit, a capsule for more, the number in the middle.
+@interface BrowserBadgeLabel : UILabel
+@end
+
+@implementation BrowserBadgeLabel
+- (CGSize)intrinsicContentSize {
+    CGSize size = [super intrinsicContentSize];
+    CGFloat height = 36.0;
+    return CGSizeMake(MAX(height, ceil(size.width) + 22.0), height);
+}
+@end
+
 #pragma mark - Feed row (left)
 
 @interface BrowserFeedRowCell : UITableViewCell
 @property (nonatomic) UIView *capsule;
 @property (nonatomic) UILabel *badge;
 @property (nonatomic) UILabel *nameLabel;
-@property (nonatomic) UILabel *countLabel;
+@property (nonatomic) BrowserBadgeLabel *countLabel;
 @end
 
 @implementation BrowserFeedRowCell
@@ -67,11 +81,13 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         _nameLabel.font = [UIFont systemFontOfSize:26.0 weight:UIFontWeightSemibold];
         [_capsule addSubview:_nameLabel];
 
-        _countLabel = [UILabel new];
+        _countLabel = [BrowserBadgeLabel new];
         _countLabel.translatesAutoresizingMaskIntoConstraints = NO;
-        _countLabel.font = [UIFont systemFontOfSize:19.0 weight:UIFontWeightBold];
+        _countLabel.font = [UIFont monospacedDigitSystemFontOfSize:21.0 weight:UIFontWeightBold];
         _countLabel.textAlignment = NSTextAlignmentCenter;
-        _countLabel.layer.cornerRadius = 17.0;
+        _countLabel.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
+        _countLabel.backgroundColor = UIColor.systemRedColor;
+        _countLabel.layer.cornerRadius = 18.0;
         _countLabel.layer.masksToBounds = YES;
         [_capsule addSubview:_countLabel];
 
@@ -89,8 +105,6 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
             [_nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_countLabel.leadingAnchor constant:-12.0],
             [_countLabel.trailingAnchor constraintEqualToAnchor:_capsule.trailingAnchor constant:-20.0],
             [_countLabel.centerYAnchor constraintEqualToAnchor:_capsule.centerYAnchor],
-            [_countLabel.heightAnchor constraintEqualToConstant:34.0],
-            [_countLabel.widthAnchor constraintGreaterThanOrEqualToConstant:40.0],
         ]];
         [self applyFocused:NO];
     }
@@ -101,7 +115,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     self.capsule.backgroundColor = focused ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.07];
     self.capsule.layer.shadowOpacity = focused ? 0.35 : 0.0;
     self.nameLabel.textColor = focused ? [UIColor colorWithWhite:0.1 alpha:1.0] : [UIColor colorWithWhite:0.95 alpha:1.0];
-    self.countLabel.backgroundColor = focused ? UIColor.systemBlueColor : [UIColor colorWithWhite:1.0 alpha:0.16];
+    self.countLabel.backgroundColor = UIColor.systemRedColor;
     self.countLabel.textColor = UIColor.whiteColor;
     self.capsule.transform = focused ? CGAffineTransformMakeScale(1.03, 1.03) : CGAffineTransformIdentity;
 }
@@ -522,7 +536,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     cell.badge.text = feed != nil ? [[name substringToIndex:MIN((NSUInteger)1, name.length)] uppercaseString] : @"★";
     cell.badge.backgroundColor = feed != nil ? [BrowserFeedStore colorForFeedURL:URLString] : UIColor.systemOrangeColor;
     NSUInteger unread = [[BrowserFeedStore sharedStore] unreadCountForFeedURL:URLString];
-    cell.countLabel.text = [NSString stringWithFormat:@" %lu ", (unsigned long)unread];
+    cell.countLabel.text = [NSString stringWithFormat:@"%lu", (unsigned long)unread];
     cell.countLabel.hidden = (unread == 0);
     [cell applyFocused:cell.isFocused];
     return cell;
