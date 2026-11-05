@@ -1046,3 +1046,207 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 }
 
 @end
+
+#pragma mark - Web app dock
+
+@interface BrowserWebAppDockViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
+@property (nonatomic, copy) NSString *currentURL;
+@property (nonatomic, copy) NSArray<NSArray<NSString *> *> *apps; // [url, title]; the last entry is the start page
+@property (nonatomic) UIVisualEffectView *panel;
+@property (nonatomic) UICollectionView *collectionView;
+@end
+
+@implementation BrowserWebAppDockViewController
+
+- (instancetype)initWithCurrentURL:(NSString *)currentURL {
+    self = [super initWithNibName:nil bundle:nil];
+    if (self) {
+        _currentURL = [currentURL copy] ?: @"";
+        self.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        self.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+        self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+
+        NSMutableArray *webApps = [NSMutableArray array];
+        NSMutableArray *favorites = [NSMutableArray array];
+        for (id entry in [NSUserDefaults.standardUserDefaults arrayForKey:kStartFavoritesKey]) {
+            if (![entry isKindOfClass:[NSArray class]] || [entry count] == 0 || ![entry[0] isKindOfClass:[NSString class]]) {
+                continue;
+            }
+            NSString *title = ([entry count] > 1 && [entry[1] isKindOfClass:[NSString class]]) ? entry[1] : @"";
+            NSArray *item = @[entry[0], title];
+            [favorites addObject:item];
+            if ([BrowserStartPageViewController isWebAppURL:entry[0]]) {
+                [webApps addObject:item];
+            }
+        }
+        NSMutableArray *apps = [(webApps.count > 0 ? webApps : favorites) mutableCopy];
+        [apps addObject:@[@"", BrowserLocalized(@"Start Page")]];
+        _apps = apps;
+    }
+    return self;
+}
+
+- (UIVisualEffect *)glassEffect {
+    Class glassClass = NSClassFromString(@"UIGlassEffect");
+    if (glassClass != Nil) {
+        id effect = [[glassClass alloc] init];
+        if ([effect isKindOfClass:[UIVisualEffect class]]) {
+            return effect;
+        }
+    }
+    return [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.25];
+
+    UIVisualEffectView *panel = [[UIVisualEffectView alloc] initWithEffect:[self glassEffect]];
+    panel.translatesAutoresizingMaskIntoConstraints = NO;
+    panel.layer.cornerRadius = 48.0;
+    panel.clipsToBounds = YES;
+    panel.contentView.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.25];
+    [self.view addSubview:panel];
+    self.panel = panel;
+
+    UILabel *title = [UILabel new];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = BrowserLocalized(@"Web Apps");
+    title.font = [UIFont systemFontOfSize:24.0 weight:UIFontWeightSemibold];
+    title.textColor = [UIColor colorWithWhite:1.0 alpha:0.7];
+    [panel.contentView addSubview:title];
+
+    UICollectionViewFlowLayout *layout = [UICollectionViewFlowLayout new];
+    layout.scrollDirection = UICollectionViewScrollDirectionHorizontal;
+    layout.itemSize = CGSizeMake(210.0, 280.0);
+    layout.minimumLineSpacing = 30.0;
+    layout.sectionInset = UIEdgeInsetsMake(0.0, 40.0, 0.0, 40.0);
+    UICollectionView *collectionView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout];
+    collectionView.translatesAutoresizingMaskIntoConstraints = NO;
+    collectionView.backgroundColor = UIColor.clearColor;
+    collectionView.clipsToBounds = NO;
+    collectionView.showsHorizontalScrollIndicator = NO;
+    collectionView.dataSource = self;
+    collectionView.delegate = self;
+    [collectionView registerClass:[BrowserStartFavoriteCell class] forCellWithReuseIdentifier:@"app"];
+    [panel.contentView addSubview:collectionView];
+    self.collectionView = collectionView;
+
+    CGFloat width = MIN(1700.0, 80.0 + self.apps.count * 210.0 + (self.apps.count - 1) * 30.0);
+    [NSLayoutConstraint activateConstraints:@[
+        [panel.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [panel.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-50.0],
+        [panel.widthAnchor constraintEqualToConstant:MAX(width, 560.0)],
+        [panel.heightAnchor constraintEqualToConstant:400.0],
+        [title.topAnchor constraintEqualToAnchor:panel.contentView.topAnchor constant:26.0],
+        [title.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:44.0],
+        [collectionView.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:26.0],
+        [collectionView.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor],
+        [collectionView.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor],
+        [collectionView.heightAnchor constraintEqualToConstant:290.0],
+    ]];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // Slides up from the bottom edge, like a drop rising.
+    self.panel.transform = CGAffineTransformMakeTranslation(0.0, 520.0);
+    [UIView animateWithDuration:0.55 delay:0.0 usingSpringWithDamping:0.82 initialSpringVelocity:0.4 options:0 animations:^{
+        self.panel.transform = CGAffineTransformIdentity;
+    } completion:nil];
+}
+
+- (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
+    return @[self.collectionView];
+}
+
+- (NSIndexPath *)indexPathForPreferredFocusedViewInCollectionView:(__unused UICollectionView *)collectionView {
+    for (NSUInteger i = 0; i < self.apps.count; i++) {
+        if (self.apps[i][0].length > 0 && [self.apps[i][0] isEqualToString:self.currentURL]) {
+            return [NSIndexPath indexPathForItem:(NSInteger)i inSection:0];
+        }
+    }
+    return [NSIndexPath indexPathForItem:0 inSection:0];
+}
+
+- (NSInteger)collectionView:(__unused UICollectionView *)collectionView numberOfItemsInSection:(__unused NSInteger)section {
+    return (NSInteger)self.apps.count;
+}
+
+- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
+    BrowserStartFavoriteCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"app" forIndexPath:indexPath];
+    NSArray<NSString *> *app = self.apps[(NSUInteger)indexPath.item];
+    cell.badgeLabel.hidden = YES;
+    cell.logoView.hidden = YES;
+    cell.logoView.image = nil;
+    if (app[0].length == 0) {
+        cell.nameLabel.text = app[1];
+        cell.letterLabel.hidden = YES;
+        cell.symbolView.hidden = NO;
+        cell.symbolView.image = [UIImage systemImageNamed:@"house.fill" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:64.0 weight:UIImageSymbolWeightSemibold]];
+        cell.tile.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.14];
+        cell.logoURL = nil;
+    } else {
+        cell.nameLabel.text = app[1].length > 0 ? app[1] : StartHostForURL(app[0]);
+        cell.letterLabel.text = StartLetterForName(app[1], app[0]);
+        cell.letterLabel.hidden = NO;
+        cell.symbolView.hidden = YES;
+        cell.tile.backgroundColor = [BrowserFeedStore colorForFeedURL:StartHostForURL(app[0])];
+        cell.logoURL = app[0];
+        NSString *logoURL = app[0];
+        __weak BrowserStartFavoriteCell *weakCell = cell;
+        [BrowserStartPageViewController loadLogoForURL:logoURL completion:^(UIImage *image) {
+            if (image == nil || ![weakCell.logoURL isEqualToString:logoURL]) {
+                return;
+            }
+            weakCell.logoView.image = image;
+            weakCell.logoView.hidden = NO;
+            weakCell.letterLabel.hidden = YES;
+        }];
+        // the web app that is open right now carries a small dot
+        cell.badgeLabel.hidden = ![app[0] isEqualToString:self.currentURL];
+        cell.badgeLabel.text = [NSString stringWithFormat:@"  %@  ", BrowserLocalized(@"Open")];
+    }
+    [cell applyFocused:cell.isFocused];
+    return cell;
+}
+
+- (void)collectionView:(__unused UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    NSString *URLString = self.apps[(NSUInteger)indexPath.item][0];
+    void (^open)(NSString *) = self.openWebApp;
+    void (^start)(void) = self.showStartPage;
+    [self closeThen:^{
+        if (URLString.length == 0) {
+            if (start != nil) {
+                start();
+            }
+        } else if (open != nil) {
+            open(URLString);
+        }
+    }];
+}
+
+- (void)closeThen:(void (^)(void))block {
+    [UIView animateWithDuration:0.25 animations:^{
+        self.panel.transform = CGAffineTransformMakeTranslation(0.0, 520.0);
+    }];
+    [self dismissViewControllerAnimated:YES completion:block];
+}
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    if (presses.anyObject.type == UIPressTypeMenu) {
+        return;
+    }
+    [super pressesBegan:presses withEvent:event];
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    if (presses.anyObject.type == UIPressTypeMenu) {
+        [self closeThen:nil];
+        return;
+    }
+    [super pressesEnded:presses withEvent:event];
+}
+
+@end
+

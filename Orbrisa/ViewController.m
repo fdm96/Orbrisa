@@ -1464,6 +1464,27 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }];
 }
 
+- (BOOL)browserRemoteInputControllerHandleDownHold {
+    if (!self.webAppMode || self.presentedViewController != nil) {
+        return NO;
+    }
+    // In a web app: the favorite web apps come up from the bottom to switch between them.
+    BrowserWebAppDockViewController *dock = [[BrowserWebAppDockViewController alloc] initWithCurrentURL:self.webAppURLString];
+    __weak typeof(self) weakSelf = self;
+    dock.openWebApp = ^(NSString *URLString) {
+        if (![URLString isEqualToString:weakSelf.webAppURLString]) {
+            [weakSelf browserOpenWebAppWithURLString:URLString];
+        }
+    };
+    dock.showStartPage = ^{
+        [weakSelf browserLeaveWebApp];
+        [weakSelf browserShowStartPage];
+    };
+    [self.remoteInputController setLinkNavigationActive:NO];
+    [self presentViewController:dock animated:NO completion:nil];
+    return YES;
+}
+
 - (BOOL)browserRemoteInputControllerHandleSelectHold {
     if (!self.webAppMode || self.presentedViewController != nil) {
         return NO;

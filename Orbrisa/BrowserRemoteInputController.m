@@ -367,6 +367,10 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
 
 - (void)handleDownArrowLongPress {
     self.downArrowHoldFired = YES;
+    if ([self.host respondsToSelector:@selector(browserRemoteInputControllerHandleDownHold)] &&
+        [self.host browserRemoteInputControllerHandleDownHold]) {
+        return;
+    }
     if (self.linkNavigationActive) {
         [self setLinkNavigationActive:NO];
         [self setCursorModeEnabled:YES];

@@ -38,4 +38,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+/// Inside a web app: hold the bottom of the clickpad – the favorite web apps slide up from the bottom on Liquid Glass.
+@interface BrowserWebAppDockViewController : UIViewController
+- (instancetype)initWithCurrentURL:(nullable NSString *)currentURL NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithNibName:(nullable NSString *)nibNameOrNil bundle:(nullable NSBundle *)nibBundleOrNil NS_UNAVAILABLE;
+- (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
+/// Run after the dock has closed.
+@property (nonatomic, copy, nullable) void (^openWebApp)(NSString *URLString);
+@property (nonatomic, copy, nullable) void (^showStartPage)(void);
+@end
+
 NS_ASSUME_NONNULL_END

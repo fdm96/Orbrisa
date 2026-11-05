@@ -36,6 +36,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu;
 /// Holding the middle of the clickpad (Select). Return YES when it did something (e.g. the web app selection box).
 - (BOOL)browserRemoteInputControllerHandleSelectHold;
+/// Holding the bottom of the clickpad. Return YES when it did something (e.g. the web app dock).
+- (BOOL)browserRemoteInputControllerHandleDownHold;
 @required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;
