@@ -32,6 +32,12 @@ static CGFloat const kTopBarProgressHeight = 4.0;
 
 static CGFloat const kTopBarDisabledIconAlpha = 0.38;
 
+// Reader button (inside the address pill) and RSS button (right next to it)
+static CGFloat const kTopBarReaderHeight = 48.0;
+static CGFloat const kTopBarReaderInset = 10.0;
+static CGFloat const kTopBarFeedSize = 60.0;
+static CGFloat const kTopBarFeedGap = 16.0;
+
 #pragma mark - Focus button
 
 @interface BrowserTopBarFocusButton : UIButton
@@ -118,6 +124,12 @@ static CGFloat const kTopBarDisabledIconAlpha = 0.38;
 @property (nonatomic) BrowserTopBarFocusButton *URLFocusButton;
 @property (nonatomic) BrowserTopBarFocusButton *fullscreenFocusButton;
 @property (nonatomic) BrowserTopBarFocusButton *menuFocusButton;
+@property (nonatomic) BrowserTopBarFocusButton *readerFocusButton;
+@property (nonatomic) BrowserTopBarFocusButton *feedFocusButton;
+@property (nonatomic) UILabel *readerLabel;
+@property (nonatomic) UIImageView *readerIconView;
+@property (nonatomic) BOOL readerAvailable;
+@property (nonatomic) BOOL feedAvailable;
 @property (nonatomic) BrowserTopBarFocusButton *lastFocusedButton;
 @property (nonatomic, getter=isFocusModeActive) BOOL focusModeActive;
 
@@ -312,11 +324,50 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     _URLFocusButton = [self newFocusButtonForAction:BrowserTopBarActionURL symbolName:nil accessibilityLabel:BrowserLocalized(@"Enter URL or Search")];
     [centerContent addSubview:_URLFocusButton];
 
+    // "Reader" button on the right of the address pill – only when the page has an article.
+    _readerFocusButton = [self newFocusButtonForAction:BrowserTopBarActionReader symbolName:nil accessibilityLabel:BrowserLocalized(@"Open in Reader")];
+    _readerFocusButton.backgroundColor = UIColor.whiteColor;
+    _readerFocusButton.layer.cornerRadius = kTopBarReaderHeight / 2.0;
+    _readerFocusButton.layer.shadowColor = UIColor.blackColor.CGColor;
+    _readerFocusButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
+    _readerFocusButton.layer.shadowRadius = 12.0;
+    _readerFocusButton.layer.shadowOpacity = 0.0;
+    _readerIconView = [[UIImageView alloc] initWithImage:[self symbolImageNamed:@"text.alignleft" pointSize:20.0]];
+    _readerIconView.tintColor = [UIColor colorWithWhite:0.11 alpha:1.0];
+    _readerIconView.contentMode = UIViewContentModeCenter;
+    _readerIconView.userInteractionEnabled = NO;
+    [_readerFocusButton addSubview:_readerIconView];
+    _readerLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    _readerLabel.text = BrowserLocalized(@"Reader");
+    _readerLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightBold];
+    _readerLabel.textColor = [UIColor colorWithWhite:0.11 alpha:1.0];
+    _readerLabel.userInteractionEnabled = NO;
+    [_readerFocusButton addSubview:_readerLabel];
+    _readerFocusButton.hidden = YES;
+    _readerFocusButton.alpha = 0.0;
+    [centerContent addSubview:_readerFocusButton];
+
+    // RSS button right next to the address pill – only when the page offers a feed.
+    _feedFocusButton = [self newFocusButtonForAction:BrowserTopBarActionFeed symbolName:@"dot.radiowaves.up.forward" accessibilityLabel:BrowserLocalized(@"Subscribe to Feed")];
+    _feedFocusButton.backgroundColor = UIColor.systemOrangeColor;
+    _feedFocusButton.iconView.tintColor = UIColor.whiteColor;
+    _feedFocusButton.layer.cornerRadius = kTopBarFeedSize / 2.0;
+    _feedFocusButton.layer.borderColor = UIColor.whiteColor.CGColor;
+    _feedFocusButton.layer.shadowColor = UIColor.blackColor.CGColor;
+    _feedFocusButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
+    _feedFocusButton.layer.shadowRadius = 12.0;
+    _feedFocusButton.layer.shadowOpacity = 0.25;
+    _feedFocusButton.hidden = YES;
+    _feedFocusButton.alpha = 0.0;
+    [self.contentView addSubview:_feedFocusButton];
+
     _focusButtons = @[
         _backFocusButton,
         _forwardFocusButton,
         _refreshFocusButton,
         _URLFocusButton,
+        _readerFocusButton,
+        _feedFocusButton,
         _homeFocusButton,
         _tabsFocusButton,
         _fullscreenFocusButton,
@@ -527,12 +578,22 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     // The center pill stays centered on screen, but never runs into the side islands.
     CGFloat minCenterX = CGRectGetMaxX(self.leftContainerView.frame) + kTopBarIslandGap;
     CGFloat maxCenterMaxX = CGRectGetMinX(self.rightContainerView.frame) - kTopBarIslandGap;
+    if (self.feedAvailable) {
+        maxCenterMaxX -= kTopBarFeedSize + kTopBarFeedGap;
+    }
     CGFloat centerWidth = MIN(kTopBarCenterMaxWidth, MAX(kTopBarCenterMinWidth, maxCenterMaxX - minCenterX));
     CGFloat centerX = MAX(minCenterX, floor((CGRectGetWidth(self.bounds) - centerWidth) / 2.0));
     if (centerX + centerWidth > maxCenterMaxX) {
         centerWidth = MAX(200.0, maxCenterMaxX - centerX);
     }
     self.centerContainerView.frame = CGRectMake(centerX, originY, centerWidth, kTopBarHeight);
+    CGAffineTransform feedTransform = self.feedFocusButton.transform;
+    self.feedFocusButton.transform = CGAffineTransformIdentity;
+    self.feedFocusButton.frame = CGRectMake(centerX + centerWidth + kTopBarFeedGap,
+                                            originY + floor((kTopBarHeight - kTopBarFeedSize) / 2.0),
+                                            kTopBarFeedSize, kTopBarFeedSize);
+    self.feedFocusButton.iconView.frame = self.feedFocusButton.bounds;
+    self.feedFocusButton.transform = feedTransform;
 
     for (UIView *containerView in @[self.leftContainerView, self.centerContainerView, self.rightContainerView]) {
         CGFloat cornerRadius = CGRectGetHeight(containerView.bounds) / 2.0;
@@ -595,20 +656,36 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 
 - (void)layoutCenterContent {
     CGRect bounds = self.centerEffectView.contentView.bounds;
-    CGFloat textWidth = MAX(0.0, CGRectGetWidth(bounds) - (kTopBarCenterTextInset * 2.0));
+    CGFloat readerWidth = 0.0;
+    if (self.readerAvailable) {
+        CGFloat labelWidth = ceil([self.readerLabel sizeThatFits:CGSizeMake(300.0, kTopBarReaderHeight)].width);
+        readerWidth = 18.0 + 24.0 + 8.0 + labelWidth + 20.0;
+        CGAffineTransform readerTransform = self.readerFocusButton.transform;
+        self.readerFocusButton.transform = CGAffineTransformIdentity;
+        self.readerFocusButton.frame = CGRectMake(CGRectGetWidth(bounds) - kTopBarReaderInset - readerWidth,
+                                                  floor((CGRectGetHeight(bounds) - kTopBarReaderHeight) / 2.0),
+                                                  readerWidth, kTopBarReaderHeight);
+        self.readerIconView.frame = CGRectMake(18.0, 0.0, 24.0, kTopBarReaderHeight);
+        self.readerLabel.frame = CGRectMake(18.0 + 24.0 + 8.0, 0.0, labelWidth, kTopBarReaderHeight);
+        self.readerFocusButton.transform = readerTransform;
+    }
+    // The title stays centred, so it keeps the same room on both sides of the Reader button.
+    CGFloat textInset = MAX(kTopBarCenterTextInset, readerWidth > 0.0 ? readerWidth + kTopBarReaderInset + 12.0 : 0.0);
+    CGFloat textWidth = MAX(0.0, CGRectGetWidth(bounds) - (textInset * 2.0));
     CGFloat titleHeight = ceil(self.URLLabel.font.lineHeight);
     CGFloat subtitleHeight = ceil(self.subtitleLabel.font.lineHeight);
     CGFloat blockHeight = titleHeight + kTopBarCenterLineSpacing + subtitleHeight;
     CGFloat textY = floor((CGRectGetHeight(bounds) - blockHeight) / 2.0);
 
     self.centerFocusFillView.frame = bounds;
-    self.URLLabel.frame = CGRectMake(kTopBarCenterTextInset, textY, textWidth, titleHeight);
-    self.subtitleLabel.frame = CGRectMake(kTopBarCenterTextInset,
+    self.URLLabel.frame = CGRectMake(textInset, textY, textWidth, titleHeight);
+    self.subtitleLabel.frame = CGRectMake(textInset,
                                           CGRectGetMaxY(self.URLLabel.frame) + kTopBarCenterLineSpacing,
                                           textWidth,
                                           subtitleHeight);
     self.loadingSpinner.frame = CGRectMake(0.0, 0.0, 1.0, 1.0);
-    self.URLFocusButton.frame = bounds;
+    self.URLFocusButton.frame = readerWidth > 0.0 ? CGRectMake(0.0, 0.0, CGRectGetWidth(bounds) - readerWidth - kTopBarReaderInset, CGRectGetHeight(bounds))
+                                                  : bounds;
     [self layoutProgressView];
 }
 
@@ -730,6 +807,29 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     self.tabsFocusButton.accessibilityValue = tabCount > 0 ? [NSString stringWithFormat:BrowserLocalized(@"%lu open"), (unsigned long)tabCount] : nil;
 }
 
+- (void)setReaderAvailable:(BOOL)readerAvailable feedAvailable:(BOOL)feedAvailable {
+    if (_readerAvailable == readerAvailable && _feedAvailable == feedAvailable) {
+        return;
+    }
+    _readerAvailable = readerAvailable;
+    _feedAvailable = feedAvailable;
+    if (readerAvailable) {
+        self.readerFocusButton.hidden = NO;
+    }
+    if (feedAvailable) {
+        self.feedFocusButton.hidden = NO;
+    }
+    [self setNeedsLayout];
+    [UIView animateWithDuration:0.25 animations:^{
+        self.readerFocusButton.alpha = readerAvailable ? 1.0 : 0.0;
+        self.feedFocusButton.alpha = feedAvailable ? 1.0 : 0.0;
+        [self layoutIfNeeded];
+    } completion:^(__unused BOOL finished) {
+        self.readerFocusButton.hidden = !self.readerAvailable;
+        self.feedFocusButton.hidden = !self.feedAvailable;
+    }];
+}
+
 - (void)setCanGoBack:(BOOL)canGoBack canGoForward:(BOOL)canGoForward {
     self.backFocusButton.iconView.alpha = canGoBack ? 1.0 : kTopBarDisabledIconAlpha;
     self.forwardFocusButton.iconView.alpha = canGoForward ? 1.0 : kTopBarDisabledIconAlpha;
@@ -825,6 +925,18 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
         self.centerContainerView.transform = focused ? CGAffineTransformMakeScale(kTopBarCenterFocusedScale, kTopBarCenterFocusedScale)
                                                      : CGAffineTransformIdentity;
         [self refreshSubtitle];
+        return;
+    }
+
+    if (button == self.readerFocusButton) {
+        button.transform = focused ? CGAffineTransformMakeScale(1.12, 1.12) : CGAffineTransformIdentity;
+        button.layer.shadowOpacity = focused ? 0.45 : 0.0;
+        return;
+    }
+    if (button == self.feedFocusButton) {
+        button.transform = focused ? CGAffineTransformMakeScale(kTopBarFocusedButtonScale, kTopBarFocusedButtonScale) : CGAffineTransformIdentity;
+        button.layer.borderWidth = focused ? 3.0 : 0.0;
+        button.layer.shadowOpacity = focused ? 0.45 : 0.25;
         return;
     }
 

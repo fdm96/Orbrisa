@@ -18,7 +18,9 @@ typedef NS_ENUM(NSInteger, BrowserTopBarAction) {
     BrowserTopBarActionTabs,
     BrowserTopBarActionURL,
     BrowserTopBarActionFullscreen,
-    BrowserTopBarActionMenu
+    BrowserTopBarActionMenu,
+    BrowserTopBarActionReader,
+    BrowserTopBarActionFeed
 };
 
 @class BrowserTopBarView;
@@ -57,6 +59,8 @@ typedef NS_ENUM(NSInteger, BrowserTopBarAction) {
 - (void)setOverrideTitle:(nullable NSString *)title subtitle:(nullable NSString *)subtitle;
 /// Number shown on the tabs button; 0 hides it.
 - (void)setTabCount:(NSUInteger)tabCount;
+/// Shows the "Reader" button in the address pill and the RSS button next to it (only when the page has an article / a feed).
+- (void)setReaderAvailable:(BOOL)readerAvailable feedAvailable:(BOOL)feedAvailable;
 /// Dims the back/forward buttons when there is nowhere to go.
 - (void)setCanGoBack:(BOOL)canGoBack canGoForward:(BOOL)canGoForward;
 /// YES for a bright page (grey glass, white symbols), NO for a dark page (light glass, dark symbols).

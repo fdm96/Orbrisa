@@ -532,6 +532,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BrowserDOMInteractionService *domInteractionService;
 @property (nonatomic) BrowserMenuCoordinator *menuCoordinator;
 @property (nonatomic) BrowserNavigationService *navigationService;
+@property (nonatomic, copy) NSDictionary *pageArticle;
+@property (nonatomic, copy) NSString *pageArticleURL;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -793,6 +795,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (![self canActivateTopBarFocusMode]) {
         return;
     }
+    if (!self.webview.isLoading) {
+        [self refreshPageFeatures];
+    }
     if (self.topBarFocusActive) {
         return;
     }
@@ -859,6 +864,14 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
             } else {
                 [self browserShowTopNav];
             }
+            break;
+        case BrowserTopBarActionReader:
+            [self deactivateTopBarFocusMode];
+            [self browserShowReader];
+            break;
+        case BrowserTopBarActionFeed:
+            [self deactivateTopBarFocusMode];
+            [self browserSubscribeToPageFeed];
             break;
         case BrowserTopBarActionMenu:
             [self showAdvancedMenu];
@@ -1154,10 +1167,32 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self browserPresentViewController:alert];
 }
 
+- (void)refreshPageFeatures {
+    // Shows the Reader and RSS buttons in the top bar when this page has an article / a feed.
+    if (self.webview == nil || [BrowserWebView isWaitingForPage]) {
+        return;
+    }
+    NSString *page = self.webview.request.URL.absoluteString ?: @"";
+    NSString *readerScript = [BrowserReaderViewController extractionScript];
+    NSDictionary *article = readerScript.length > 0
+        ? [BrowserReaderViewController articleFromJavaScriptResult:[self.webview stringByEvaluatingJavaScriptFromString:readerScript]] : nil;
+    NSString *feedScript = [BrowserFeedStore detectionScript];
+    NSString *feedResult = feedScript.length > 0 ? [self.webview stringByEvaluatingJavaScriptFromString:feedScript] : nil;
+    id feedJSON = feedResult.length > 0 ? [NSJSONSerialization JSONObjectWithData:[feedResult dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
+    NSArray *feeds = ([feedJSON isKindOfClass:[NSDictionary class]] && [feedJSON[@"feeds"] isKindOfClass:[NSArray class]]) ? feedJSON[@"feeds"] : @[];
+    self.pageArticle = article;
+    self.pageArticleURL = page;
+    [self.topMenuView setReaderAvailable:(article != nil) feedAvailable:(feeds.count > 0)];
+}
+
 - (void)browserShowReader {
-    NSString *script = [BrowserReaderViewController extractionScript];
-    NSString *result = (script.length > 0 && self.webview != nil) ? [self.webview stringByEvaluatingJavaScriptFromString:script] : nil;
-    NSDictionary *article = [BrowserReaderViewController articleFromJavaScriptResult:result];
+    NSString *page = self.webview.request.URL.absoluteString ?: @"";
+    NSDictionary *article = (self.pageArticle != nil && [self.pageArticleURL isEqualToString:page]) ? self.pageArticle : nil;
+    if (article == nil) {
+        NSString *script = [BrowserReaderViewController extractionScript];
+        NSString *result = (script.length > 0 && self.webview != nil) ? [self.webview stringByEvaluatingJavaScriptFromString:script] : nil;
+        article = [BrowserReaderViewController articleFromJavaScriptResult:result];
+    }
     if (article == nil) {
         [self showSimpleAlertWithTitle:BrowserLocalized(@"Reader Not Available")
                                message:BrowserLocalized(@"This page has no article that Orbrisa can show in the Reader.")];
@@ -1808,6 +1843,10 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 }
 
 - (void)webViewDidStartLoad:(id)webView {
+    if (webView == self.webview) {
+        self.pageArticle = nil;
+        [self.topMenuView setReaderAvailable:NO feedAvailable:NO];
+    }
     [self.tabCoordinator webViewDidStartLoad:webView];
 }
 
@@ -1817,6 +1856,12 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 
 - (void)webViewDidFinishLoad:(id)webView {
     [self.tabCoordinator webViewDidFinishLoad:webView];
+    __weak typeof(self) weakPageSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (webView == weakPageSelf.webview) {
+            [weakPageSelf refreshPageFeatures];
+        }
+    });
     if (self.tabOverviewController.visible) {
         BrowserTabViewModel *tab = [self.tabCoordinator tabForWebView:webView];
         NSInteger tabIndex = tab != nil ? [self.viewModel.tabs indexOfObject:tab] : NSNotFound;
