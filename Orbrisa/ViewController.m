@@ -19,6 +19,9 @@
 #import "BrowserTabOverviewController.h"
 #import "BrowserVideoPlaybackCoordinator.h"
 #import "BrowserViewModel.h"
+#import "BrowserReaderViewController.h"
+#import "BrowserFeedStore.h"
+#import "BrowserFeedsViewController.h"
 #import "ViewController.h"
 
 static NSString * const kBrowserGlobalSelectPressEndedNotification = @"BrowserGlobalSelectPressEndedNotification";
@@ -441,27 +444,23 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     titleLabel.textAlignment = NSTextAlignmentCenter;
 
     UILabel *versionLabel = [UILabel new];
-    versionLabel.text = [NSString stringWithFormat:BrowserLocalized(@"Version %@"), version];
+    NSString *releaseLabel = [NSBundle.mainBundle objectForInfoDictionaryKey:@"OrbrisaReleaseLabel"];
+    NSString *shownVersion = releaseLabel.length > 0 ? [NSString stringWithFormat:@"%@ %@", version, releaseLabel] : version;
+    versionLabel.text = [NSString stringWithFormat:BrowserLocalized(@"Version %@"), shownVersion];
     versionLabel.font = [UIFont systemFontOfSize:28.0 weight:UIFontWeightMedium];
     versionLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
     versionLabel.textAlignment = NSTextAlignmentCenter;
 
     UIStackView *features = [[UIStackView alloc] initWithArrangedSubviews:@[
-        [self featureWithSymbol:@"play.tv.fill" color:UIColor.systemBlueColor
-                          title:BrowserLocalized(@"Videos in the Apple TV Player")
-                           text:BrowserLocalized(@"“Full Screen” opens the actual video in the Apple TV player – ads before it are skipped.")],
-        [self featureWithSymbol:@"square.on.square.fill" color:UIColor.systemOrangeColor
-                          title:BrowserLocalized(@"New Tab Strip")
-                           text:BrowserLocalized(@"All tabs with their logos right under the address bar – in each site's colour if you like.")],
-        [self featureWithSymbol:@"drop.fill" color:UIColor.systemCyanColor
-                          title:BrowserLocalized(@"Liquid Glass")
-                           text:BrowserLocalized(@"Adjust the glass effect smoothly or turn it off completely.")],
-        [self featureWithSymbol:@"moon.fill" color:UIColor.systemIndigoColor
-                          title:BrowserLocalized(@"Dark Mode")
-                           text:BrowserLocalized(@"Dark websites – automatic like the Apple TV, light or dark.")],
-        [self featureWithSymbol:@"switch.2" color:UIColor.systemGreenColor
-                          title:BrowserLocalized(@"New Settings")
-                           text:BrowserLocalized(@"Switches and design like the tvOS Settings.")],
+        [self featureWithSymbol:@"text.alignleft" color:UIColor.systemOrangeColor
+                          title:BrowserLocalized(@"Reader Mode")
+                           text:BrowserLocalized(@"Only the article – large, calm text with your own size, background and font.")],
+        [self featureWithSymbol:@"dot.radiowaves.up.forward" color:UIColor.systemBlueColor
+                          title:BrowserLocalized(@"RSS Feeds")
+                           text:BrowserLocalized(@"Subscribe to your favourite sites and see all new articles in one place.")],
+        [self featureWithSymbol:@"ladybug.fill" color:UIColor.systemGreenColor
+                          title:BrowserLocalized(@"This Is a Beta")
+                           text:BrowserLocalized(@"Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot.")],
     ]];
     features.axis = UILayoutConstraintAxisVertical;
     features.spacing = 34.0;
@@ -533,6 +532,11 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BrowserDOMInteractionService *domInteractionService;
 @property (nonatomic) BrowserMenuCoordinator *menuCoordinator;
 @property (nonatomic) BrowserNavigationService *navigationService;
+@property (nonatomic, copy) NSDictionary *pageArticle;
+@property (nonatomic, copy) NSString *pageArticleURL;
+@property (nonatomic) BOOL pageHasFeed;
+@property (nonatomic) NSUInteger pageProbeGeneration;
+@property (nonatomic, copy) NSString *autoReaderURL;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -794,6 +798,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (![self canActivateTopBarFocusMode]) {
         return;
     }
+    [self refreshPageFeatures];
     if (self.topBarFocusActive) {
         return;
     }
@@ -859,6 +864,18 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
                 [self browserPresentViewController:alertController];
             } else {
                 [self browserShowTopNav];
+            }
+            break;
+        case BrowserTopBarActionReader:
+            [self deactivateTopBarFocusMode];
+            [self browserShowReader];
+            break;
+        case BrowserTopBarActionFeed:
+            [self deactivateTopBarFocusMode];
+            if (self.pageHasFeed) {
+                [self browserSubscribeToPageFeed];
+            } else {
+                [self browserShowFeeds];
             }
             break;
         case BrowserTopBarActionMenu:
@@ -1003,6 +1020,14 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }]];
 
     if (self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0) {
+        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Open in Reader")
+                                                            style:UIAlertActionStyleDefault
+                                                          handler:^(__unused UIAlertAction *action) {
+            [self browserShowReader];
+        }]];
+    }
+
+    if (self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0) {
         [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Reload Page")
                                                             style:UIAlertActionStyleDefault
                                                           handler:^(__unused UIAlertAction *action) {
@@ -1137,6 +1162,157 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 - (void)browserSetSettingsTitleShown:(BOOL)shown {
     // While Settings are open the address field reads "Einstellungen", like in the prototype.
     [self.topMenuView setOverrideTitle:(shown ? BrowserLocalized(@"Settings") : nil) subtitle:(shown ? @"Orbrisa" : nil)];
+}
+
+#pragma mark - Reader & feeds
+
+- (void)showSimpleAlertWithTitle:(NSString *)title message:(NSString *)message {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"OK") style:UIAlertActionStyleCancel handler:nil]];
+    [self browserPresentViewController:alert];
+}
+
+- (void)refreshPageFeatures {
+    // A quick look at the page (a few paragraphs of text? a feed link in the head?) – fast enough to run while it loads.
+    if (self.webview == nil || [BrowserWebView isWaitingForPage]) {
+        return;
+    }
+    static NSString * const probe =
+        @"(function(){try{var n=0,c=0,ps=document.querySelectorAll('p');"
+        @"for(var i=0;i<ps.length&&i<500;i++){var t=(ps[i].textContent||'').trim().length;if(t>=60){n++;c+=t;}}"
+        @"var f=document.querySelector('link[rel~=\"alternate\"][type*=\"rss\"],link[rel~=\"alternate\"][type*=\"atom\"],link[rel~=\"alternate\"][type*=\"feed\"]');"
+        @"return (n>=3&&c>=600?'1':'0')+(f?'1':'0');}catch(e){return '00';}})()";
+    NSString *result = [self.webview stringByEvaluatingJavaScriptFromString:probe] ?: @"";
+    BOOL reader = [result hasPrefix:@"1"];
+    BOOL feed = result.length >= 2 && [result characterAtIndex:1] == '1';
+    self.pageHasFeed = feed;
+    [self.topMenuView setReaderAvailable:reader feedAvailable:feed];
+    [self openReaderAutomaticallyIfWanted:reader];
+}
+
+- (void)openReaderAutomaticallyIfWanted:(BOOL)readerAvailable {
+    // "Always Open in Reader" for this site: open each article once, as soon as its text is there.
+    NSURL *URL = self.webview.request.URL;
+    NSString *page = URL.absoluteString ?: @"";
+    if (!readerAvailable || page.length == 0 || [self.autoReaderURL isEqualToString:page] || self.presentedViewController != nil
+        || ![BrowserReaderViewController opensAutomaticallyForURL:URL]) {
+        return;
+    }
+    NSString *script = [BrowserReaderViewController extractionScript];
+    NSDictionary *article = script.length > 0
+        ? [BrowserReaderViewController articleFromJavaScriptResult:[self.webview stringByEvaluatingJavaScriptFromString:script]] : nil;
+    if (article == nil) {
+        return; // not enough text yet – the next check tries again
+    }
+    self.autoReaderURL = page;
+    self.pageArticle = article;
+    self.pageArticleURL = page;
+    [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
+}
+
+- (void)schedulePageFeatureChecksForWebView:(id)webView delays:(NSArray<NSNumber *> *)delays {
+    NSUInteger generation = ++self.pageProbeGeneration;
+    __weak typeof(self) weakSelf = self;
+    for (NSNumber *delay in delays) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            ViewController *strongSelf = weakSelf;
+            if (strongSelf == nil || generation != strongSelf.pageProbeGeneration || webView != strongSelf.webview) {
+                return; // a newer page took over
+            }
+            [strongSelf refreshPageFeatures];
+        });
+    }
+}
+
+- (void)browserShowReader {
+    NSString *page = self.webview.request.URL.absoluteString ?: @"";
+    NSDictionary *article = (self.pageArticle != nil && [self.pageArticleURL isEqualToString:page]) ? self.pageArticle : nil;
+    if (article == nil) {
+        NSString *script = [BrowserReaderViewController extractionScript];
+        NSString *result = (script.length > 0 && self.webview != nil) ? [self.webview stringByEvaluatingJavaScriptFromString:script] : nil;
+        article = [BrowserReaderViewController articleFromJavaScriptResult:result];
+    }
+    if (article == nil) {
+        [self showSimpleAlertWithTitle:BrowserLocalized(@"Reader Not Available")
+                               message:BrowserLocalized(@"This page has no article that Orbrisa can show in the Reader.")];
+        return;
+    }
+    [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
+}
+
+- (void)browserShowFeeds {
+    BrowserFeedsViewController *feeds = [BrowserFeedsViewController new];
+    __weak typeof(self) weakSelf = self;
+    // Like the tab overview: the top bar stays, its address field reads "Feeds · 4 new articles".
+    feeds.headerChanged = ^(NSString *subtitle) {
+        [weakSelf.topMenuView setOverrideTitle:(subtitle != nil ? BrowserLocalized(@"Feeds") : nil)
+                                      subtitle:subtitle
+                                    symbolName:@"dot.radiowaves.up.forward"];
+    };
+    feeds.addFeed = ^{
+        [weakSelf browserSubscribeToPageFeed];
+    };
+    feeds.openArticle = ^(NSString *URLString) {
+        NSURLRequest *request = [weakSelf.navigationService requestForURLString:URLString];
+        if (request != nil) {
+            [weakSelf.webview loadRequest:request];
+        }
+    };
+    [self browserPresentViewController:feeds];
+}
+
+- (void)browserSubscribeToPageFeed {
+    NSString *script = [BrowserFeedStore detectionScript];
+    NSString *result = (script.length > 0 && self.webview != nil) ? [self.webview stringByEvaluatingJavaScriptFromString:script] : nil;
+    id json = result.length > 0 ? [NSJSONSerialization JSONObjectWithData:[result dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
+    NSArray *feeds = ([json isKindOfClass:[NSDictionary class]] && [json[@"feeds"] isKindOfClass:[NSArray class]]) ? json[@"feeds"] : @[];
+    NSString *site = ([json isKindOfClass:[NSDictionary class]] && [json[@"site"] isKindOfClass:[NSString class]]) ? json[@"site"] : @"";
+    NSDictionary *feed = [feeds.firstObject isKindOfClass:[NSDictionary class]] ? feeds.firstObject : nil;
+    NSString *feedURL = [feed[@"url"] isKindOfClass:[NSString class]] ? feed[@"url"] : @"";
+    if (feedURL.length == 0) {
+        [self showSimpleAlertWithTitle:BrowserLocalized(@"No Feed Found")
+                               message:BrowserLocalized(@"This page doesn't offer an RSS feed.")];
+        return;
+    }
+
+    BrowserFeedStore *store = [BrowserFeedStore sharedStore];
+    __weak typeof(self) weakSelf = self;
+    if ([store isSubscribedToURL:feedURL]) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:BrowserLocalized(@"Already Subscribed") message:site
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Open Feeds") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            [weakSelf browserShowFeeds];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"OK") style:UIAlertActionStyleCancel handler:nil]];
+        [self browserPresentViewController:alert];
+        return;
+    }
+
+    NSString *announcedTitle = [feed[@"title"] isKindOfClass:[NSString class]] ? feed[@"title"] : @"";
+    [store fetchFeedAtURL:feedURL completion:^(NSString *title, NSArray<BrowserFeedItem *> *items, __unused NSError *error) {
+        ViewController *strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return;
+        }
+        if (items.count == 0) {
+            [strongSelf showSimpleAlertWithTitle:BrowserLocalized(@"Feed Not Readable")
+                                         message:BrowserLocalized(@"Orbrisa found a feed on this page, but couldn't load it.")];
+            return;
+        }
+        NSString *name = title.length > 0 ? title : (announcedTitle.length > 0 ? announcedTitle : site);
+        NSMutableString *latest = [NSMutableString string];
+        for (NSUInteger i = 0; i < MIN((NSUInteger)3, items.count); i++) {
+            [latest appendFormat:@"%@• %@", i > 0 ? @"\n" : @"", items[i].title];
+        }
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:BrowserLocalized(@"Feed Found: %@"), name]
+                                                                       message:latest
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Subscribe") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            [[BrowserFeedStore sharedStore] subscribeToURL:feedURL title:name];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Not Now") style:UIAlertActionStyleCancel handler:nil]];
+        [strongSelf browserPresentViewController:alert];
+    }];
 }
 
 - (void)browserShowWhatsNew {
@@ -1715,6 +1891,13 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 }
 
 - (void)webViewDidStartLoad:(id)webView {
+    if (webView == self.webview) {
+        self.pageArticle = nil;
+        self.pageHasFeed = NO;
+        [self.topMenuView setReaderAvailable:NO feedAvailable:NO];
+        // Check while the page is still loading – articles usually have their text long before the ads and images are done.
+        [self schedulePageFeatureChecksForWebView:webView delays:@[@0.9, @1.8, @3.0, @4.5, @6.5]];
+    }
     [self.tabCoordinator webViewDidStartLoad:webView];
 }
 
@@ -1724,6 +1907,9 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 
 - (void)webViewDidFinishLoad:(id)webView {
     [self.tabCoordinator webViewDidFinishLoad:webView];
+    if (webView == self.webview) {
+        [self schedulePageFeatureChecksForWebView:webView delays:@[@0.15, @1.5]];
+    }
     if (self.tabOverviewController.visible) {
         BrowserTabViewModel *tab = [self.tabCoordinator tabForWebView:webView];
         NSInteger tabIndex = tab != nil ? [self.viewModel.tabs indexOfObject:tab] : NSNotFound;

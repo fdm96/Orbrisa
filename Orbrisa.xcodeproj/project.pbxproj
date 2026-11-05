@@ -37,6 +37,11 @@
 		B002B86D1BAE420500C744AF /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B002B86C1BAE420500C744AF /* ViewController.m */; };
 		B002B8701BAE420500C744AF /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B002B86E1BAE420500C744AF /* Main.storyboard */; };
 		B002B8721BAE420500C744AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B002B8711BAE420500C744AF /* Assets.xcassets */; };
+		B0B1C2D3E4F5061728394012 /* BrowserReaderViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394011 /* BrowserReaderViewController.m */; };
+		B0B1C2D3E4F5061728394015 /* BrowserFeedStore.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394014 /* BrowserFeedStore.m */; };
+		B0B1C2D3E4F5061728394018 /* BrowserFeedsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394017 /* BrowserFeedsViewController.m */; };
+		B0B1C2D3E4F506172839401A /* ReaderExtract.js in Resources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394019 /* ReaderExtract.js */; };
+		B0B1C2D3E4F506172839401C /* FeedDetect.js in Resources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F506172839401B /* FeedDetect.js */; };
 		C0FFEE00A1B2C3D4E5F60003 /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE00A1B2C3D4E5F60002 /* VLCKit */; };
 /* End PBXBuildFile section */
 
@@ -123,6 +128,14 @@
 		B002B86F1BAE420500C744AF /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		B002B8711BAE420500C744AF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B002B8731BAE420500C744AF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394010 /* BrowserReaderViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserReaderViewController.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394011 /* BrowserReaderViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserReaderViewController.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394013 /* BrowserFeedStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserFeedStore.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394014 /* BrowserFeedStore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserFeedStore.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394016 /* BrowserFeedsViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserFeedsViewController.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394017 /* BrowserFeedsViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserFeedsViewController.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394019 /* ReaderExtract.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ReaderExtract.js; sourceTree = "<group>"; };
+		B0B1C2D3E4F506172839401B /* FeedDetect.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = FeedDetect.js; sourceTree = "<group>"; };
 		B0F6B4611BAEBF9900E2F26B /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -245,6 +258,14 @@
 				A1B49A642D6A3900001D58A1 /* BrowserWebView.h */,
 				A0B1C2D3E4F5061728394A5B /* BrowserLog.h */,
 				A0B1C2D3E4F5061728394A5C /* BrowserLocalization.h */,
+				B0B1C2D3E4F5061728394010 /* BrowserReaderViewController.h */,
+				B0B1C2D3E4F5061728394011 /* BrowserReaderViewController.m */,
+				B0B1C2D3E4F5061728394013 /* BrowserFeedStore.h */,
+				B0B1C2D3E4F5061728394014 /* BrowserFeedStore.m */,
+				B0B1C2D3E4F5061728394016 /* BrowserFeedsViewController.h */,
+				B0B1C2D3E4F5061728394017 /* BrowserFeedsViewController.m */,
+				B0B1C2D3E4F5061728394019 /* ReaderExtract.js */,
+				B0B1C2D3E4F506172839401B /* FeedDetect.js */,
 				A0B1C2D3E4F5061728394A5F /* Localizable.strings */,
 				A1B49A622D6A3800001D58A1 /* BrowserWebView.m */,
 			);
@@ -428,6 +449,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B0B1C2D3E4F506172839401A /* ReaderExtract.js in Resources */,
+				B0B1C2D3E4F506172839401C /* FeedDetect.js in Resources */,
 				B002B8721BAE420500C744AF /* Assets.xcassets in Resources */,
 				B002B8701BAE420500C744AF /* Main.storyboard in Resources */,
 				A0B1C2D3E4F5061728394A60 /* Localizable.strings in Resources */,
@@ -465,6 +488,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B0B1C2D3E4F5061728394012 /* BrowserReaderViewController.m in Sources */,
+				B0B1C2D3E4F5061728394015 /* BrowserFeedStore.m in Sources */,
+				B0B1C2D3E4F5061728394018 /* BrowserFeedsViewController.m in Sources */,
 				A1B49A482D67F2B3001D58A1 /* BrowserTabViewModel.m in Sources */,
 				A1B49A552D68143D001D58A1 /* BrowserMenuCoordinator.m in Sources */,
 				A1B49A922D700030001D58A1 /* BrowserPageActionCoordinator.m in Sources */,
@@ -527,7 +553,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OrbrisaTopShelf/OrbrisaTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OrbrisaTopShelf/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -535,7 +561,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ORBRISA_BUNDLE_ID).TopShelf";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -550,7 +576,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OrbrisaTopShelf/OrbrisaTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OrbrisaTopShelf/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -558,7 +584,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(ORBRISA_BUNDLE_ID).TopShelf";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -685,7 +711,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_ENTITLEMENTS = Orbrisa/Orbrisa.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				EMBED_ASSET_PACKS_IN_PRODUCT_BUNDLE = YES;
 				ENABLE_ON_DEMAND_RESOURCES = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -694,7 +720,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lc++",
@@ -718,7 +744,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_ENTITLEMENTS = Orbrisa/Orbrisa.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				EMBED_ASSET_PACKS_IN_PRODUCT_BUNDLE = YES;
 				ENABLE_ON_DEMAND_RESOURCES = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -727,7 +753,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lc++",

@@ -1489,6 +1489,30 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     }];
 }
 
+- (BrowserAdvancedMenuItem *)readerMenuItem {
+    return [self advancedMenuItemWithTitle:BrowserLocalized(@"Open in Reader")
+                                     style:UIAlertActionStyleDefault
+                                   handler:^{
+        [self.host browserShowReader];
+    }];
+}
+
+- (BrowserAdvancedMenuItem *)feedsMenuItem {
+    return [self advancedMenuItemWithTitle:BrowserLocalized(@"Feeds")
+                                     style:UIAlertActionStyleDefault
+                                   handler:^{
+        [self.host browserShowFeeds];
+    }];
+}
+
+- (BrowserAdvancedMenuItem *)subscribeToFeedMenuItem {
+    return [self advancedMenuItemWithTitle:BrowserLocalized(@"Subscribe to Feed")
+                                     style:UIAlertActionStyleDefault
+                                   handler:^{
+        [self.host browserSubscribeToPageFeed];
+    }];
+}
+
 - (BrowserAdvancedMenuItem *)whatsNewMenuItem {
     return [self advancedMenuItemWithTitle:BrowserLocalized(@"What's New")
                                      style:UIAlertActionStyleDefault
@@ -1698,6 +1722,12 @@ static NSUInteger const kBrowserFontSizeMax = 200;
             [self showTabsMenuItem],
             [self newTabMenuItem],
         ]],
+        [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Reader & Feeds")
+                                               items:@[
+            [self readerMenuItem],
+            [self feedsMenuItem],
+            [self subscribeToFeedMenuItem],
+        ]],
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Appearance")
                                                items:@[
             [self liquidGlassMenuItem],
@@ -1747,6 +1777,10 @@ static NSUInteger const kBrowserFontSizeMax = 200;
     BOOL hasVersion = [self stringHasVisibleContent:version];
 
     if (hasVersion) {
+        NSString *label = infoDictionary[@"OrbrisaReleaseLabel"];
+        if ([self stringHasVisibleContent:label]) {
+            version = [NSString stringWithFormat:@"%@ %@", version, label];
+        }
         return [NSString stringWithFormat:BrowserLocalized(@"Version %@"), version];
     }
     return @"";
