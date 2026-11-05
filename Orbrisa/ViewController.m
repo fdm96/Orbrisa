@@ -536,6 +536,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic, copy) NSString *pageArticleURL;
 @property (nonatomic) BOOL pageHasFeed;
 @property (nonatomic) NSUInteger pageProbeGeneration;
+@property (nonatomic, copy) NSString *autoReaderURL;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -1186,6 +1187,27 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     BOOL feed = result.length >= 2 && [result characterAtIndex:1] == '1';
     self.pageHasFeed = feed;
     [self.topMenuView setReaderAvailable:reader feedAvailable:feed];
+    [self openReaderAutomaticallyIfWanted:reader];
+}
+
+- (void)openReaderAutomaticallyIfWanted:(BOOL)readerAvailable {
+    // "Always Open in Reader" for this site: open each article once, as soon as its text is there.
+    NSURL *URL = self.webview.request.URL;
+    NSString *page = URL.absoluteString ?: @"";
+    if (!readerAvailable || page.length == 0 || [self.autoReaderURL isEqualToString:page] || self.presentedViewController != nil
+        || ![BrowserReaderViewController opensAutomaticallyForURL:URL]) {
+        return;
+    }
+    NSString *script = [BrowserReaderViewController extractionScript];
+    NSDictionary *article = script.length > 0
+        ? [BrowserReaderViewController articleFromJavaScriptResult:[self.webview stringByEvaluatingJavaScriptFromString:script]] : nil;
+    if (article == nil) {
+        return; // not enough text yet – the next check tries again
+    }
+    self.autoReaderURL = page;
+    self.pageArticle = article;
+    self.pageArticleURL = page;
+    [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
 }
 
 - (void)schedulePageFeatureChecksForWebView:(id)webView delays:(NSArray<NSNumber *> *)delays {

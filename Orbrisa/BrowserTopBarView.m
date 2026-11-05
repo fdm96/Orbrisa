@@ -199,7 +199,7 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     [super awakeFromNib];
 
     // The storyboard still carries the old icon views; keep only the islands built in code.
-    NSArray<UIView *> *ownViews = @[self.leftContainerView, self.centerContainerView, self.rightContainerView];
+    NSArray<UIView *> *ownViews = @[self.leftContainerView, self.centerContainerView, self.rightContainerView, self.feedFocusButton];
     for (UIView *subview in [self.contentView.subviews copy]) {
         if (![ownViews containsObject:subview]) {
             [subview removeFromSuperview];

@@ -18,6 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Runs ReaderExtract.js in the page; returns the article, or nil when the page has no readable article.
 + (nullable NSDictionary *)articleFromJavaScriptResult:(nullable NSString *)result;
+/// YES when the user chose "Always Open in Reader" for this site.
++ (BOOL)opensAutomaticallyForURL:(nullable NSURL *)URL;
 /// The page script that finds the article (from the app bundle).
 + (NSString *)extractionScript;
 

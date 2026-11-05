@@ -39,9 +39,19 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
 @property (nonatomic) UIVisualEffectView *hintView;
 @property (nonatomic) UILabel *hintLabel;
 @property (nonatomic) UIVisualEffectView *panelView;
-@property (nonatomic) UIButton *sizeButton;
-@property (nonatomic) UIButton *themeButton;
-@property (nonatomic) UIButton *fontButton;
+@property (nonatomic) UIButton *smallerButton;
+@property (nonatomic) UIButton *biggerButton;
+@property (nonatomic) NSArray<UIView *> *sizeDots;
+@property (nonatomic) NSArray<UIButton *> *themeButtons;
+@property (nonatomic) UIButton *serifButton;
+@property (nonatomic) UIButton *systemButton;
+@property (nonatomic) UIButton *alwaysButton;
+@property (nonatomic) UILabel *alwaysLabel;
+@property (nonatomic) UIView *alwaysTrack;
+@property (nonatomic) UIView *alwaysKnob;
+@property (nonatomic, weak) UIButton *focusedControl;
+@property (nonatomic) NSLayoutConstraint *textCenterConstraint;
+@property (nonatomic) NSLayoutConstraint *textWidthConstraint;
 @property (nonatomic) NSMutableDictionary<NSString *, UIImage *> *images;
 @property (nonatomic) CGFloat panStartOffset;
 @property (nonatomic) NSInteger theme;
@@ -134,11 +144,13 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
 
     [self buildPanel];
 
+    self.textCenterConstraint = [textView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor];
+    self.textWidthConstraint = [textView.widthAnchor constraintEqualToConstant:1160.0];
     [NSLayoutConstraint activateConstraints:@[
+        self.textCenterConstraint,
+        self.textWidthConstraint,
         [textView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [textView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [textView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [textView.widthAnchor constraintEqualToConstant:1160.0],
 
         [hintLabel.leadingAnchor constraintEqualToAnchor:hintView.contentView.leadingAnchor constant:28.0],
         [hintLabel.trailingAnchor constraintEqualToAnchor:hintView.contentView.trailingAnchor constant:-28.0],
@@ -199,7 +211,7 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
     UIColor *muted = BrowserReaderColor(theme.muted);
     UIColor *accent = BrowserReaderColor(theme.accent);
     CGFloat body = [self bodySize];
-    CGFloat width = 1160.0;
+    CGFloat width = self.textWidthConstraint != nil ? self.textWidthConstraint.constant : 1160.0;
     NSMutableAttributedString *out = [NSMutableAttributedString new];
 
     void (^append)(NSString *, NSDictionary *) = ^(NSString *string, NSDictionary *attributes) {
@@ -350,15 +362,48 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
     }
 }
 
-#pragma mark - Appearance panel
+#pragma mark - Appearance panel (like the "Reader 2" concept)
 
-- (UIButton *)panelButton {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+static NSString * const kReaderAlwaysHostsKey = @"BrowserReaderAlwaysHosts";
+
++ (BOOL)opensAutomaticallyForURL:(NSURL *)URL {
+    NSString *host = URL.host.lowercaseString;
+    if (host.length == 0) {
+        return NO;
+    }
+    return [[NSUserDefaults.standardUserDefaults arrayForKey:kReaderAlwaysHostsKey] containsObject:host];
+}
+
+- (NSString *)articleHost {
+    NSString *URLString = [self.article[@"url"] isKindOfClass:[NSString class]] ? self.article[@"url"] : @"";
+    return [NSURL URLWithString:URLString].host.lowercaseString ?: @"";
+}
+
+- (BOOL)alwaysOpens {
+    NSString *host = [self articleHost];
+    return host.length > 0 && [[NSUserDefaults.standardUserDefaults arrayForKey:kReaderAlwaysHostsKey] containsObject:host];
+}
+
+- (UILabel *)sectionLabel:(NSString *)text {
+    UILabel *label = [UILabel new];
+    label.text = text.uppercaseString;
+    label.font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightSemibold];
+    label.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
+    return label;
+}
+
+- (UIButton *)panelControlWithSize:(CGSize)size radius:(CGFloat)radius {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
     button.translatesAutoresizingMaskIntoConstraints = NO;
-    button.titleLabel.font = [UIFont systemFontOfSize:28.0 weight:UIFontWeightMedium];
-    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-    [button.heightAnchor constraintEqualToConstant:84.0].active = YES;
-    [button addTarget:self action:@selector(panelButtonPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    button.layer.cornerRadius = radius;
+    button.layer.shadowColor = UIColor.blackColor.CGColor;
+    button.layer.shadowOffset = CGSizeMake(0.0, 8.0);
+    button.layer.shadowRadius = 14.0;
+    if (size.width > 0.0) {
+        [button.widthAnchor constraintEqualToConstant:size.width].active = YES;
+    }
+    [button.heightAnchor constraintEqualToConstant:size.height].active = YES;
+    [button addTarget:self action:@selector(panelControlPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
     return button;
 }
 
@@ -369,63 +414,227 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
     panel.layer.masksToBounds = YES;
     panel.alpha = 0.0;
     panel.hidden = YES;
+    UIView *tint = [UIView new];
+    tint.translatesAutoresizingMaskIntoConstraints = NO;
+    tint.backgroundColor = [UIColor colorWithRed:0.17 green:0.17 blue:0.20 alpha:0.6];
+    [panel.contentView addSubview:tint];
 
     UILabel *title = [UILabel new];
     title.text = BrowserLocalized(@"Appearance");
-    title.font = [UIFont systemFontOfSize:38.0 weight:UIFontWeightBold];
+    title.font = [UIFont systemFontOfSize:40.0 weight:UIFontWeightBold];
     title.textColor = UIColor.whiteColor;
 
-    self.sizeButton = [self panelButton];
-    self.themeButton = [self panelButton];
-    self.fontButton = [self panelButton];
+    // Font size: A – five dots – A
+    self.smallerButton = [self panelControlWithSize:CGSizeMake(76.0, 76.0) radius:22.0];
+    [self.smallerButton setTitle:@"A" forState:UIControlStateNormal];
+    self.smallerButton.titleLabel.font = [UIFont systemFontOfSize:24.0 weight:UIFontWeightSemibold];
+    self.smallerButton.accessibilityLabel = BrowserLocalized(@"Smaller");
+    self.biggerButton = [self panelControlWithSize:CGSizeMake(76.0, 76.0) radius:22.0];
+    [self.biggerButton setTitle:@"A" forState:UIControlStateNormal];
+    self.biggerButton.titleLabel.font = [UIFont systemFontOfSize:38.0 weight:UIFontWeightSemibold];
+    self.biggerButton.accessibilityLabel = BrowserLocalized(@"Bigger");
+    NSMutableArray<UIView *> *dots = [NSMutableArray array];
+    for (NSInteger i = 0; i < kReaderSizeCount; i++) {
+        UIView *dot = [UIView new];
+        dot.translatesAutoresizingMaskIntoConstraints = NO;
+        CGFloat side = 14.0 + i * 4.0;
+        dot.layer.cornerRadius = side / 2.0;
+        [dot.widthAnchor constraintEqualToConstant:side].active = YES;
+        [dot.heightAnchor constraintEqualToConstant:side].active = YES;
+        [dots addObject:dot];
+    }
+    self.sizeDots = dots;
+    UIStackView *dotRow = [[UIStackView alloc] initWithArrangedSubviews:dots];
+    dotRow.axis = UILayoutConstraintAxisHorizontal;
+    dotRow.alignment = UIStackViewAlignmentCenter;
+    dotRow.distribution = UIStackViewDistributionEqualSpacing;
+    UIStackView *sizeRow = [[UIStackView alloc] initWithArrangedSubviews:@[self.smallerButton, dotRow, self.biggerButton]];
+    sizeRow.axis = UILayoutConstraintAxisHorizontal;
+    sizeRow.alignment = UIStackViewAlignmentCenter;
+    sizeRow.spacing = 26.0;
 
-    UILabel *hint = [UILabel new];
-    hint.text = BrowserLocalized(@"Click to change  ·  Back: done");
-    hint.font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightRegular];
-    hint.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
+    // Background: four round swatches with "Aa"
+    NSMutableArray<UIButton *> *themeButtons = [NSMutableArray array];
+    NSMutableArray<UIView *> *themeColumns = [NSMutableArray array];
+    UIFontDescriptor *serifDescriptor = [[UIFont systemFontOfSize:34.0 weight:UIFontWeightSemibold].fontDescriptor fontDescriptorWithDesign:UIFontDescriptorSystemDesignSerif];
+    UIFont *swatchFont = serifDescriptor != nil ? [UIFont fontWithDescriptor:serifDescriptor size:34.0] : [UIFont systemFontOfSize:34.0 weight:UIFontWeightSemibold];
+    for (NSInteger i = 0; i < kReaderThemeCount; i++) {
+        UIButton *swatch = [self panelControlWithSize:CGSizeMake(96.0, 96.0) radius:48.0];
+        swatch.backgroundColor = BrowserReaderColor(kReaderThemes[i].background);
+        [swatch setTitle:@"Aa" forState:UIControlStateNormal];
+        [swatch setTitleColor:BrowserReaderColor(kReaderThemes[i].text) forState:UIControlStateNormal];
+        swatch.titleLabel.font = swatchFont;
+        swatch.accessibilityLabel = BrowserLocalized(kReaderThemes[i].name);
+        [themeButtons addObject:swatch];
+        UILabel *name = [UILabel new];
+        name.text = BrowserLocalized(kReaderThemes[i].name);
+        name.font = [UIFont systemFontOfSize:19.0 weight:UIFontWeightMedium];
+        name.textColor = UIColor.whiteColor;
+        UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:@[swatch, name]];
+        column.axis = UILayoutConstraintAxisVertical;
+        column.alignment = UIStackViewAlignmentCenter;
+        column.spacing = 12.0;
+        [themeColumns addObject:column];
+    }
+    self.themeButtons = themeButtons;
+    UIStackView *themeRow = [[UIStackView alloc] initWithArrangedSubviews:themeColumns];
+    themeRow.axis = UILayoutConstraintAxisHorizontal;
+    themeRow.distribution = UIStackViewDistributionEqualSpacing;
 
-    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[title, self.sizeButton, self.themeButton, self.fontButton, hint]];
+    // Font: Serif · System
+    self.serifButton = [self panelControlWithSize:CGSizeMake(0.0, 76.0) radius:38.0];
+    [self.serifButton setTitle:BrowserLocalized(@"Serif") forState:UIControlStateNormal];
+    self.systemButton = [self panelControlWithSize:CGSizeMake(0.0, 76.0) radius:38.0];
+    [self.systemButton setTitle:BrowserLocalized(@"System") forState:UIControlStateNormal];
+    for (UIButton *button in @[self.serifButton, self.systemButton]) {
+        button.titleLabel.font = [UIFont systemFontOfSize:24.0 weight:UIFontWeightSemibold];
+    }
+    UIStackView *fontRow = [[UIStackView alloc] initWithArrangedSubviews:@[self.serifButton, self.systemButton]];
+    fontRow.axis = UILayoutConstraintAxisHorizontal;
+    fontRow.distribution = UIStackViewDistributionFillEqually;
+    fontRow.spacing = 12.0;
+
+    // Always open this site in the Reader
+    self.alwaysButton = [self panelControlWithSize:CGSizeMake(0.0, 80.0) radius:40.0];
+    self.alwaysLabel = [UILabel new];
+    self.alwaysLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.alwaysLabel.text = BrowserLocalized(@"Always Open in Reader");
+    self.alwaysLabel.font = [UIFont systemFontOfSize:23.0 weight:UIFontWeightMedium];
+    self.alwaysLabel.userInteractionEnabled = NO;
+    self.alwaysTrack = [UIView new];
+    self.alwaysTrack.translatesAutoresizingMaskIntoConstraints = NO;
+    self.alwaysTrack.layer.cornerRadius = 23.0;
+    self.alwaysTrack.userInteractionEnabled = NO;
+    self.alwaysKnob = [UIView new];
+    self.alwaysKnob.backgroundColor = UIColor.whiteColor;
+    self.alwaysKnob.layer.cornerRadius = 19.0;
+    self.alwaysKnob.userInteractionEnabled = NO;
+    [self.alwaysTrack addSubview:self.alwaysKnob];
+    [self.alwaysButton addSubview:self.alwaysLabel];
+    [self.alwaysButton addSubview:self.alwaysTrack];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.alwaysLabel.leadingAnchor constraintEqualToAnchor:self.alwaysButton.leadingAnchor constant:26.0],
+        [self.alwaysLabel.centerYAnchor constraintEqualToAnchor:self.alwaysButton.centerYAnchor],
+        [self.alwaysTrack.trailingAnchor constraintEqualToAnchor:self.alwaysButton.trailingAnchor constant:-20.0],
+        [self.alwaysTrack.centerYAnchor constraintEqualToAnchor:self.alwaysButton.centerYAnchor],
+        [self.alwaysTrack.widthAnchor constraintEqualToConstant:84.0],
+        [self.alwaysTrack.heightAnchor constraintEqualToConstant:46.0],
+    ]];
+
+    UIView *spacer = [UIView new];
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
+        title,
+        [self sectionLabel:BrowserLocalized(@"Font Size")], sizeRow,
+        [self sectionLabel:BrowserLocalized(@"Background")], themeRow,
+        [self sectionLabel:BrowserLocalized(@"Font")], fontRow,
+        spacer, self.alwaysButton,
+    ]];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     stack.axis = UILayoutConstraintAxisVertical;
-    stack.spacing = 18.0;
-    [stack setCustomSpacing:30.0 afterView:title];
-    [stack setCustomSpacing:28.0 afterView:self.fontButton];
+    stack.spacing = 16.0;
+    [stack setCustomSpacing:34.0 afterView:title];
+    [stack setCustomSpacing:34.0 afterView:sizeRow];
+    [stack setCustomSpacing:34.0 afterView:themeRow];
     [panel.contentView addSubview:stack];
     [self.view addSubview:panel];
     self.panelView = panel;
 
     [NSLayoutConstraint activateConstraints:@[
+        [tint.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor],
+        [tint.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor],
+        [tint.topAnchor constraintEqualToAnchor:panel.contentView.topAnchor],
+        [tint.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor],
         [panel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-60.0],
-        [panel.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
-        [panel.widthAnchor constraintEqualToConstant:620.0],
+        [panel.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:60.0],
+        [panel.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-60.0],
+        [panel.widthAnchor constraintEqualToConstant:600.0],
         [stack.topAnchor constraintEqualToAnchor:panel.contentView.topAnchor constant:44.0],
-        [stack.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor constant:-40.0],
+        [stack.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor constant:-44.0],
         [stack.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:40.0],
         [stack.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor constant:-40.0],
     ]];
 }
 
-- (void)updatePanelTitles {
-    static NSInteger const percents[kReaderSizeCount] = {80, 90, 100, 115, 130};
-    [self.sizeButton setTitle:[NSString stringWithFormat:BrowserLocalized(@"Font Size: %ld %%"), (long)percents[self.size]] forState:UIControlStateNormal];
-    [self.themeButton setTitle:[NSString stringWithFormat:BrowserLocalized(@"Background: %@"), BrowserLocalized([self currentTheme].name)] forState:UIControlStateNormal];
-    [self.fontButton setTitle:[NSString stringWithFormat:BrowserLocalized(@"Font: %@"), self.serif ? BrowserLocalized(@"Serif") : BrowserLocalized(@"System")]
-                     forState:UIControlStateNormal];
+- (void)styleControl:(UIButton *)button selected:(BOOL)selected {
+    // Focused or chosen: white with dark text. Otherwise: a soft glass capsule with white text.
+    BOOL focused = (button == self.focusedControl);
+    BOOL light = focused || selected;
+    button.backgroundColor = light ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.12];
+    [button setTitleColor:light ? [UIColor colorWithWhite:0.11 alpha:1.0] : UIColor.whiteColor forState:UIControlStateNormal];
+    button.transform = focused ? CGAffineTransformMakeScale(1.06, 1.06) : CGAffineTransformIdentity;
+    button.layer.shadowOpacity = focused ? 0.4 : 0.0;
 }
 
-- (void)panelButtonPressed:(UIButton *)button {
-    if (button == self.sizeButton) {
-        self.size = (self.size + 1) % kReaderSizeCount;
-    } else if (button == self.themeButton) {
-        self.theme = (self.theme + 1) % kReaderThemeCount;
-    } else if (button == self.fontButton) {
-        self.serif = !self.serif;
+- (void)updatePanelTitles {
+    [self styleControl:self.smallerButton selected:NO];
+    [self styleControl:self.biggerButton selected:NO];
+    [self.smallerButton setTitleColor:(self.focusedControl == self.smallerButton ? [UIColor colorWithWhite:0.11 alpha:1.0]
+                                       : [UIColor colorWithWhite:1.0 alpha:self.size == 0 ? 0.35 : 1.0]) forState:UIControlStateNormal];
+    [self.biggerButton setTitleColor:(self.focusedControl == self.biggerButton ? [UIColor colorWithWhite:0.11 alpha:1.0]
+                                      : [UIColor colorWithWhite:1.0 alpha:self.size == kReaderSizeCount - 1 ? 0.35 : 1.0]) forState:UIControlStateNormal];
+    for (NSInteger i = 0; i < (NSInteger)self.sizeDots.count; i++) {
+        self.sizeDots[(NSUInteger)i].backgroundColor = i <= self.size ? UIColor.systemBlueColor : [UIColor colorWithWhite:1.0 alpha:0.22];
+    }
+    for (NSInteger i = 0; i < (NSInteger)self.themeButtons.count; i++) {
+        UIButton *swatch = self.themeButtons[(NSUInteger)i];
+        BOOL focused = (swatch == self.focusedControl);
+        BOOL chosen = (i == self.theme);
+        swatch.layer.borderWidth = chosen ? 5.0 : 2.0;
+        swatch.layer.borderColor = (chosen ? UIColor.systemBlueColor : [UIColor colorWithWhite:1.0 alpha:0.2]).CGColor;
+        swatch.transform = focused ? CGAffineTransformMakeScale(1.12, 1.12) : CGAffineTransformIdentity;
+        swatch.layer.shadowOpacity = focused ? 0.5 : 0.0;
+    }
+    [self styleControl:self.serifButton selected:self.serif];
+    [self styleControl:self.systemButton selected:!self.serif];
+
+    BOOL always = [self alwaysOpens];
+    BOOL alwaysFocused = (self.focusedControl == self.alwaysButton);
+    self.alwaysButton.backgroundColor = alwaysFocused ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.1];
+    self.alwaysButton.transform = alwaysFocused ? CGAffineTransformMakeScale(1.04, 1.04) : CGAffineTransformIdentity;
+    self.alwaysButton.layer.shadowOpacity = alwaysFocused ? 0.4 : 0.0;
+    self.alwaysLabel.textColor = alwaysFocused ? [UIColor colorWithWhite:0.11 alpha:1.0] : UIColor.whiteColor;
+    self.alwaysTrack.backgroundColor = always ? UIColor.systemBlueColor
+                                              : (alwaysFocused ? [UIColor colorWithWhite:0.0 alpha:0.16] : [UIColor colorWithWhite:0.47 alpha:0.5]);
+    self.alwaysKnob.frame = CGRectMake(always ? 42.0 : 4.0, 4.0, 38.0, 38.0);
+}
+
+- (void)panelControlPressed:(UIButton *)button {
+    if (button == self.smallerButton) {
+        self.size = MAX(0, self.size - 1);
+    } else if (button == self.biggerButton) {
+        self.size = MIN(kReaderSizeCount - 1, self.size + 1);
+    } else if ([self.themeButtons containsObject:button]) {
+        self.theme = (NSInteger)[self.themeButtons indexOfObject:button];
+    } else if (button == self.serifButton) {
+        self.serif = YES;
+    } else if (button == self.systemButton) {
+        self.serif = NO;
+    } else if (button == self.alwaysButton) {
+        NSString *host = [self articleHost];
+        if (host.length > 0) {
+            NSMutableArray *hosts = [[NSUserDefaults.standardUserDefaults arrayForKey:kReaderAlwaysHostsKey] mutableCopy] ?: [NSMutableArray array];
+            if ([hosts containsObject:host]) {
+                [hosts removeObject:host];
+            } else {
+                [hosts addObject:host];
+            }
+            [NSUserDefaults.standardUserDefaults setObject:hosts forKey:kReaderAlwaysHostsKey];
+        }
+        [UIView animateWithDuration:0.2 animations:^{ [self updatePanelTitles]; }];
+        return;
     }
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     [defaults setInteger:self.theme forKey:kReaderThemeKey];
     [defaults setInteger:self.size forKey:kReaderSizeKey];
     [defaults setBool:self.serif forKey:kReaderSerifKey];
     [self applyAppearanceKeepingPosition:YES];
+}
+
+- (void)didUpdateFocusInContext:(UIFocusUpdateContext *)context withAnimationCoordinator:(UIFocusAnimationCoordinator *)coordinator {
+    [super didUpdateFocusInContext:context withAnimationCoordinator:coordinator];
+    UIView *next = context.nextFocusedView;
+    self.focusedControl = [next isKindOfClass:[UIButton class]] && [next isDescendantOfView:self.panelView] ? (UIButton *)next : nil;
+    [coordinator addCoordinatedAnimations:^{ [self updatePanelTitles]; } completion:nil];
 }
 
 - (BOOL)panelVisible {
@@ -439,8 +648,13 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
     if (visible) {
         self.panelView.hidden = NO;
     }
-    [UIView animateWithDuration:0.25 animations:^{
+    // The article moves to the left so the panel does not cover it.
+    self.textCenterConstraint.constant = visible ? -330.0 : 0.0;
+    self.textWidthConstraint.constant = visible ? 1020.0 : 1160.0;
+    [self applyAppearanceKeepingPosition:YES];
+    [UIView animateWithDuration:0.3 animations:^{
         self.panelView.alpha = visible ? 1.0 : 0.0;
+        [self.view layoutIfNeeded];
     } completion:^(__unused BOOL finished) {
         if (!visible) {
             self.panelView.hidden = YES;
@@ -452,7 +666,7 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
 }
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
-    return [self panelVisible] ? @[self.sizeButton] : @[];
+    return [self panelVisible] ? @[self.biggerButton] : @[];
 }
 
 #pragma mark - Scrolling with the remote
