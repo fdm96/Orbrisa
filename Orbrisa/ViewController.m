@@ -1436,11 +1436,13 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (!hasPage) {
         // Back from the start page of an empty tab: into the previous tab, or – the only tab – to Google instead of a blank page.
         start.closeEmptyTab = ^{
+            // Back from the start page of an empty tab: Google in this tab – never a blank page.
             weakSelf.startPageSuppressedUntil = CACurrentMediaTime() + 1.5;
-            if (weakSelf.viewModel.tabs.count > 1) {
-                [weakSelf.tabCoordinator closeTabAtIndex:weakSelf.viewModel.activeTabIndex];
+            NSURLRequest *request = [weakSelf.navigationService requestForURLString:@"https://www.google.com"];
+            BrowserLog(@"[StartPage] back -> google request=%@ webview=%p", request.URL.absoluteString ?: @"(nil)", weakSelf.webview);
+            if (request != nil) {
+                [weakSelf.webview loadRequest:request];
             }
-            [weakSelf browserOpenGoogleIfTabEmpty]; // the tab we land in is empty too: Google instead of a blank page
         };
     }
     [self presentViewController:start animated:YES completion:nil];
