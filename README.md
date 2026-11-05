@@ -13,7 +13,7 @@
 [![Downloads](https://img.shields.io/github/downloads/fdm96/Orbrisa/total?label=downloads)](https://github.com/fdm96/Orbrisa/releases)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Orbrisa-72a4f2?logo=ko-fi&logoColor=white)](https://ko-fi.com/T1M629LBVF)
 
-[Features](#features) · [Screenshots](#screenshots) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
+[Features](#features) · [Screenshots](#screenshots) · [Concept](#from-concept-to-app) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
 
 </div>
 
@@ -65,6 +65,29 @@
 | **What's New** after every update | **Usage guide** for the Siri Remote |
 | <img src="docs/screenshots/top-shelf.jpg" alt="Top Shelf on the Apple TV home screen"> | |
 | **Home screen** with Top Shelf | |
+
+</details>
+
+## From concept to app
+
+Orbrisa started as a set of design concepts – drawn first, then built. Here is how the ideas turned into the real app.
+
+<details>
+<summary><b>🎨 Show concept vs. app (5)</b></summary>
+<br>
+
+| Concept | App |
+|:---:|:---:|
+| <img src="docs/concept/top-bar.jpg" alt="Concept: glass top bar"> | <img src="docs/screenshots/browsing.jpg" alt="App: glass top bar"> |
+| **Top bar** – navigation, address and actions as glass capsules | |
+| <img src="docs/concept/tab-strip.jpg" alt="Concept: tab strip"> | <img src="docs/screenshots/tab-strip.jpg" alt="App: tab strip"> |
+| **Tab strip** – tabs with logos and a large preview | |
+| <img src="docs/concept/settings.jpg" alt="Concept: settings"> | <img src="docs/screenshots/settings.jpg" alt="App: settings"> |
+| **Settings** – styled like the tvOS Settings app | |
+| <img src="docs/concept/whats-new.jpg" alt="Concept: What's New"> | <img src="docs/screenshots/whats-new.jpg" alt="App: What's New"> |
+| **What's New** – shown after every update | |
+| <img src="docs/concept/video-popup.jpg" alt="Concept: video popup"> | |
+| **Video popup** – Full Screen, Choose Video or Stay on Page | |
 
 </details>
 
