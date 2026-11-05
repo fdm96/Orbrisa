@@ -1243,6 +1243,15 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 - (void)browserShowFeeds {
     BrowserFeedsViewController *feeds = [BrowserFeedsViewController new];
     __weak typeof(self) weakSelf = self;
+    // Like the tab overview: the top bar stays, its address field reads "Feeds · 4 new articles".
+    feeds.headerChanged = ^(NSString *subtitle) {
+        [weakSelf.topMenuView setOverrideTitle:(subtitle != nil ? BrowserLocalized(@"Feeds") : nil)
+                                      subtitle:subtitle
+                                    symbolName:@"dot.radiowaves.up.forward"];
+    };
+    feeds.addFeed = ^{
+        [weakSelf browserSubscribeToPageFeed];
+    };
     feeds.openArticle = ^(NSString *URLString) {
         NSURLRequest *request = [weakSelf.navigationService requestForURLString:URLString];
         if (request != nil) {

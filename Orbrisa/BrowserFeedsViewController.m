@@ -7,8 +7,9 @@
 #import "BrowserFeedStore.h"
 #import "BrowserLocalization.h"
 
-static CGFloat const kFeedsSidebarWidth = 470.0;
-static CGFloat const kFeedsCardHeight = 340.0;
+static CGFloat const kFeedsTop = 140.0;          // just below the top bar, like the tab overview
+static CGFloat const kFeedsSidebarWidth = 440.0;
+static CGFloat const kFeedsCardHeight = 330.0;
 static CGFloat const kFeedsCardImageHeight = 190.0;
 
 static UIColor *FeedsBackgroundColor(void) { return [UIColor colorWithRed:0.08 green:0.08 blue:0.09 alpha:1.0]; }
@@ -210,8 +211,11 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 #pragma mark - Screen
 
 @interface BrowserFeedsViewController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate>
-@property (nonatomic) UILabel *titleLabel;
-@property (nonatomic) UILabel *subtitleLabel;
+@property (nonatomic) UIButton *allChip;
+@property (nonatomic) UIButton *unreadChip;
+@property (nonatomic) UIButton *addButton;
+@property (nonatomic) BOOL unreadOnly;
+@property (nonatomic, copy) NSString *headerSubtitle;
 @property (nonatomic) UITableView *tableView;
 @property (nonatomic) UICollectionView *collectionView;
 @property (nonatomic) UILabel *emptyLabel;
@@ -225,7 +229,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 - (instancetype)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
-        self.modalPresentationStyle = UIModalPresentationFullScreen;
+        self.modalPresentationStyle = UIModalPresentationOverFullScreen;
         self.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
         _items = @[];
     }
@@ -234,30 +238,47 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = FeedsBackgroundColor();
+    // The top bar stays visible above (it reads "Feeds"); everything below it gets a dark backdrop.
+    self.view.backgroundColor = UIColor.clearColor;
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+    UIView *backdrop = [UIView new];
+    backdrop.translatesAutoresizingMaskIntoConstraints = NO;
+    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.97];
+    backdrop.userInteractionEnabled = NO;
+    [self.view addSubview:backdrop];
+    UIView *topShade = [UIView new];
+    topShade.translatesAutoresizingMaskIntoConstraints = NO;
+    topShade.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
+    topShade.userInteractionEnabled = NO;
+    [self.view addSubview:topShade];
 
-    UIImageSymbolConfiguration *symbolConfig = [UIImageSymbolConfiguration configurationWithPointSize:34.0 weight:UIImageSymbolWeightBold];
-    UIImageView *rssIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"dot.radiowaves.up.forward" withConfiguration:symbolConfig]];
-    rssIcon.tintColor = UIColor.systemOrangeColor;
-    UILabel *titleLabel = [UILabel new];
-    titleLabel.text = BrowserLocalized(@"Feeds");
-    titleLabel.font = [UIFont systemFontOfSize:44.0 weight:UIFontWeightBold];
-    titleLabel.textColor = UIColor.whiteColor;
-    UIStackView *titleRow = [[UIStackView alloc] initWithArrangedSubviews:@[rssIcon, titleLabel]];
-    titleRow.spacing = 14.0;
-    titleRow.alignment = UIStackViewAlignmentCenter;
-    UILabel *subtitleLabel = [UILabel new];
-    subtitleLabel.font = [UIFont systemFontOfSize:23.0 weight:UIFontWeightMedium];
-    subtitleLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
-    UIStackView *header = [[UIStackView alloc] initWithArrangedSubviews:@[titleRow, subtitleLabel]];
-    header.translatesAutoresizingMaskIntoConstraints = NO;
-    header.axis = UILayoutConstraintAxisVertical;
-    header.alignment = UIStackViewAlignmentCenter;
-    header.spacing = 4.0;
-    [self.view addSubview:header];
-    self.titleLabel = titleLabel;
-    self.subtitleLabel = subtitleLabel;
+    UILabel *sidebarTitle = [UILabel new];
+    sidebarTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    sidebarTitle.text = BrowserLocalized(@"Subscribed").uppercaseString;
+    sidebarTitle.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightSemibold];
+    sidebarTitle.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
+    [self.view addSubview:sidebarTitle];
+
+    self.allChip = [self chipWithTitle:BrowserLocalized(@"All")];
+    self.unreadChip = [self chipWithTitle:BrowserLocalized(@"Unread")];
+    UIStackView *chips = [[UIStackView alloc] initWithArrangedSubviews:@[self.allChip, self.unreadChip]];
+    chips.translatesAutoresizingMaskIntoConstraints = NO;
+    chips.spacing = 14.0;
+    [self.view addSubview:chips];
+
+    UIButton *addButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    addButton.translatesAutoresizingMaskIntoConstraints = NO;
+    addButton.layer.cornerRadius = 36.0;
+    addButton.layer.shadowColor = UIColor.blackColor.CGColor;
+    addButton.layer.shadowRadius = 14.0;
+    addButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
+    UIImageSymbolConfiguration *plusConfig = [UIImageSymbolConfiguration configurationWithPointSize:24.0 weight:UIImageSymbolWeightSemibold];
+    [addButton setImage:[UIImage systemImageNamed:@"plus" withConfiguration:plusConfig] forState:UIControlStateNormal];
+    [addButton setTitle:[@"  " stringByAppendingString:BrowserLocalized(@"Add Feed")] forState:UIControlStateNormal];
+    addButton.titleLabel.font = [UIFont systemFontOfSize:25.0 weight:UIFontWeightSemibold];
+    [addButton addTarget:self action:@selector(addFeedPressed) forControlEvents:UIControlEventPrimaryActionTriggered];
+    [self.view addSubview:addButton];
+    self.addButton = addButton;
 
     UITableView *tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     tableView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -303,25 +324,32 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     [self.view addSubview:spinner];
     self.spinner = spinner;
 
-    UILabel *hint = [UILabel new];
-    hint.translatesAutoresizingMaskIntoConstraints = NO;
-    hint.text = BrowserLocalized(@"Click: open article  ·  Play/Pause on a feed: unsubscribe  ·  Back: close");
-    hint.font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightRegular];
-    hint.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
-    [self.view addSubview:hint];
-
     [NSLayoutConstraint activateConstraints:@[
-        [header.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:50.0],
-        [header.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [topShade.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [topShade.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [topShade.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [topShade.bottomAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [backdrop.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [backdrop.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [backdrop.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop - 8.0],
+        [backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
-        [tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:70.0],
-        [tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:190.0],
-        [tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-90.0],
+        [sidebarTitle.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:110.0],
+        [sidebarTitle.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop + 12.0],
+        [tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:80.0],
+        [tableView.topAnchor constraintEqualToAnchor:sidebarTitle.bottomAnchor constant:12.0],
+        [tableView.bottomAnchor constraintEqualToAnchor:addButton.topAnchor constant:-20.0],
         [tableView.widthAnchor constraintEqualToConstant:kFeedsSidebarWidth],
+        [addButton.leadingAnchor constraintEqualToAnchor:tableView.leadingAnchor],
+        [addButton.widthAnchor constraintEqualToConstant:kFeedsSidebarWidth],
+        [addButton.heightAnchor constraintEqualToConstant:72.0],
+        [addButton.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-50.0],
 
-        [collectionView.leadingAnchor constraintEqualToAnchor:tableView.trailingAnchor constant:40.0],
-        [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-50.0],
-        [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:166.0],
+        [chips.leadingAnchor constraintEqualToAnchor:collectionView.leadingAnchor constant:24.0],
+        [chips.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop + 4.0],
+        [collectionView.leadingAnchor constraintEqualToAnchor:tableView.trailingAnchor constant:30.0],
+        [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-56.0],
+        [collectionView.topAnchor constraintEqualToAnchor:chips.bottomAnchor constant:8.0],
         [collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
         [emptyLabel.centerXAnchor constraintEqualToAnchor:collectionView.centerXAnchor],
@@ -330,8 +358,6 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         [spinner.centerXAnchor constraintEqualToAnchor:collectionView.centerXAnchor],
         [spinner.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
 
-        [hint.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [hint.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-36.0],
     ]];
 
     if ([BrowserFeedStore sharedStore].subscriptions.count > 0) {
@@ -343,6 +369,88 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         }];
     }
     [self reloadContent]; // shows the last loaded articles while the new ones come in
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    if (self.headerChanged != nil) {
+        self.headerChanged(self.headerSubtitle ?: @"");
+    }
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    if (self.isBeingDismissed && self.headerChanged != nil) {
+        self.headerChanged(nil);
+    }
+}
+
+#pragma mark - Chips & buttons
+
+- (UIButton *)chipWithTitle:(NSString *)title {
+    UIButton *chip = [UIButton buttonWithType:UIButtonTypeCustom];
+    chip.translatesAutoresizingMaskIntoConstraints = NO;
+    [chip setTitle:title forState:UIControlStateNormal];
+    chip.titleLabel.font = [UIFont systemFontOfSize:25.0 weight:UIFontWeightSemibold];
+    CGFloat textWidth = ceil([title sizeWithAttributes:@{NSFontAttributeName: chip.titleLabel.font}].width);
+    [chip.widthAnchor constraintEqualToConstant:textWidth + 60.0].active = YES;
+    chip.layer.cornerRadius = 30.0;
+    [chip.heightAnchor constraintEqualToConstant:60.0].active = YES;
+    [chip addTarget:self action:@selector(chipPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    return chip;
+}
+
+- (void)updateControls {
+    UIView *focused = (UIView *)[UIFocusSystem focusSystemForEnvironment:self].focusedItem;
+    for (UIButton *chip in @[self.allChip, self.unreadChip]) {
+        BOOL chosen = (chip == self.unreadChip) == self.unreadOnly;
+        BOOL light = chosen || chip == focused;
+        chip.backgroundColor = light ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.1];
+        [chip setTitleColor:light ? [UIColor colorWithWhite:0.1 alpha:1.0] : UIColor.whiteColor forState:UIControlStateNormal];
+        chip.transform = chip == focused ? CGAffineTransformMakeScale(1.08, 1.08) : CGAffineTransformIdentity;
+    }
+    BOOL addFocused = (self.addButton == focused);
+    UIColor *addContent = addFocused ? [UIColor colorWithWhite:0.1 alpha:1.0] : UIColor.whiteColor;
+    self.addButton.backgroundColor = addFocused ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.08];
+    [self.addButton setTitleColor:addContent forState:UIControlStateNormal];
+    self.addButton.tintColor = addContent;
+    self.addButton.layer.shadowOpacity = addFocused ? 0.35 : 0.0;
+    self.addButton.transform = addFocused ? CGAffineTransformMakeScale(1.03, 1.03) : CGAffineTransformIdentity;
+}
+
+- (void)didUpdateFocusInContext:(UIFocusUpdateContext *)context withAnimationCoordinator:(UIFocusAnimationCoordinator *)coordinator {
+    [super didUpdateFocusInContext:context withAnimationCoordinator:coordinator];
+    [coordinator addCoordinatedAnimations:^{ [self updateControls]; } completion:nil];
+}
+
+- (void)chipPressed:(UIButton *)chip {
+    BOOL unreadOnly = (chip == self.unreadChip);
+    if (unreadOnly == self.unreadOnly) {
+        return;
+    }
+    self.unreadOnly = unreadOnly;
+    [self updateControls];
+    [self reloadContent];
+}
+
+- (void)addFeedPressed {
+    void (^addFeed)(void) = self.addFeed;
+    [self dismissViewControllerAnimated:YES completion:^{
+        if (addFeed != nil) {
+            addFeed();
+        }
+    }];
+}
+
+- (NSArray<BrowserFeedItem *> *)visibleItemsForFeedURL:(nullable NSString *)URLString {
+    BrowserFeedStore *store = [BrowserFeedStore sharedStore];
+    NSArray<BrowserFeedItem *> *items = [store itemsForFeedURL:URLString];
+    if (!self.unreadOnly) {
+        return items;
+    }
+    return [items filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(BrowserFeedItem *item, __unused NSDictionary *bindings) {
+        return ![store isRead:item];
+    }]];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -363,18 +471,28 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     if (self.selectedFeedURL != nil && ![store isSubscribedToURL:self.selectedFeedURL]) {
         self.selectedFeedURL = nil;
     }
-    self.items = [store itemsForFeedURL:self.selectedFeedURL];
+    self.items = [self visibleItemsForFeedURL:self.selectedFeedURL];
     NSUInteger unread = [store unreadCountForFeedURL:nil];
+    NSString *subtitle = nil;
     if (store.subscriptions.count == 0) {
-        self.subtitleLabel.text = BrowserLocalized(@"No feeds yet");
+        subtitle = BrowserLocalized(@"No feeds yet");
     } else if (unread == 0) {
-        self.subtitleLabel.text = BrowserLocalized(@"All read");
+        subtitle = BrowserLocalized(@"All read");
     } else {
-        self.subtitleLabel.text = [NSString stringWithFormat:BrowserLocalized(@"%lu new articles"), (unsigned long)unread];
+        subtitle = [NSString stringWithFormat:BrowserLocalized(@"%lu new articles"), (unsigned long)unread];
     }
+    if (![subtitle isEqualToString:self.headerSubtitle]) {
+        self.headerSubtitle = subtitle;
+        if (self.headerChanged != nil && self.viewIfLoaded.window != nil) {
+            self.headerChanged(subtitle);
+        }
+    }
+    [self updateControls];
 
     if (store.subscriptions.count == 0) {
         self.emptyLabel.text = BrowserLocalized(@"No feeds yet. Open a website and choose “Subscribe to Feed” in Settings – Orbrisa finds the feed for you.");
+    } else if (self.items.count == 0 && self.unreadOnly && !store.isRefreshing) {
+        self.emptyLabel.text = BrowserLocalized(@"All read");
     } else if (self.items.count == 0 && !store.isRefreshing) {
         self.emptyLabel.text = BrowserLocalized(@"No articles found. The site may be offline – try again later.");
     }
@@ -422,7 +540,7 @@ withAnimationCoordinator:(__unused UIFocusAnimationCoordinator *)coordinator {
         return;
     }
     self.selectedFeedURL = URLString;
-    self.items = [[BrowserFeedStore sharedStore] itemsForFeedURL:URLString];
+    self.items = [self visibleItemsForFeedURL:URLString];
     [self.collectionView reloadData];
 }
 
@@ -485,7 +603,10 @@ withAnimationCoordinator:(__unused UIFocusAnimationCoordinator *)coordinator {
 #pragma mark - Remote
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
-    return self.items.count > 0 ? @[self.collectionView] : @[self.tableView];
+    if (self.items.count > 0) {
+        return @[self.collectionView];
+    }
+    return [BrowserFeedStore sharedStore].subscriptions.count > 0 ? @[self.tableView] : @[self.addButton];
 }
 
 - (void)confirmUnsubscribeFromFeed:(NSDictionary<NSString *, NSString *> *)feed {

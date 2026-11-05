@@ -57,6 +57,8 @@ typedef NS_ENUM(NSInteger, BrowserTopBarAction) {
 - (void)setPageTitle:(nullable NSString *)title URLString:(nullable NSString *)URLString;
 /// Shows a fixed title (e.g. "Einstellungen") in the address field until it is cleared with nil; page updates are kept for later.
 - (void)setOverrideTitle:(nullable NSString *)title subtitle:(nullable NSString *)subtitle;
+/// Same, with a small orange symbol in front of the title (e.g. the RSS symbol for the feeds).
+- (void)setOverrideTitle:(nullable NSString *)title subtitle:(nullable NSString *)subtitle symbolName:(nullable NSString *)symbolName;
 /// Number shown on the tabs button; 0 hides it.
 - (void)setTabCount:(NSUInteger)tabCount;
 /// Shows the "Reader" button in the address pill and the RSS button next to it (only when the page has an article / a feed).

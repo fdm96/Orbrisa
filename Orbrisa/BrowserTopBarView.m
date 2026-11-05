@@ -36,7 +36,7 @@ static CGFloat const kTopBarDisabledIconAlpha = 0.38;
 static CGFloat const kTopBarReaderHeight = 48.0;
 static CGFloat const kTopBarReaderInset = 11.0;
 static CGFloat const kTopBarFeedSize = 60.0;
-static CGFloat const kTopBarFeedGap = 16.0;
+static CGFloat const kTopBarFeedGap = 32.0; // room for the address pill growing when focused
 
 #pragma mark - Focus button
 
@@ -715,6 +715,24 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
         self.subtitleSecure = self.stashedSubtitleSecure;
     }
     [self refreshSubtitle];
+}
+
+- (void)setOverrideTitle:(NSString *)title subtitle:(NSString *)subtitle symbolName:(NSString *)symbolName {
+    [self setOverrideTitle:title subtitle:subtitle];
+    UIImage *symbol = (title != nil && symbolName.length > 0)
+        ? [[self symbolImageNamed:symbolName pointSize:22.0] imageWithTintColor:UIColor.systemOrangeColor renderingMode:UIImageRenderingModeAlwaysOriginal] : nil;
+    if (symbol == nil) {
+        return;
+    }
+    NSTextAttachment *attachment = [[NSTextAttachment alloc] init];
+    attachment.image = symbol;
+    CGFloat capHeight = self.URLLabel.font.capHeight;
+    attachment.bounds = CGRectMake(0.0, floor((capHeight - symbol.size.height) / 2.0), symbol.size.width, symbol.size.height);
+    NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithAttributedString:[NSAttributedString attributedStringWithAttachment:attachment]];
+    [text appendAttributedString:[[NSAttributedString alloc] initWithString:[@"  " stringByAppendingString:title]]];
+    [text addAttribute:NSFontAttributeName value:self.URLLabel.font range:NSMakeRange(0, text.length)];
+    self.URLLabel.attributedText = text;
+    [self setNeedsLayout];
 }
 
 - (void)setPageTitle:(NSString *)title URLString:(NSString *)URLString {
