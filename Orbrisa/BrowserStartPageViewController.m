@@ -232,6 +232,121 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 
 @end
 
+#pragma mark - Options panel row
+
+/// One row of the favorite options panel (like the "Web App 1" concept): glass when idle, white when focused, optional switch.
+@interface BrowserStartPanelRow : UIButton
+@property (nonatomic) UIImageView *iconView;
+@property (nonatomic) UILabel *mainLabel;
+@property (nonatomic) UILabel *detailLabel;
+@property (nonatomic) UIView *track;
+@property (nonatomic) UIView *knob;
+@property (nonatomic) BOOL switchOn;
+@property (nonatomic) BOOL destructive;
+@property (nonatomic) BOOL highlightedIdle; // the main action: white even when not focused
+@end
+
+@implementation BrowserStartPanelRow
+
++ (instancetype)rowWithSymbol:(NSString *)symbol title:(NSString *)title detail:(NSString *)detail hasSwitch:(BOOL)hasSwitch height:(CGFloat)height {
+    BrowserStartPanelRow *row = [BrowserStartPanelRow buttonWithType:UIButtonTypeCustom];
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    row.layer.cornerRadius = 26.0;
+    row.layer.shadowColor = UIColor.blackColor.CGColor;
+    row.layer.shadowOffset = CGSizeMake(0.0, 12.0);
+    row.layer.shadowRadius = 22.0;
+    [row.heightAnchor constraintEqualToConstant:height].active = YES;
+
+    UIStackView *texts = [UIStackView new];
+    texts.axis = UILayoutConstraintAxisVertical;
+    texts.spacing = 3.0;
+    texts.userInteractionEnabled = NO;
+    texts.translatesAutoresizingMaskIntoConstraints = NO;
+    row.mainLabel = [UILabel new];
+    row.mainLabel.text = title;
+    row.mainLabel.font = [UIFont systemFontOfSize:26.0 weight:UIFontWeightBold];
+    [texts addArrangedSubview:row.mainLabel];
+    if (detail.length > 0) {
+        row.detailLabel = [UILabel new];
+        row.detailLabel.text = detail;
+        row.detailLabel.font = [UIFont systemFontOfSize:19.0 weight:UIFontWeightRegular];
+        [texts addArrangedSubview:row.detailLabel];
+    }
+    [row addSubview:texts];
+
+    NSMutableArray *constraints = [NSMutableArray array];
+    if (symbol != nil) {
+        row.iconView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:28.0 weight:UIImageSymbolWeightSemibold]]];
+        row.iconView.translatesAutoresizingMaskIntoConstraints = NO;
+        row.iconView.contentMode = UIViewContentModeCenter;
+        [row addSubview:row.iconView];
+        [constraints addObjectsFromArray:@[
+            [row.iconView.leadingAnchor constraintEqualToAnchor:row.leadingAnchor constant:28.0],
+            [row.iconView.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [row.iconView.widthAnchor constraintEqualToConstant:36.0],
+            [texts.leadingAnchor constraintEqualToAnchor:row.iconView.trailingAnchor constant:20.0],
+        ]];
+    } else {
+        row.mainLabel.textAlignment = NSTextAlignmentCenter;
+        [constraints addObject:[texts.leadingAnchor constraintEqualToAnchor:row.leadingAnchor constant:20.0]];
+    }
+    [constraints addObject:[texts.centerYAnchor constraintEqualToAnchor:row.centerYAnchor]];
+    if (hasSwitch) {
+        row.track = [UIView new];
+        row.track.translatesAutoresizingMaskIntoConstraints = NO;
+        row.track.layer.cornerRadius = 23.0;
+        row.track.userInteractionEnabled = NO;
+        row.knob = [[UIView alloc] initWithFrame:CGRectMake(4.0, 4.0, 38.0, 38.0)];
+        row.knob.backgroundColor = UIColor.whiteColor;
+        row.knob.layer.cornerRadius = 19.0;
+        [row.track addSubview:row.knob];
+        [row addSubview:row.track];
+        [constraints addObjectsFromArray:@[
+            [row.track.trailingAnchor constraintEqualToAnchor:row.trailingAnchor constant:-24.0],
+            [row.track.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [row.track.widthAnchor constraintEqualToConstant:84.0],
+            [row.track.heightAnchor constraintEqualToConstant:46.0],
+            [texts.trailingAnchor constraintLessThanOrEqualToAnchor:row.track.leadingAnchor constant:-16.0],
+        ]];
+    } else {
+        [constraints addObject:[texts.trailingAnchor constraintEqualToAnchor:row.trailingAnchor constant:(symbol != nil ? -24.0 : -20.0)]];
+    }
+    [NSLayoutConstraint activateConstraints:constraints];
+    [row applyFocused:NO];
+    return row;
+}
+
+- (void)applyFocused:(BOOL)focused {
+    BOOL light = focused || self.highlightedIdle;
+    UIColor *dark = [UIColor colorWithWhite:0.11 alpha:1.0];
+    self.backgroundColor = light ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.08];
+    UIColor *main = self.destructive ? (light ? [UIColor colorWithRed:0.85 green:0.2 blue:0.18 alpha:1.0] : [UIColor colorWithRed:1.0 green:0.54 blue:0.5 alpha:1.0])
+                                     : (light ? dark : UIColor.whiteColor);
+    self.mainLabel.textColor = main;
+    self.detailLabel.textColor = light ? [UIColor colorWithWhite:0.11 alpha:0.6] : [UIColor colorWithWhite:1.0 alpha:0.55];
+    self.iconView.tintColor = light ? dark : UIColor.whiteColor;
+    self.track.backgroundColor = self.switchOn ? [UIColor colorWithRed:0.04 green:0.52 blue:1.0 alpha:1.0]
+                                               : (light ? [UIColor colorWithWhite:0.0 alpha:0.16] : [UIColor colorWithWhite:0.47 alpha:0.5]);
+    CGRect knob = self.knob.frame;
+    knob.origin.x = self.switchOn ? 42.0 : 4.0;
+    self.knob.frame = knob;
+    self.transform = focused ? CGAffineTransformMakeScale(1.03, 1.03) : CGAffineTransformIdentity;
+    self.layer.shadowOpacity = focused ? 0.4 : 0.0;
+}
+
+- (void)setSwitchOn:(BOOL)switchOn {
+    _switchOn = switchOn;
+    [self applyFocused:self.isFocused];
+}
+
+- (void)didUpdateFocusInContext:(UIFocusUpdateContext *)context withAnimationCoordinator:(UIFocusAnimationCoordinator *)coordinator {
+    [super didUpdateFocusInContext:context withAnimationCoordinator:coordinator];
+    BOOL focused = (context.nextFocusedView == self);
+    [coordinator addCoordinatedAnimations:^{ [self applyFocused:focused]; } completion:nil];
+}
+
+@end
+
 #pragma mark - Start page
 
 @interface BrowserStartPageViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, BrowserTopBarViewDelegate>
@@ -241,6 +356,10 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 @property (nonatomic) UICollectionView *collectionView;
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *favorites; // [url, title]
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *recents;   // [url, title]
+@property (nonatomic) UIView *panelBackdrop;
+@property (nonatomic) UIView *panel;
+@property (nonatomic) BrowserStartPanelRow *panelFirstRow;
+@property (nonatomic) BOOL focusFavoritesNext;
 @end
 
 @implementation BrowserStartPageViewController
@@ -371,6 +490,13 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 }
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
+    if (self.panel != nil) {
+        return @[self.panelFirstRow];
+    }
+    if (self.focusFavoritesNext) {
+        self.focusFavoritesNext = NO;
+        return @[self.collectionView]; // back to the favorite the panel belonged to
+    }
     UIView *item = [self.topBar preferredFocusItem];
     return item != nil ? @[item] : @[self.topBar];
 }
@@ -522,58 +648,204 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
     if (recognizer.state != UIGestureRecognizerStateBegan) {
         return;
     }
-    NSInteger index = [self focusedFavoriteIndex];
+    NSInteger index = self.panel == nil ? [self focusedFavoriteIndex] : NSNotFound;
     if (index != NSNotFound) {
         [self presentOptionsForFavoriteAtIndex:(NSUInteger)index];
     }
 }
 
 - (void)presentOptionsForFavoriteAtIndex:(NSUInteger)index {
+    // The panel from the "Web App 1" concept, right under the favorite.
+    [self closePanel];
     NSArray<NSString *> *favorite = self.favorites[index];
     NSString *URLString = favorite[0];
     NSString *name = favorite[1].length > 0 ? favorite[1] : StartHostForURL(URLString);
-    BOOL webApp = [BrowserStartPageViewController isWebAppURL:URLString];
-    BOOL launches = [[BrowserStartPageViewController launchWebAppURL] isEqualToString:URLString];
 
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:name message:URLString preferredStyle:UIAlertControllerStyleAlert];
-    __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Open as Web App") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        [weakSelf closeAndOpenURL:URLString asWebApp:YES];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:(webApp ? BrowserLocalized(@"Always Open as Web App: On") : BrowserLocalized(@"Always Open as Web App: Off"))
-                                              style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        [weakSelf setURL:URLString inList:kStartWebAppsKey enabled:!webApp];
-        if (webApp && launches) {
-            [NSUserDefaults.standardUserDefaults removeObjectForKey:kStartLaunchWebAppKey];
-        }
-        [weakSelf reloadData];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:(launches ? BrowserLocalized(@"Open When Orbrisa Starts: On") : BrowserLocalized(@"Open When Orbrisa Starts: Off"))
-                                              style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        if (launches) {
-            [NSUserDefaults.standardUserDefaults removeObjectForKey:kStartLaunchWebAppKey];
-        } else {
-            [NSUserDefaults.standardUserDefaults setObject:URLString forKey:kStartLaunchWebAppKey];
-            [weakSelf setURL:URLString inList:kStartWebAppsKey enabled:YES]; // it starts as a web app
-        }
-        [weakSelf reloadData];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Rename") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        [weakSelf presentRenameForFavoriteAtIndex:index];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Remove") style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
-        NSMutableArray *favorites = [weakSelf.favorites mutableCopy];
-        if (index < favorites.count) {
-            [favorites removeObjectAtIndex:index];
-        }
-        [weakSelf setURL:URLString inList:kStartWebAppsKey enabled:NO];
-        if (launches) {
-            [NSUserDefaults.standardUserDefaults removeObjectForKey:kStartLaunchWebAppKey];
-        }
-        [weakSelf saveFavorites:favorites];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Cancel") style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:sheet animated:YES completion:nil];
+    UIView *backdrop = [[UIView alloc] initWithFrame:self.view.bounds];
+    backdrop.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    backdrop.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    backdrop.userInteractionEnabled = NO;
+    [self.view addSubview:backdrop];
+    self.panelBackdrop = backdrop;
+
+    UIVisualEffectView *panel = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    panel.layer.cornerRadius = 40.0;
+    panel.clipsToBounds = YES;
+    panel.contentView.backgroundColor = [UIColor colorWithRed:0.19 green:0.19 blue:0.21 alpha:0.75];
+
+    // Header: tile, name, address
+    UILabel *tile = [UILabel new];
+    tile.text = StartLetterForName(favorite[1], URLString);
+    tile.textAlignment = NSTextAlignmentCenter;
+    tile.font = [UIFont systemFontOfSize:36.0 weight:UIFontWeightBold];
+    tile.textColor = UIColor.whiteColor;
+    tile.backgroundColor = [BrowserFeedStore colorForFeedURL:StartHostForURL(URLString)];
+    tile.layer.cornerRadius = 18.0;
+    tile.layer.masksToBounds = YES;
+    [tile.widthAnchor constraintEqualToConstant:72.0].active = YES;
+    [tile.heightAnchor constraintEqualToConstant:72.0].active = YES;
+    UILabel *title = [UILabel new];
+    title.text = name;
+    title.font = [UIFont systemFontOfSize:32.0 weight:UIFontWeightBold];
+    title.textColor = UIColor.whiteColor;
+    UILabel *address = [UILabel new];
+    address.text = StartHostForURL(URLString);
+    address.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
+    address.textColor = [UIColor colorWithWhite:1.0 alpha:0.6];
+    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[title, address]];
+    titles.axis = UILayoutConstraintAxisVertical;
+    titles.spacing = 2.0;
+    UIStackView *header = [[UIStackView alloc] initWithArrangedSubviews:@[tile, titles]];
+    header.spacing = 20.0;
+    header.alignment = UIStackViewAlignmentCenter;
+    header.layoutMargins = UIEdgeInsetsMake(0.0, 8.0, 8.0, 8.0);
+    header.layoutMarginsRelativeArrangement = YES;
+
+    BrowserStartPanelRow *open = [BrowserStartPanelRow rowWithSymbol:@"arrow.up.left.and.arrow.down.right" title:BrowserLocalized(@"Open as Web App")
+                                                              detail:BrowserLocalized(@"Full screen – no bar, no buttons") hasSwitch:NO height:100.0];
+    [open addTarget:self action:@selector(panelOpenPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    BrowserStartPanelRow *launch = [BrowserStartPanelRow rowWithSymbol:@"power" title:BrowserLocalized(@"Open When Orbrisa Starts")
+                                                                detail:BrowserLocalized(@"Orbrisa starts right away with this web app") hasSwitch:YES height:88.0];
+    launch.switchOn = [[BrowserStartPageViewController launchWebAppURL] isEqualToString:URLString];
+    [launch addTarget:self action:@selector(panelLaunchPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    BrowserStartPanelRow *always = [BrowserStartPanelRow rowWithSymbol:@"square.on.square" title:BrowserLocalized(@"Always Open as Web App")
+                                                                detail:BrowserLocalized(@"A click on the tile opens it full screen") hasSwitch:YES height:88.0];
+    always.switchOn = [BrowserStartPageViewController isWebAppURL:URLString];
+    [always addTarget:self action:@selector(panelAlwaysPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    BrowserStartPanelRow *rename = [BrowserStartPanelRow rowWithSymbol:nil title:BrowserLocalized(@"Rename") detail:nil hasSwitch:NO height:72.0];
+    [rename addTarget:self action:@selector(panelRenamePressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    BrowserStartPanelRow *remove = [BrowserStartPanelRow rowWithSymbol:nil title:BrowserLocalized(@"Remove") detail:nil hasSwitch:NO height:72.0];
+    remove.destructive = YES;
+    [remove applyFocused:NO];
+    [remove addTarget:self action:@selector(panelRemovePressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    for (BrowserStartPanelRow *row in @[rename, remove]) {
+        row.layer.cornerRadius = 36.0;
+    }
+    UIStackView *bottom = [[UIStackView alloc] initWithArrangedSubviews:@[rename, remove]];
+    bottom.distribution = UIStackViewDistributionFillEqually;
+    bottom.spacing = 14.0;
+
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[header, open, launch, always, bottom]];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 14.0;
+    [stack setCustomSpacing:20.0 afterView:always];
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [panel.contentView addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.topAnchor constraintEqualToAnchor:panel.contentView.topAnchor constant:34.0],
+        [stack.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor constant:-34.0],
+        [stack.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:34.0],
+        [stack.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor constant:-34.0],
+    ]];
+    for (BrowserStartPanelRow *row in @[open, launch, always, rename, remove]) {
+        row.tag = (NSInteger)index;
+    }
+
+    // Under the tile, kept on screen
+    CGFloat width = 780.0;
+    CGSize size = CGSizeMake(width, 34.0 + 80.0 + 14.0 + 100.0 + 14.0 + 88.0 + 14.0 + 88.0 + 20.0 + 72.0 + 34.0);
+    UICollectionViewCell *cell = [self.collectionView cellForItemAtIndexPath:[NSIndexPath indexPathForItem:(NSInteger)index inSection:0]];
+    CGRect cellFrame = cell != nil ? [cell convertRect:cell.bounds toView:self.view] : CGRectMake(CGRectGetMidX(self.view.bounds), 300.0, 0.0, 0.0);
+    CGFloat bounds = CGRectGetWidth(self.view.bounds);
+    CGFloat x = MIN(MAX(CGRectGetMidX(cellFrame) - width / 2.0, kStartSideInset), bounds - kStartSideInset - width);
+    CGFloat y = MIN(CGRectGetMinY(cellFrame) + kStartFavoriteTile + 70.0, CGRectGetHeight(self.view.bounds) - size.height - 40.0);
+    panel.frame = CGRectMake(x, MAX(y, 140.0), width, size.height);
+    [self.view addSubview:panel];
+    self.panel = panel;
+    self.panelFirstRow = open;
+
+    self.collectionView.userInteractionEnabled = NO;
+    self.topBar.userInteractionEnabled = NO;
+    panel.alpha = 0.0;
+    backdrop.alpha = 0.0;
+    [UIView animateWithDuration:0.22 animations:^{
+        panel.alpha = 1.0;
+        backdrop.alpha = 1.0;
+    }];
+    [self setNeedsFocusUpdate];
+    [self updateFocusIfNeeded];
+}
+
+- (void)closePanel {
+    if (self.panel == nil) {
+        return;
+    }
+    UIView *panel = self.panel;
+    UIView *backdrop = self.panelBackdrop;
+    self.panel = nil;
+    self.panelBackdrop = nil;
+    self.panelFirstRow = nil;
+    self.collectionView.userInteractionEnabled = YES;
+    self.topBar.userInteractionEnabled = YES;
+    self.focusFavoritesNext = YES;
+    [UIView animateWithDuration:0.18 animations:^{
+        panel.alpha = 0.0;
+        backdrop.alpha = 0.0;
+    } completion:^(__unused BOOL finished) {
+        [panel removeFromSuperview];
+        [backdrop removeFromSuperview];
+    }];
+    [self setNeedsFocusUpdate];
+    [self updateFocusIfNeeded];
+}
+
+- (NSString *)URLForPanelRow:(UIButton *)row {
+    return (row.tag >= 0 && row.tag < (NSInteger)self.favorites.count) ? self.favorites[(NSUInteger)row.tag][0] : nil;
+}
+
+- (void)panelOpenPressed:(UIButton *)row {
+    NSString *URLString = [self URLForPanelRow:row];
+    [self closePanel];
+    if (URLString != nil) {
+        [self closeAndOpenURL:URLString asWebApp:YES];
+    }
+}
+
+- (void)panelLaunchPressed:(BrowserStartPanelRow *)row {
+    NSString *URLString = [self URLForPanelRow:row];
+    if (URLString == nil) {
+        return;
+    }
+    if (row.switchOn) {
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:kStartLaunchWebAppKey];
+    } else {
+        [NSUserDefaults.standardUserDefaults setObject:URLString forKey:kStartLaunchWebAppKey];
+    }
+    [UIView animateWithDuration:0.2 animations:^{ row.switchOn = !row.switchOn; }];
+}
+
+- (void)panelAlwaysPressed:(BrowserStartPanelRow *)row {
+    NSString *URLString = [self URLForPanelRow:row];
+    if (URLString == nil) {
+        return;
+    }
+    [self setURL:URLString inList:kStartWebAppsKey enabled:!row.switchOn];
+    [UIView animateWithDuration:0.2 animations:^{ row.switchOn = !row.switchOn; }];
+    [self.collectionView reloadItemsAtIndexPaths:@[[NSIndexPath indexPathForItem:row.tag inSection:0]]];
+}
+
+- (void)panelRenamePressed:(UIButton *)row {
+    NSUInteger index = (NSUInteger)row.tag;
+    [self closePanel];
+    if (index < self.favorites.count) {
+        [self presentRenameForFavoriteAtIndex:index];
+    }
+}
+
+- (void)panelRemovePressed:(UIButton *)row {
+    NSString *URLString = [self URLForPanelRow:row];
+    NSUInteger index = (NSUInteger)row.tag;
+    [self closePanel];
+    if (URLString == nil) {
+        return;
+    }
+    NSMutableArray *favorites = [self.favorites mutableCopy];
+    [favorites removeObjectAtIndex:index];
+    [self setURL:URLString inList:kStartWebAppsKey enabled:NO];
+    if ([[BrowserStartPageViewController launchWebAppURL] isEqualToString:URLString]) {
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:kStartLaunchWebAppKey];
+    }
+    [self saveFavorites:favorites];
 }
 
 - (void)presentRenameForFavoriteAtIndex:(NSUInteger)index {
@@ -641,6 +913,10 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
+    if (self.panel != nil && (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause)) {
+        [self closePanel];
+        return;
+    }
     if (press.type == UIPressTypeMenu) {
         [self closeThen:nil];
         return;

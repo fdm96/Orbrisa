@@ -227,3 +227,8 @@
 "Address" = "Adresse";
 "Leave Web App" = "Web-App verlassen";
 "Web App · Play/Pause opens the menu" = "Web-App · Play/Pause öffnet das Menü";
+"Full screen – no bar, no buttons" = "Ganzer Bildschirm – ohne Leiste und Knöpfe";
+"Open When Orbrisa Starts" = "Beim Start von Orbrisa öffnen";
+"Orbrisa starts right away with this web app" = "Orbrisa startet direkt mit dieser Web-App";
+"Always Open as Web App" = "Immer als Web-App öffnen";
+"A click on the tile opens it full screen" = "Ein Klick auf die Kachel öffnet sie im Vollbild";
