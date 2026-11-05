@@ -886,6 +886,22 @@ static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
         ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, userScript);
     }
 
+#if DEBUG
+    // Experiment: the Apple TV never gives the page keyboard focus (Orbrisa drives it with its own cursor),
+    // so document.hasFocus() is false and games pause until the next click. Tell the page it has focus.
+    static NSString * const focusScript =
+        @"(function(){try{if(window.__orbrisaFocus){return;}window.__orbrisaFocus=true;"
+        @"Document.prototype.hasFocus=function(){return true;};"
+        @"window.addEventListener('blur',function(e){if(e.target===window){e.stopImmediatePropagation();}},true);"
+        @"document.addEventListener('DOMContentLoaded',function(){try{window.dispatchEvent(new FocusEvent('focus'));}catch(e){}});"
+        @"}catch(e){}})();";
+    id focusUserScript = ((id (*)(id, SEL))objc_msgSend)((id)userScriptClass, @selector(alloc));
+    focusUserScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(focusUserScript, userScriptInitializer, focusScript, 0, NO);
+    if (focusUserScript != nil) {
+        ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, focusUserScript);
+    }
+#endif
+
     // Video stream capture: at document start (0), in every frame, so players in iframes are seen too.
     id mediaScript = ((id (*)(id, SEL))objc_msgSend)((id)userScriptClass, @selector(alloc));
     mediaScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(mediaScript, userScriptInitializer, BrowserMediaCaptureScript(), 0, NO);
