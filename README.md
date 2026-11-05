@@ -71,6 +71,18 @@
 
 </details>
 
+### 🧪 New in Beta 1.1.0 – Reader & RSS
+
+<p align="center">
+  <img src="docs/screenshots/beta-reader-button.jpg" width="820" alt="Reader button in the address bar and the RSS button next to it">
+  <br><sub><b>Reader & RSS buttons</b> – right in the top bar as soon as a page has an article or a feed</sub>
+</p>
+
+| | |
+|:---:|:---:|
+| <img src="docs/screenshots/beta-reader.jpg" alt="Reader mode with the appearance panel"> | <img src="docs/screenshots/beta-feeds.jpg" alt="Feeds overview below the top bar"> |
+| **Reader** – size, background, font and "Always Open in Reader" | **Feeds** – all new articles below the top bar |
+
 ## From concept to app
 
 Orbrisa started as a set of design concepts – drawn first, then built. Here is how the ideas turned into the real app.
