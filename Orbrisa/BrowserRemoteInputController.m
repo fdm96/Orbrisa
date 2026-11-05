@@ -62,6 +62,7 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
 @property (nonatomic, readwrite, getter=isLinkNavigationActive) BOOL linkNavigationActive;
 @property (nonatomic) CGPoint swipeAccumulation;
 @property (nonatomic) CFTimeInterval lastSwipeStepTime;
+@property (nonatomic) BOOL ignoreNextSelectEnd;
 @property (nonatomic) BOOL downArrowHoldFired;
 
 @end
@@ -103,6 +104,10 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
     [self refreshInteractionState];
     if (!wasCursorModeEnabled && cursorModeEnabled) {
         [self.host browserRemoteInputControllerPersistSession];
+    }
+    if (wasCursorModeEnabled != cursorModeEnabled &&
+        [self.host respondsToSelector:@selector(browserRemoteInputControllerCursorModeDidChange:)]) {
+        [self.host browserRemoteInputControllerCursorModeDidChange:cursorModeEnabled];
     }
 }
 
@@ -236,6 +241,12 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
     }
     [self refreshInteractionState];
     [self.host browserRemoteInputControllerLinkNavigationDidChangeActive:linkNavigationActive];
+}
+
+- (void)ignoreSelectPressBriefly {
+    self.ignoreNextSelectEnd = YES;
+    self.lastDirectSelectPressTimestamp = CACurrentMediaTime() + 1.0; // the global "select ended" path stays quiet too
+    self.awaitingSecondSelectPress = NO;
 }
 
 - (BOOL)handleLinkNavigationPress:(UIPress *)press {
@@ -400,6 +411,10 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
             self.downArrowHoldFired = NO;
             return YES;
         }
+    }
+    if (press.type == UIPressTypeSelect && self.ignoreNextSelectEnd) {
+        self.ignoreNextSelectEnd = NO;
+        return YES;
     }
 
     if (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause || press.type == UIPressTypeSelect) {

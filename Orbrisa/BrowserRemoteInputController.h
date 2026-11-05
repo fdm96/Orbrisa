@@ -28,6 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 @optional
 /// Menu while link navigation is on. Return YES when handled (a web app goes back instead of switching to the mouse).
 - (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu;
+/// The cursor (mouse) was switched on or off.
+- (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled;
 @required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;
@@ -59,6 +61,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)handleTouchesEnded;
 - (void)setCursorModeEnabled:(BOOL)cursorModeEnabled;
 - (void)setLinkNavigationActive:(BOOL)linkNavigationActive;
+/// After a long press of the clickpad was used for something else: the press ending is not a click.
+- (void)ignoreSelectPressBriefly;
 - (void)refreshInteractionState;
 
 @end

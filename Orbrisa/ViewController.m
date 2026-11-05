@@ -546,6 +546,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic, copy) NSString *webAppURLString;
 @property (nonatomic) BOOL webAppAskedTextSize;
 @property (nonatomic) BOOL leavingWebApp;
+@property (nonatomic) BOOL cursorModeBeforeWebApp;
+@property (nonatomic) UILongPressGestureRecognizer *webAppHoldRecognizer;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -1356,8 +1358,16 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (request == nil) {
         return;
     }
+    if (!self.webAppMode) {
+        self.cursorModeBeforeWebApp = self.remoteInputController.cursorModeEnabled;
+    }
     self.webAppMode = YES;
     self.webAppURLString = URLString;
+    // Simple controls: swipe scrolls the page anywhere, hold the clickpad to pick something (the white box).
+    [self.remoteInputController setLinkNavigationActive:NO];
+    [self.remoteInputController setCursorModeEnabled:NO];
+    [self installWebAppHoldRecognizer];
+    self.webAppHoldRecognizer.enabled = YES;
     self.webAppAskedTextSize = NO;
     [self deactivateTopBarFocusMode];
     self.viewModel.topNavigationBarVisible = NO; // only for now – the saved setting stays as it is
@@ -1455,9 +1465,44 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }];
 }
 
+- (void)installWebAppHoldRecognizer {
+    if (self.webAppHoldRecognizer != nil) {
+        return;
+    }
+    UILongPressGestureRecognizer *hold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleWebAppHold:)];
+    hold.allowedPressTypes = @[@(UIPressTypeSelect)];
+    hold.minimumPressDuration = 0.6;
+    hold.enabled = NO;
+    [self.view addGestureRecognizer:hold];
+    self.webAppHoldRecognizer = hold;
+}
+
+- (void)handleWebAppHold:(UILongPressGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateBegan || !self.webAppMode || self.presentedViewController != nil) {
+        return;
+    }
+    // Hold the middle of the clickpad: the white box appears to pick a link or button; hold again (or Back) to scroll freely.
+    [self.remoteInputController ignoreSelectPressBriefly];
+    [self.remoteInputController setLinkNavigationActive:!self.remoteInputController.linkNavigationActive];
+}
+
+- (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled {
+    // Taking the mouse (double click) in a web app means leaving it: back to the start page.
+    if (enabled && self.webAppMode && !self.leavingWebApp) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self browserLeaveWebApp];
+            [self browserShowStartPage];
+        });
+    }
+}
+
 - (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu {
     if (!self.webAppMode) {
         return NO;
+    }
+    if (self.remoteInputController.linkNavigationActive) {
+        [self.remoteInputController setLinkNavigationActive:NO]; // Back: the box goes away, scrolling again
+        return YES;
     }
     // In a web app, Back goes back inside the app; on its first page it leaves to the start page.
     if (self.webview.canGoBack) {
@@ -1477,6 +1522,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self hideWebAppSplash];
     [self.remoteInputController setLinkNavigationActive:NO]; // while still in the web app: no "mouse on" hint
     self.webAppMode = NO;
+    self.webAppHoldRecognizer.enabled = NO;
+    [self.remoteInputController setCursorModeEnabled:self.cursorModeBeforeWebApp];
     self.leavingWebApp = NO;
     [self updateTextFontSize]; // back to the normal text size
     BOOL visible = self.preferencesStore.topNavigationBarVisible;
@@ -1492,7 +1539,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     pill.clipsToBounds = YES;
     pill.contentView.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.5];
     UILabel *label = [UILabel new];
-    label.text = BrowserLocalized(@"Web App · Play/Pause opens the menu");
+    label.text = BrowserLocalized(@"Web App · Hold the middle: pick · Play/Pause: menu");
     label.font = [UIFont systemFontOfSize:23.0 weight:UIFontWeightSemibold];
     label.textColor = UIColor.whiteColor;
     UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right"
@@ -1760,12 +1807,6 @@ static NSString *BrowserLinkNavigationScript(void) {
         if (!self.webAppMode) {
             [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
         }
-    } else if (self.webAppMode && !self.leavingWebApp) {
-        // Taking the mouse in a web app means leaving it: back to the start page.
-        [self runLinkNavigationCommand:@"clear"];
-        cursorView.alpha = 1.0;
-        [self browserLeaveWebApp];
-        [self browserShowStartPage];
     } else if (self.webAppMode) {
         [self runLinkNavigationCommand:@"clear"];
     } else {
@@ -2127,6 +2168,8 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     UIAlertController *alertController = (UIAlertController *)self.presentedViewController;
     if (alertController != nil) {
         [self.presentedViewController dismissViewControllerAnimated:YES completion:nil];
+    } else if (self.webAppMode) {
+        [self browserRemoteInputControllerLinkNavigationHandleMenu]; // back inside the app, or out to the start page
     } else if (self.webview.canGoBack) {
         [self.webview goBack];
     } else {
@@ -2210,9 +2253,6 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     if (webView == self.webview && self.webAppMode) {
         // A web app is used like a feed: arrows jump from item to item, no mouse.
         [self hideWebAppSplash];
-        if (!self.remoteInputController.linkNavigationActive) {
-            [self.remoteInputController setLinkNavigationActive:YES];
-        }
         BOOL known = self.webAppURLString.length > 0 && [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"][self.webAppURLString] != nil;
         if (!known && !self.webAppAskedTextSize && self.presentedViewController == nil) {
             self.webAppAskedTextSize = YES;
