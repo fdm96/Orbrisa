@@ -540,6 +540,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL pageHasFeed;
 @property (nonatomic) NSUInteger pageProbeGeneration;
 @property (nonatomic, copy) NSString *autoReaderURL;
+@property (nonatomic) CFTimeInterval startPageSuppressedUntil; // Back just left the start page: don't bring it straight back
 @property (nonatomic) CFTimeInterval feedReaderPendingUntil; // an article opened from the feeds: show it in the Reader once it has loaded
 @property (nonatomic) BOOL webAppMode;
 @property (nonatomic) BOOL didHandleLaunchWebApp;
@@ -1365,7 +1366,25 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)browserTabCoordinatorShowStartPage {
+    if (CACurrentMediaTime() < self.startPageSuppressedUntil) {
+        [self browserOpenGoogleIfTabEmpty];
+        return;
+    }
     [self browserShowStartPage];
+}
+
+/// Opens Google in the open tab when it shows nothing (no address, or about:blank).
+- (void)browserOpenGoogleIfTabEmpty {
+    NSString *current = self.webview.request.URL.absoluteString ?: @"";
+    BrowserTabViewModel *tab = self.tabCoordinator.activeTab;
+    BOOL empty = (current.length == 0 || [current isEqualToString:@"about:blank"]) && tab.URLString.length == 0 && tab.requestURL.length == 0;
+    if (!empty) {
+        return;
+    }
+    NSURLRequest *request = [self.navigationService requestForURLString:@"https://www.google.com"];
+    if (request != nil) {
+        [self.webview loadRequest:request];
+    }
 }
 
 - (void)browserShowStartPage {
@@ -1408,14 +1427,11 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (!hasPage) {
         // Back from the start page of an empty tab: into the previous tab, or – the only tab – to Google instead of a blank page.
         start.closeEmptyTab = ^{
+            weakSelf.startPageSuppressedUntil = CACurrentMediaTime() + 1.5;
             if (weakSelf.viewModel.tabs.count > 1) {
                 [weakSelf.tabCoordinator closeTabAtIndex:weakSelf.viewModel.activeTabIndex];
-                return;
             }
-            NSURLRequest *request = [weakSelf.navigationService requestForURLString:@"https://www.google.com"];
-            if (request != nil) {
-                [weakSelf.webview loadRequest:request];
-            }
+            [weakSelf browserOpenGoogleIfTabEmpty]; // the tab we land in is empty too: Google instead of a blank page
         };
     }
     [self presentViewController:start animated:YES completion:nil];

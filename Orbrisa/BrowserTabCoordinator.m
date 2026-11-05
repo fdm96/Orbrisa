@@ -496,10 +496,7 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
     NSString *URLString = tab.URLString.length > 0 ? tab.URLString : tab.requestURL;
     if (URLString.length == 0) {
         if (fallbackToHomePage) {
-            NSURLRequest *homePageRequest = [self.navigationService homePageRequest];
-            if (homePageRequest != nil) {
-                [webView loadRequest:homePageRequest];
-            }
+            [self loadHomePage]; // an empty tab: the home page, or the start page when there is none – never a blank page
         }
         return;
     }
