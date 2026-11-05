@@ -34,6 +34,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction;
 /// Back while a screen is open: YES when that screen used it itself (e.g. closed a panel) and must stay.
 - (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu;
+/// Holding the middle of the clickpad (Select). Return YES when it did something (e.g. the web app selection box).
+- (BOOL)browserRemoteInputControllerHandleSelectHold;
 @required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;

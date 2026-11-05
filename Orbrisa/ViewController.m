@@ -547,7 +547,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL webAppAskedTextSize;
 @property (nonatomic) BOOL leavingWebApp;
 @property (nonatomic) BOOL cursorModeBeforeWebApp;
-@property (nonatomic) UILongPressGestureRecognizer *webAppHoldRecognizer;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -1366,8 +1365,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     // Simple controls: swipe scrolls the page anywhere, hold the clickpad to pick something (the white box).
     [self.remoteInputController setLinkNavigationActive:NO];
     [self.remoteInputController setCursorModeEnabled:NO];
-    [self installWebAppHoldRecognizer];
-    self.webAppHoldRecognizer.enabled = YES;
+
     self.webAppAskedTextSize = NO;
     [self deactivateTopBarFocusMode];
     self.viewModel.topNavigationBarVisible = NO; // only for now – the saved setting stays as it is
@@ -1465,25 +1463,13 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }];
 }
 
-- (void)installWebAppHoldRecognizer {
-    if (self.webAppHoldRecognizer != nil) {
-        return;
+- (BOOL)browserRemoteInputControllerHandleSelectHold {
+    if (!self.webAppMode || self.presentedViewController != nil) {
+        return NO;
     }
-    UILongPressGestureRecognizer *hold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleWebAppHold:)];
-    hold.allowedPressTypes = @[@(UIPressTypeSelect)];
-    hold.minimumPressDuration = 0.6;
-    hold.enabled = NO;
-    [self.view addGestureRecognizer:hold];
-    self.webAppHoldRecognizer = hold;
-}
-
-- (void)handleWebAppHold:(UILongPressGestureRecognizer *)recognizer {
-    if (recognizer.state != UIGestureRecognizerStateBegan || !self.webAppMode || self.presentedViewController != nil) {
-        return;
-    }
-    // Hold the middle of the clickpad: the white box appears to pick a link or button; hold again (or Back) to scroll freely.
-    [self.remoteInputController ignoreSelectPressBriefly];
+    // Hold the middle of the clickpad: the selection box appears to pick a link or button; hold again (or Back) to scroll freely.
     [self.remoteInputController setLinkNavigationActive:!self.remoteInputController.linkNavigationActive];
+    return YES;
 }
 
 - (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled {
@@ -1562,7 +1548,6 @@ static NSString *BrowserWebAppPagingScript(void) {
     [self hideWebAppSplash];
     [self.remoteInputController setLinkNavigationActive:NO]; // while still in the web app: no "mouse on" hint
     self.webAppMode = NO;
-    self.webAppHoldRecognizer.enabled = NO;
     [self.remoteInputController setCursorModeEnabled:self.cursorModeBeforeWebApp];
     self.leavingWebApp = NO;
     [self updateTextFontSize]; // back to the normal text size

@@ -63,6 +63,7 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
 @property (nonatomic) CGPoint swipeAccumulation;
 @property (nonatomic) CFTimeInterval lastSwipeStepTime;
 @property (nonatomic) BOOL ignoreNextSelectEnd;
+@property (nonatomic) BOOL selectHoldFired;
 @property (nonatomic) BOOL downArrowHoldFired;
 
 @end
@@ -380,8 +381,24 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
         ![self.host browserRemoteInputControllerTopBarFocusActive];
 }
 
+- (void)handleSelectHold {
+    // Timed from the press itself – no gesture recognizer, so nothing else in the window reacts to the hold.
+    if ([self.host respondsToSelector:@selector(browserRemoteInputControllerHandleSelectHold)] &&
+        [self.host browserRemoteInputControllerHandleSelectHold]) {
+        self.selectHoldFired = YES;
+        [self ignoreSelectPressBriefly];
+    }
+}
+
 - (void)handlePressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
+    if (press.type == UIPressTypeSelect) {
+        self.selectHoldFired = NO;
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(handleSelectHold) object:nil];
+        if ([self.host browserRemoteInputControllerPresentedViewController] == nil) {
+            [self performSelector:@selector(handleSelectHold) withObject:nil afterDelay:0.6];
+        }
+    }
     if (press.type == UIPressTypeDownArrow) {
         self.downArrowHoldFired = NO;
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(handleDownArrowLongPress) object:nil];
@@ -412,8 +429,12 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
             return YES;
         }
     }
-    if (press.type == UIPressTypeSelect && self.ignoreNextSelectEnd) {
+    if (press.type == UIPressTypeSelect) {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(handleSelectHold) object:nil];
+    }
+    if (press.type == UIPressTypeSelect && (self.ignoreNextSelectEnd || self.selectHoldFired)) {
         self.ignoreNextSelectEnd = NO;
+        self.selectHoldFired = NO;
         return YES;
     }
     if ((press.type == UIPressTypeLeftArrow || press.type == UIPressTypeRightArrow) &&
