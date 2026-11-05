@@ -34,7 +34,7 @@ static CGFloat const kTopBarDisabledIconAlpha = 0.38;
 
 // Reader button (inside the address pill) and RSS button (right next to it)
 static CGFloat const kTopBarReaderHeight = 48.0;
-static CGFloat const kTopBarReaderInset = 10.0;
+static CGFloat const kTopBarReaderInset = 11.0;
 static CGFloat const kTopBarFeedSize = 60.0;
 static CGFloat const kTopBarFeedGap = 16.0;
 
@@ -328,10 +328,6 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     _readerFocusButton = [self newFocusButtonForAction:BrowserTopBarActionReader symbolName:nil accessibilityLabel:BrowserLocalized(@"Open in Reader")];
     _readerFocusButton.backgroundColor = UIColor.whiteColor;
     _readerFocusButton.layer.cornerRadius = kTopBarReaderHeight / 2.0;
-    _readerFocusButton.layer.shadowColor = UIColor.blackColor.CGColor;
-    _readerFocusButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
-    _readerFocusButton.layer.shadowRadius = 12.0;
-    _readerFocusButton.layer.shadowOpacity = 0.0;
     _readerIconView = [[UIImageView alloc] initWithImage:[self symbolImageNamed:@"text.alignleft" pointSize:20.0]];
     _readerIconView.tintColor = [UIColor colorWithWhite:0.11 alpha:1.0];
     _readerIconView.contentMode = UIViewContentModeCenter;
@@ -357,9 +353,8 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     _feedFocusButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
     _feedFocusButton.layer.shadowRadius = 12.0;
     _feedFocusButton.layer.shadowOpacity = 0.25;
-    _feedFocusButton.hidden = YES;
-    _feedFocusButton.alpha = 0.0;
     [self.contentView addSubview:_feedFocusButton];
+    [self applyFeedLook];
 
     _focusButtons = @[
         _backFocusButton,
@@ -578,9 +573,7 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     // The center pill stays centered on screen, but never runs into the side islands.
     CGFloat minCenterX = CGRectGetMaxX(self.leftContainerView.frame) + kTopBarIslandGap;
     CGFloat maxCenterMaxX = CGRectGetMinX(self.rightContainerView.frame) - kTopBarIslandGap;
-    if (self.feedAvailable) {
-        maxCenterMaxX -= kTopBarFeedSize + kTopBarFeedGap;
-    }
+    maxCenterMaxX -= kTopBarFeedSize + kTopBarFeedGap; // the RSS button is always next to the pill
     CGFloat centerWidth = MIN(kTopBarCenterMaxWidth, MAX(kTopBarCenterMinWidth, maxCenterMaxX - minCenterX));
     CGFloat centerX = MAX(minCenterX, floor((CGRectGetWidth(self.bounds) - centerWidth) / 2.0));
     if (centerX + centerWidth > maxCenterMaxX) {
@@ -807,26 +800,32 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     self.tabsFocusButton.accessibilityValue = tabCount > 0 ? [NSString stringWithFormat:BrowserLocalized(@"%lu open"), (unsigned long)tabCount] : nil;
 }
 
+- (void)applyFeedLook {
+    // Orange when the page offers a feed (subscribe), grey otherwise (opens the feeds overview).
+    self.feedFocusButton.backgroundColor = self.feedAvailable ? UIColor.systemOrangeColor : [UIColor colorWithWhite:0.42 alpha:0.6];
+    self.feedFocusButton.iconView.tintColor = UIColor.whiteColor;
+    self.feedFocusButton.accessibilityLabel = self.feedAvailable ? BrowserLocalized(@"Subscribe to Feed") : BrowserLocalized(@"Feeds");
+}
+
 - (void)setReaderAvailable:(BOOL)readerAvailable feedAvailable:(BOOL)feedAvailable {
     if (_readerAvailable == readerAvailable && _feedAvailable == feedAvailable) {
         return;
     }
+    BOOL readerChanged = (_readerAvailable != readerAvailable);
     _readerAvailable = readerAvailable;
     _feedAvailable = feedAvailable;
     if (readerAvailable) {
         self.readerFocusButton.hidden = NO;
     }
-    if (feedAvailable) {
-        self.feedFocusButton.hidden = NO;
-    }
     [self setNeedsLayout];
     [UIView animateWithDuration:0.25 animations:^{
-        self.readerFocusButton.alpha = readerAvailable ? 1.0 : 0.0;
-        self.feedFocusButton.alpha = feedAvailable ? 1.0 : 0.0;
+        [self applyFeedLook];
+        if (readerChanged) {
+            self.readerFocusButton.alpha = readerAvailable ? 1.0 : 0.0;
+        }
         [self layoutIfNeeded];
     } completion:^(__unused BOOL finished) {
         self.readerFocusButton.hidden = !self.readerAvailable;
-        self.feedFocusButton.hidden = !self.feedAvailable;
     }];
 }
 
@@ -929,8 +928,11 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     }
 
     if (button == self.readerFocusButton) {
-        button.transform = focused ? CGAffineTransformMakeScale(1.12, 1.12) : CGAffineTransformIdentity;
-        button.layer.shadowOpacity = focused ? 0.45 : 0.0;
+        // Stays inside the pill: no growing, just the tvOS blue when focused.
+        UIColor *content = focused ? UIColor.whiteColor : [UIColor colorWithWhite:0.11 alpha:1.0];
+        button.backgroundColor = focused ? UIColor.systemBlueColor : UIColor.whiteColor;
+        self.readerLabel.textColor = content;
+        self.readerIconView.tintColor = content;
         return;
     }
     if (button == self.feedFocusButton) {

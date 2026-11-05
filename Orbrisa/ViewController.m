@@ -534,6 +534,8 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BrowserNavigationService *navigationService;
 @property (nonatomic, copy) NSDictionary *pageArticle;
 @property (nonatomic, copy) NSString *pageArticleURL;
+@property (nonatomic) BOOL pageHasFeed;
+@property (nonatomic) NSUInteger pageProbeGeneration;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -795,9 +797,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     if (![self canActivateTopBarFocusMode]) {
         return;
     }
-    if (!self.webview.isLoading) {
-        [self refreshPageFeatures];
-    }
+    [self refreshPageFeatures];
     if (self.topBarFocusActive) {
         return;
     }
@@ -871,7 +871,11 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
             break;
         case BrowserTopBarActionFeed:
             [self deactivateTopBarFocusMode];
-            [self browserSubscribeToPageFeed];
+            if (self.pageHasFeed) {
+                [self browserSubscribeToPageFeed];
+            } else {
+                [self browserShowFeeds];
+            }
             break;
         case BrowserTopBarActionMenu:
             [self showAdvancedMenu];
@@ -1168,21 +1172,34 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)refreshPageFeatures {
-    // Shows the Reader and RSS buttons in the top bar when this page has an article / a feed.
+    // A quick look at the page (a few paragraphs of text? a feed link in the head?) – fast enough to run while it loads.
     if (self.webview == nil || [BrowserWebView isWaitingForPage]) {
         return;
     }
-    NSString *page = self.webview.request.URL.absoluteString ?: @"";
-    NSString *readerScript = [BrowserReaderViewController extractionScript];
-    NSDictionary *article = readerScript.length > 0
-        ? [BrowserReaderViewController articleFromJavaScriptResult:[self.webview stringByEvaluatingJavaScriptFromString:readerScript]] : nil;
-    NSString *feedScript = [BrowserFeedStore detectionScript];
-    NSString *feedResult = feedScript.length > 0 ? [self.webview stringByEvaluatingJavaScriptFromString:feedScript] : nil;
-    id feedJSON = feedResult.length > 0 ? [NSJSONSerialization JSONObjectWithData:[feedResult dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
-    NSArray *feeds = ([feedJSON isKindOfClass:[NSDictionary class]] && [feedJSON[@"feeds"] isKindOfClass:[NSArray class]]) ? feedJSON[@"feeds"] : @[];
-    self.pageArticle = article;
-    self.pageArticleURL = page;
-    [self.topMenuView setReaderAvailable:(article != nil) feedAvailable:(feeds.count > 0)];
+    static NSString * const probe =
+        @"(function(){try{var n=0,c=0,ps=document.querySelectorAll('p');"
+        @"for(var i=0;i<ps.length&&i<500;i++){var t=(ps[i].textContent||'').trim().length;if(t>=60){n++;c+=t;}}"
+        @"var f=document.querySelector('link[rel~=\"alternate\"][type*=\"rss\"],link[rel~=\"alternate\"][type*=\"atom\"],link[rel~=\"alternate\"][type*=\"feed\"]');"
+        @"return (n>=3&&c>=600?'1':'0')+(f?'1':'0');}catch(e){return '00';}})()";
+    NSString *result = [self.webview stringByEvaluatingJavaScriptFromString:probe] ?: @"";
+    BOOL reader = [result hasPrefix:@"1"];
+    BOOL feed = result.length >= 2 && [result characterAtIndex:1] == '1';
+    self.pageHasFeed = feed;
+    [self.topMenuView setReaderAvailable:reader feedAvailable:feed];
+}
+
+- (void)schedulePageFeatureChecksForWebView:(id)webView delays:(NSArray<NSNumber *> *)delays {
+    NSUInteger generation = ++self.pageProbeGeneration;
+    __weak typeof(self) weakSelf = self;
+    for (NSNumber *delay in delays) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            ViewController *strongSelf = weakSelf;
+            if (strongSelf == nil || generation != strongSelf.pageProbeGeneration || webView != strongSelf.webview) {
+                return; // a newer page took over
+            }
+            [strongSelf refreshPageFeatures];
+        });
+    }
 }
 
 - (void)browserShowReader {
@@ -1845,7 +1862,10 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 - (void)webViewDidStartLoad:(id)webView {
     if (webView == self.webview) {
         self.pageArticle = nil;
+        self.pageHasFeed = NO;
         [self.topMenuView setReaderAvailable:NO feedAvailable:NO];
+        // Check while the page is still loading – articles usually have their text long before the ads and images are done.
+        [self schedulePageFeatureChecksForWebView:webView delays:@[@0.9, @1.8, @3.0, @4.5, @6.5]];
     }
     [self.tabCoordinator webViewDidStartLoad:webView];
 }
@@ -1856,12 +1876,9 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 
 - (void)webViewDidFinishLoad:(id)webView {
     [self.tabCoordinator webViewDidFinishLoad:webView];
-    __weak typeof(self) weakPageSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        if (webView == weakPageSelf.webview) {
-            [weakPageSelf refreshPageFeatures];
-        }
-    });
+    if (webView == self.webview) {
+        [self schedulePageFeatureChecksForWebView:webView delays:@[@0.15, @1.5]];
+    }
     if (self.tabOverviewController.visible) {
         BrowserTabViewModel *tab = [self.tabCoordinator tabForWebView:webView];
         NSInteger tabIndex = tab != nil ? [self.viewModel.tabs indexOfObject:tab] : NSNotFound;
