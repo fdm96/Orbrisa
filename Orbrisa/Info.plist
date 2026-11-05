@@ -49,6 +49,8 @@
 	</dict>
 	<key>OrbrisaAppGroup</key>
 	<string>group.$(ORBRISA_BUNDLE_ID)</string>
+	<key>OrbrisaReleaseLabel</key>
+	<string>Beta 1</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
