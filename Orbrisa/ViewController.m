@@ -1299,6 +1299,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     start.search = ^{ [weakSelf showInputURLorSearchGoogle]; };
     start.showTabs = ^{ [weakSelf browserShowTabOverview]; };
     start.showSettings = ^{ [weakSelf showAdvancedMenu]; };
+    start.showFeeds = ^{ [weakSelf browserShowFeeds]; };
     start.favoritesChanged = ^{ [weakSelf.tabCoordinator updateTopShelf]; };
     [self presentViewController:start animated:YES completion:nil];
 }

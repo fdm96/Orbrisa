@@ -6,6 +6,7 @@
 #import "BrowserStartPageViewController.h"
 #import "BrowserFeedStore.h"
 #import "BrowserLocalization.h"
+#import "BrowserTopBarView.h"
 
 static NSString * const kStartFavoritesKey = @"FAVORITES";
 static NSString * const kStartHistoryKey = @"HISTORY";
@@ -13,11 +14,9 @@ static NSString * const kStartWebAppsKey = @"BrowserWebAppURLs";
 static NSString * const kStartLaunchWebAppKey = @"BrowserLaunchWebAppURL";
 
 static CGFloat const kStartSideInset = 160.0;
-static CGFloat const kStartTopRowY = 50.0;
 static CGFloat const kStartFavoriteTile = 180.0;
 
 static UIColor *StartBackgroundColor(void) { return [UIColor colorWithRed:0.067 green:0.071 blue:0.086 alpha:1.0]; }
-static UIColor *StartDarkTextColor(void) { return [UIColor colorWithWhite:0.11 alpha:1.0]; }
 
 static NSString *StartHostForURL(NSString *URLString) {
     NSString *host = [NSURL URLWithString:URLString].host.lowercaseString ?: @"";
@@ -224,7 +223,7 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
         _label.textColor = UIColor.whiteColor;
         [self addSubview:_label];
         [NSLayoutConstraint activateConstraints:@[
-            [_label.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+            [_label.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:kStartSideInset],
             [_label.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-22.0],
         ]];
     }
@@ -233,38 +232,12 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 
 @end
 
-#pragma mark - Top bar buttons
-
-/// A button of the start page's own top row: glass when idle, white with dark content when focused.
-@interface BrowserStartBarButton : UIButton
-@property (nonatomic) BOOL prominent; // the search field: brighter when idle
-@end
-
-@implementation BrowserStartBarButton
-
-- (void)applyFocused:(BOOL)focused {
-    UIColor *content = focused ? StartDarkTextColor() : UIColor.whiteColor;
-    self.backgroundColor = focused ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:(self.prominent ? 0.16 : 0.0)];
-    [self setTitleColor:content forState:UIControlStateNormal];
-    self.tintColor = content;
-    self.transform = focused ? CGAffineTransformMakeScale(self.prominent ? 1.05 : 1.1, self.prominent ? 1.05 : 1.1) : CGAffineTransformIdentity;
-    self.layer.shadowOpacity = focused ? 0.45 : 0.0;
-}
-
-- (void)didUpdateFocusInContext:(UIFocusUpdateContext *)context withAnimationCoordinator:(UIFocusAnimationCoordinator *)coordinator {
-    [super didUpdateFocusInContext:context withAnimationCoordinator:coordinator];
-    BOOL focused = (context.nextFocusedView == self);
-    [coordinator addCoordinatedAnimations:^{ [self applyFocused:focused]; } completion:nil];
-}
-
-@end
-
 #pragma mark - Start page
 
-@interface BrowserStartPageViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
+@interface BrowserStartPageViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, BrowserTopBarViewDelegate>
 @property (nonatomic) NSUInteger tabCount;
 @property (nonatomic) BOOL canGoBack;
-@property (nonatomic) BrowserStartBarButton *searchButton;
+@property (nonatomic) BrowserTopBarView *topBar;
 @property (nonatomic) UICollectionView *collectionView;
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *favorites; // [url, title]
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *recents;   // [url, title]
@@ -348,77 +321,23 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 
 #pragma mark View
 
-- (BrowserStartBarButton *)barButtonWithSymbol:(NSString *)symbol title:(NSString *)title height:(CGFloat)height action:(SEL)action {
-    BrowserStartBarButton *button = [BrowserStartBarButton buttonWithType:UIButtonTypeCustom];
-    button.translatesAutoresizingMaskIntoConstraints = NO;
-    button.layer.cornerRadius = height / 2.0;
-    button.layer.shadowColor = UIColor.blackColor.CGColor;
-    button.layer.shadowOffset = CGSizeMake(0.0, 10.0);
-    button.layer.shadowRadius = 18.0;
-    if (symbol != nil) {
-        UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:26.0 weight:UIImageSymbolWeightSemibold];
-        [button setImage:[UIImage systemImageNamed:symbol withConfiguration:config] forState:UIControlStateNormal];
-    }
-    if (title != nil) {
-        [button setTitle:title forState:UIControlStateNormal];
-        button.titleLabel.font = [UIFont systemFontOfSize:28.0 weight:UIFontWeightSemibold];
-    }
-    [button.heightAnchor constraintEqualToConstant:height].active = YES;
-    [button addTarget:self action:action forControlEvents:UIControlEventPrimaryActionTriggered];
-    [button applyFocused:NO];
-    return button;
-}
-
-- (UIView *)glassCapsuleWithButtons:(NSArray<UIView *> *)buttons {
-    UIVisualEffectView *glass = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
-    glass.translatesAutoresizingMaskIntoConstraints = NO;
-    glass.layer.cornerRadius = 42.0;
-    glass.clipsToBounds = YES;
-    glass.contentView.backgroundColor = [UIColor colorWithRed:0.24 green:0.24 blue:0.27 alpha:0.55];
-    glass.contentView.layer.cornerRadius = 42.0;
-    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:buttons];
-    stack.translatesAutoresizingMaskIntoConstraints = NO;
-    stack.spacing = 4.0;
-    [glass.contentView addSubview:stack];
-    [NSLayoutConstraint activateConstraints:@[
-        [stack.topAnchor constraintEqualToAnchor:glass.contentView.topAnchor constant:8.0],
-        [stack.bottomAnchor constraintEqualToAnchor:glass.contentView.bottomAnchor constant:-8.0],
-        [stack.leadingAnchor constraintEqualToAnchor:glass.contentView.leadingAnchor constant:8.0],
-        [stack.trailingAnchor constraintEqualToAnchor:glass.contentView.trailingAnchor constant:-8.0],
-    ]];
-    return glass;
-}
-
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = StartBackgroundColor();
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
 
-    // Top row – like the browser bar: back on the left, the search field in the middle, tabs and settings on the right.
-    BrowserStartBarButton *search = [self barButtonWithSymbol:@"magnifyingglass" title:[@"  " stringByAppendingString:BrowserLocalized(@"Search or enter address")] height:92.0 action:@selector(searchPressed)];
-    search.prominent = YES;
-    search.titleLabel.font = [UIFont systemFontOfSize:29.0 weight:UIFontWeightSemibold];
-    [search applyFocused:NO];
-    [self.view addSubview:search];
-    self.searchButton = search;
-
-    // Tabs and settings
-    BrowserStartBarButton *tabs = [self barButtonWithSymbol:nil title:[NSString stringWithFormat:@"%@  %lu", BrowserLocalized(@"Tabs"), (unsigned long)self.tabCount] height:68.0 action:@selector(tabsPressed)];
-    [tabs.widthAnchor constraintGreaterThanOrEqualToConstant:150.0].active = YES;
-    BrowserStartBarButton *more = [self barButtonWithSymbol:@"ellipsis" title:nil height:68.0 action:@selector(settingsPressed)];
-    more.accessibilityLabel = BrowserLocalized(@"Settings");
-    [more.widthAnchor constraintEqualToConstant:68.0].active = YES;
-    UIView *right = [self glassCapsuleWithButtons:@[tabs, more]];
-    [self.view addSubview:right];
-
-    UIView *left = nil;
-    if (self.canGoBack) {
-        BrowserStartBarButton *back = [self barButtonWithSymbol:@"chevron.left" title:nil height:68.0 action:@selector(backPressed)];
-        back.accessibilityLabel = BrowserLocalized(@"Back");
-        [back.widthAnchor constraintEqualToConstant:68.0].active = YES;
-        left = [self glassCapsuleWithButtons:@[back]];
-        [self.view addSubview:left];
-    }
+    // The real Orbrisa top bar (Liquid Glass), the address field focused – like on a page, just with nothing loaded yet.
+    BrowserTopBarView *topBar = [[BrowserTopBarView alloc] initWithEffect:nil];
+    topBar.frame = CGRectMake(0.0, 0.0, CGRectGetWidth(self.view.bounds), 170.0);
+    topBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    topBar.delegate = self;
+    [topBar setPageTitle:nil URLString:nil];
+    [topBar setTabCount:self.tabCount];
+    [topBar setCanGoBack:self.canGoBack canGoForward:NO];
+    [topBar setReaderAvailable:NO feedAvailable:NO];
+    [topBar setFocusModeActive:YES];
+    [self.view addSubview:topBar];
+    self.topBar = topBar;
 
     UICollectionViewFlowLayout *layout = [UICollectionViewFlowLayout new];
     layout.minimumInteritemSpacing = 40.0;
@@ -442,28 +361,42 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
     [collectionView addGestureRecognizer:hold];
 
     NSMutableArray *constraints = [@[
-        [search.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kStartTopRowY],
-        [search.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [search.widthAnchor constraintEqualToConstant:720.0],
-        [right.centerYAnchor constraintEqualToAnchor:search.centerYAnchor],
-        [right.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-90.0],
         [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:170.0],
         [collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
         [collectionView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
     ] mutableCopy];
-    if (left != nil) {
-        [constraints addObjectsFromArray:@[
-            [left.centerYAnchor constraintEqualToAnchor:search.centerYAnchor],
-            [left.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:90.0],
-        ]];
-    }
     [NSLayoutConstraint activateConstraints:constraints];
     [self reloadData];
 }
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
-    return @[self.searchButton];
+    UIView *item = [self.topBar preferredFocusItem];
+    return item != nil ? @[item] : @[self.topBar];
+}
+
+- (void)browserTopBarView:(__unused BrowserTopBarView *)topBarView didTriggerAction:(BrowserTopBarAction)action {
+    switch (action) {
+        case BrowserTopBarActionURL:
+            [self searchPressed];
+            break;
+        case BrowserTopBarActionTabs:
+            [self tabsPressed];
+            break;
+        case BrowserTopBarActionMenu:
+            [self settingsPressed];
+            break;
+        case BrowserTopBarActionFeed:
+            [self closeThen:self.showFeeds];
+            break;
+        case BrowserTopBarActionBack:
+            if (self.canGoBack) {
+                [self backPressed];
+            }
+            break;
+        default:
+            break; // reload, forward, home, full screen: nothing to do on the start page
+    }
 }
 
 #pragma mark Collection

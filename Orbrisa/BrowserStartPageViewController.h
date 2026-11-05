@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) void (^search)(void);
 @property (nonatomic, copy, nullable) void (^showTabs)(void);
 @property (nonatomic, copy, nullable) void (^showSettings)(void);
+@property (nonatomic, copy, nullable) void (^showFeeds)(void);
 /// Runs right away when favorites were added, renamed or removed (e.g. to refresh the Top Shelf).
 @property (nonatomic, copy, nullable) void (^favoritesChanged)(void);
 
