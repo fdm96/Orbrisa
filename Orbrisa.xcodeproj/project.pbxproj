@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		9675E1FC20855F6500A4A84A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9675E1FB20855F6500A4A84A /* Foundation.framework */; };
 		9675E1FF20857AEF00A4A84A /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9675E1FE20857AEF00A4A84A /* UIKit.framework */; };
+		A0B1C2D3E4F5061728394A60 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5061728394A5F /* Localizable.strings */; };
+		A0B1C2D3E4F5061728394A61 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5061728394A5F /* Localizable.strings */; };
 		A1B49A482D67F2B3001D58A1 /* BrowserTabViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B49A472D67F2B3001D58A1 /* BrowserTabViewModel.m */; };
 		A1B49A4B2D67F2C3001D58A1 /* BrowserViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B49A4A2D67F2C3001D58A1 /* BrowserViewModel.m */; };
 		A1B49A4E2D680900001D58A1 /* BrowserNavigationService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B49A4D2D680900001D58A1 /* BrowserNavigationService.m */; };
@@ -36,8 +38,6 @@
 		B002B8701BAE420500C744AF /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B002B86E1BAE420500C744AF /* Main.storyboard */; };
 		B002B8721BAE420500C744AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B002B8711BAE420500C744AF /* Assets.xcassets */; };
 		C0FFEE00A1B2C3D4E5F60003 /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE00A1B2C3D4E5F60002 /* VLCKit */; };
-		A0B1C2D3E4F5061728394A60 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5061728394A5F /* Localizable.strings */; };
-		A0B1C2D3E4F5061728394A61 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5061728394A5F /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -501,14 +501,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		B002B86E1BAE420500C744AF /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				B002B86F1BAE420500C744AF /* Base */,
-			);
-			name = Main.storyboard;
-			sourceTree = "<group>";
-		};
 		A0B1C2D3E4F5061728394A5F /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -516,6 +508,14 @@
 				A0B1C2D3E4F5061728394A5E /* de */,
 			);
 			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		B002B86E1BAE420500C744AF /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B002B86F1BAE420500C744AF /* Base */,
+			);
+			name = Main.storyboard;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
