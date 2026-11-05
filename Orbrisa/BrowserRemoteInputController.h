@@ -25,6 +25,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)browserRemoteInputControllerPersistSession;
 /// Link navigation: jump between the links and buttons of a page with the remote's arrow clicks.
 - (void)browserRemoteInputControllerLinkNavigationDidChangeActive:(BOOL)active;
+@optional
+/// Menu while link navigation is on. Return YES when handled (a web app goes back instead of switching to the mouse).
+- (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu;
+@required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;
 - (void)browserRemoteInputControllerLinkNavigationActivate;

@@ -803,6 +803,21 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
                           "return best || (location.protocol.indexOf('http') === 0 ? location.origin + '/favicon.ico' : ''); })()"];
     if (iconURL.length > 0) {
         tab.iconURLString = iconURL;
+        // Remembered per site, so the start page can show the real logo on a favorite's tile.
+        NSString *host = request.URL.host.lowercaseString;
+        if ([host hasPrefix:@"www."]) {
+            host = [host substringFromIndex:4];
+        }
+        if (host.length > 0) {
+            NSMutableDictionary *icons = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserSiteIcons"] mutableCopy] ?: [NSMutableDictionary dictionary];
+            if (![icons[host] isEqualToString:iconURL]) {
+                icons[host] = iconURL;
+                if (icons.count > 300) {
+                    [icons removeObjectForKey:icons.allKeys.firstObject];
+                }
+                [[NSUserDefaults standardUserDefaults] setObject:icons forKey:@"BrowserSiteIcons"];
+            }
+        }
     }
 
     if (tab == self.activeTab) {

@@ -28,6 +28,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)isWebAppURL:(nullable NSString *)URLString;
 /// The web app Orbrisa opens when it starts, or nil.
 + (nullable NSString *)launchWebAppURL;
+/// The name the user gave this favorite, or nil.
++ (nullable NSString *)nameForFavoriteURL:(nullable NSString *)URLString;
+/// The site's logo (remembered from a visit, else its apple-touch-icon); nil when there is none. Completion on the main queue.
++ (void)loadLogoForURL:(NSString *)URLString completion:(void (^)(UIImage * _Nullable image))completion;
 
 @end
 

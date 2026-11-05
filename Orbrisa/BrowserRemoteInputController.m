@@ -264,6 +264,10 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
             [self.host browserRemoteInputControllerLinkNavigationActivate];
             return YES;
         case UIPressTypeMenu:
+            if ([self.host respondsToSelector:@selector(browserRemoteInputControllerLinkNavigationHandleMenu)] &&
+                [self.host browserRemoteInputControllerLinkNavigationHandleMenu]) {
+                return YES;
+            }
             [self setLinkNavigationActive:NO];
             return YES;
         default:

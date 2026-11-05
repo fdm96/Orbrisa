@@ -541,6 +541,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL webAppMode;
 @property (nonatomic) BOOL didHandleLaunchWebApp;
 @property (nonatomic) UIView *webAppHintView;
+@property (nonatomic) UIView *webAppSplashView;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -1318,10 +1319,114 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self.tabCoordinator setTopNavigationVisible:NO];
     [self updateShowTopBarButtonAnimated:YES];
     [self.webview loadRequest:request];
+    [self showWebAppSplashForURLString:URLString];
     [self showWebAppHint];
 }
 
+- (void)showWebAppSplashForURLString:(NSString *)URLString {
+    // Like a real app starting: its colour, logo and name instead of a white page while it loads.
+    [self.webAppSplashView removeFromSuperview];
+    NSString *host = [NSURL URLWithString:URLString].host.lowercaseString ?: @"";
+    if ([host hasPrefix:@"www."]) {
+        host = [host substringFromIndex:4];
+    }
+    NSString *name = [BrowserStartPageViewController nameForFavoriteURL:URLString] ?: host;
+    UIColor *color = [BrowserFeedStore colorForFeedURL:host];
+
+    UIView *splash = [[UIView alloc] initWithFrame:self.view.bounds];
+    splash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    splash.backgroundColor = [UIColor colorWithRed:0.067 green:0.071 blue:0.086 alpha:1.0];
+    UIView *tile = [UIView new];
+    tile.translatesAutoresizingMaskIntoConstraints = NO;
+    tile.backgroundColor = color;
+    tile.layer.cornerRadius = 56.0;
+    tile.clipsToBounds = YES;
+    UILabel *letter = [UILabel new];
+    letter.translatesAutoresizingMaskIntoConstraints = NO;
+    letter.text = name.length > 0 ? [[name substringToIndex:[name rangeOfComposedCharacterSequenceAtIndex:0].length] uppercaseString] : @"";
+    letter.font = [UIFont systemFontOfSize:110.0 weight:UIFontWeightBold];
+    letter.textColor = UIColor.whiteColor;
+    [tile addSubview:letter];
+    UIImageView *logo = [UIImageView new];
+    logo.translatesAutoresizingMaskIntoConstraints = NO;
+    logo.contentMode = UIViewContentModeScaleAspectFill;
+    logo.hidden = YES;
+    [tile addSubview:logo];
+    UILabel *title = [UILabel new];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = name;
+    title.font = [UIFont systemFontOfSize:44.0 weight:UIFontWeightBold];
+    title.textColor = UIColor.whiteColor;
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    spinner.translatesAutoresizingMaskIntoConstraints = NO;
+    spinner.color = [UIColor colorWithWhite:1.0 alpha:0.6];
+    [spinner startAnimating];
+    [splash addSubview:tile];
+    [splash addSubview:title];
+    [splash addSubview:spinner];
+    [NSLayoutConstraint activateConstraints:@[
+        [tile.centerXAnchor constraintEqualToAnchor:splash.centerXAnchor],
+        [tile.centerYAnchor constraintEqualToAnchor:splash.centerYAnchor constant:-80.0],
+        [tile.widthAnchor constraintEqualToConstant:240.0],
+        [tile.heightAnchor constraintEqualToConstant:240.0],
+        [letter.centerXAnchor constraintEqualToAnchor:tile.centerXAnchor],
+        [letter.centerYAnchor constraintEqualToAnchor:tile.centerYAnchor],
+        [logo.topAnchor constraintEqualToAnchor:tile.topAnchor],
+        [logo.bottomAnchor constraintEqualToAnchor:tile.bottomAnchor],
+        [logo.leadingAnchor constraintEqualToAnchor:tile.leadingAnchor],
+        [logo.trailingAnchor constraintEqualToAnchor:tile.trailingAnchor],
+        [title.topAnchor constraintEqualToAnchor:tile.bottomAnchor constant:40.0],
+        [title.centerXAnchor constraintEqualToAnchor:splash.centerXAnchor],
+        [spinner.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:40.0],
+        [spinner.centerXAnchor constraintEqualToAnchor:splash.centerXAnchor],
+    ]];
+    [BrowserStartPageViewController loadLogoForURL:URLString completion:^(UIImage *image) {
+        if (image != nil) {
+            logo.image = image;
+            logo.hidden = NO;
+            letter.hidden = YES;
+            tile.backgroundColor = UIColor.whiteColor;
+        }
+    }];
+    [self.view addSubview:splash];
+    if (self.webAppHintView.superview != nil) {
+        [self.view bringSubviewToFront:self.webAppHintView];
+    }
+    self.webAppSplashView = splash;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf hideWebAppSplash]; // slow page: don't keep the splash forever
+    });
+}
+
+- (void)hideWebAppSplash {
+    UIView *splash = self.webAppSplashView;
+    if (splash == nil) {
+        return;
+    }
+    self.webAppSplashView = nil;
+    [UIView animateWithDuration:0.4 animations:^{ splash.alpha = 0.0; } completion:^(__unused BOOL finished) {
+        [splash removeFromSuperview];
+    }];
+}
+
+- (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu {
+    if (!self.webAppMode) {
+        return NO;
+    }
+    // In a web app, Back goes back inside the app; on its first page it leaves to the start page.
+    if (self.webview.canGoBack) {
+        [self.webview goBack];
+    } else {
+        [self browserLeaveWebApp];
+        [self browserShowStartPage];
+    }
+    return YES;
+}
+
 - (void)browserLeaveWebApp {
+    [self hideWebAppSplash];
+    [self.remoteInputController setLinkNavigationActive:NO]; // while still in the web app: no "mouse on" hint
     self.webAppMode = NO;
     BOOL visible = self.preferencesStore.topNavigationBarVisible;
     self.viewModel.topNavigationBarVisible = visible;
@@ -1493,7 +1598,7 @@ static NSString *BrowserLinkNavigationScript(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         script =
-    @"(function(cmd, topInset){\n"
+    @"(function(cmd, topInset, feed){\n"
     @"var N = window.__tvLinkNav;\n"
     @"if (!N) {\n"
     @"  N = window.__tvLinkNav = {cur: null};\n"
@@ -1503,6 +1608,12 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  st.id = '__tvLinkNavStyle';\n"
     @"  st.textContent = '.__tvLinkNavFocus{outline:4px solid #FFFFFF !important;outline-offset:3px !important;border-radius:12px !important;box-shadow:0 0 0 7px rgba(0,0,0,0.55),0 18px 40px rgba(0,0,0,0.45) !important;background-color:rgba(255,255,255,0.14) !important;transition:outline-offset .15s ease, box-shadow .15s ease !important;}';\n"
     @"  (document.head || document.documentElement).appendChild(st);\n"
+    @"}\n"
+    @"if (feed && !document.getElementById('__tvFeedStyle')) {\n"
+    @"  var fs = document.createElement('style');\n"
+    @"  fs.id = '__tvFeedStyle';\n"
+    @"  fs.textContent = 'html{scroll-behavior:smooth !important;} .__tvLinkNavFocus{outline:5px solid #FFFFFF !important;outline-offset:6px !important;border-radius:16px !important;transform:scale(1.04) !important;position:relative !important;z-index:2147483000 !important;box-shadow:0 26px 60px rgba(0,0,0,0.55),0 0 0 10px rgba(0,0,0,0.25) !important;background-color:rgba(255,255,255,0.10) !important;transition:transform .18s ease, box-shadow .18s ease, outline-offset .18s ease !important;}';\n"
+    @"  (document.head || document.documentElement).appendChild(fs);\n"
     @"}\n"
     @"var SELECTOR = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=option],[onclick],[tabindex]:not([tabindex=\"-1\"])';\n"
     @"function shown(el){\n"
@@ -1520,6 +1631,7 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  el.classList.add('__tvLinkNavFocus');\n"
     @"  var r = el.getBoundingClientRect();\n"
     @"  var hidden = scrollY > 0 ? topInset : 0;\n"
+    @"  if (feed) { el.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'smooth'}); return; }\n"
     @"  if (r.top < hidden || r.bottom > innerHeight) { el.scrollIntoView({block: 'center', inline: 'nearest'}); }\n"
     @"}\n"
     @"function mid(r){ return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }\n"
@@ -1580,7 +1692,7 @@ static NSString *BrowserLinkNavigationScript(void) {
     CGFloat scale = innerWidth > 0 ? CGRectGetWidth(self.webview.frame) / (CGFloat)innerWidth : 1.0;
     CGFloat barHeight = (self.viewModel.topNavigationBarVisible && !self.topMenuView.hidden) ? CGRectGetMaxY(self.topMenuView.frame) : 0.0;
     CGFloat topInsetCSS = scale > 0.0 ? barHeight / scale : barHeight;
-    NSString *script = [NSString stringWithFormat:@"%@('%@', %.1f)", BrowserLinkNavigationScript(), command, topInsetCSS];
+    NSString *script = [NSString stringWithFormat:@"%@('%@', %.1f, %@)", BrowserLinkNavigationScript(), command, topInsetCSS, self.webAppMode ? @"true" : @"false"];
     return [self.webview stringByEvaluatingJavaScriptFromString:script] ?: @"none";
 }
 
@@ -1594,7 +1706,11 @@ static NSString *BrowserLinkNavigationScript(void) {
     }
     if (active) {
         [self runLinkNavigationCommand:@"down"];
-        [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
+        if (!self.webAppMode) {
+            [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
+        }
+    } else if (self.webAppMode) {
+        [self runLinkNavigationCommand:@"clear"];
     } else {
         [self runLinkNavigationCommand:@"clear"];
         [self showLinkNavigationHint:BrowserLocalized(@"Mouse on · Hold bottom: link navigation")];
@@ -2034,6 +2150,13 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 
 - (void)webViewDidFinishLoad:(id)webView {
     [self.tabCoordinator webViewDidFinishLoad:webView];
+    if (webView == self.webview && self.webAppMode) {
+        // A web app is used like a feed: arrows jump from item to item, no mouse.
+        [self hideWebAppSplash];
+        if (!self.remoteInputController.linkNavigationActive) {
+            [self.remoteInputController setLinkNavigationActive:YES];
+        }
+    }
     if (webView == self.webview) {
         [self schedulePageFeatureChecksForWebView:webView delays:@[@0.15, @1.5]];
     }

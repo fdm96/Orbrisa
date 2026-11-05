@@ -35,6 +35,38 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
     return [[trimmed substringToIndex:[trimmed rangeOfComposedCharacterSequenceAtIndex:0].length] uppercaseString];
 }
 
+static NSCache<NSString *, UIImage *> *StartLogoCache(void) {
+    static NSCache *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        cache = [NSCache new];
+        cache.countLimit = 120;
+    });
+    return cache;
+}
+
+static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger index, void (^completion)(UIImage *image)) {
+    if (index >= candidates.count) {
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(nil); });
+        return;
+    }
+    NSURL *URL = [NSURL URLWithString:candidates[index]];
+    if (URL == nil) {
+        StartFetchFirstImage(candidates, index + 1, completion);
+        return;
+    }
+    NSURLRequest *request = [NSURLRequest requestWithURL:URL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:6.0];
+    [[NSURLSession.sharedSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSInteger status = [response isKindOfClass:[NSHTTPURLResponse class]] ? ((NSHTTPURLResponse *)response).statusCode : 200;
+        UIImage *image = (error == nil && status < 400 && data.length > 0) ? [UIImage imageWithData:data] : nil;
+        if (image != nil && image.size.width >= 48.0) {
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(image); });
+        } else {
+            StartFetchFirstImage(candidates, index + 1, completion); // too small or missing: try the next one
+        }
+    }] resume];
+}
+
 #pragma mark - Favorite tile
 
 @interface BrowserStartFavoriteCell : UICollectionViewCell
@@ -43,6 +75,8 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
 @property (nonatomic) UIImageView *symbolView;
 @property (nonatomic) UILabel *nameLabel;
 @property (nonatomic) UILabel *badgeLabel;
+@property (nonatomic) UIImageView *logoView;
+@property (nonatomic, copy) NSString *logoURL;
 @end
 
 @implementation BrowserStartFavoriteCell
@@ -68,6 +102,14 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
         _letterLabel.textColor = UIColor.whiteColor;
         _letterLabel.textAlignment = NSTextAlignmentCenter;
         [_tile addSubview:_letterLabel];
+
+        _logoView = [UIImageView new];
+        _logoView.translatesAutoresizingMaskIntoConstraints = NO;
+        _logoView.contentMode = UIViewContentModeScaleAspectFill;
+        _logoView.layer.cornerRadius = 40.0;
+        _logoView.clipsToBounds = YES;
+        _logoView.hidden = YES;
+        [_tile addSubview:_logoView];
 
         _symbolView = [UIImageView new];
         _symbolView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -98,6 +140,10 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
             [_tile.heightAnchor constraintEqualToConstant:kStartFavoriteTile],
             [_letterLabel.centerXAnchor constraintEqualToAnchor:_tile.centerXAnchor],
             [_letterLabel.centerYAnchor constraintEqualToAnchor:_tile.centerYAnchor],
+            [_logoView.topAnchor constraintEqualToAnchor:_tile.topAnchor],
+            [_logoView.bottomAnchor constraintEqualToAnchor:_tile.bottomAnchor],
+            [_logoView.leadingAnchor constraintEqualToAnchor:_tile.leadingAnchor],
+            [_logoView.trailingAnchor constraintEqualToAnchor:_tile.trailingAnchor],
             [_symbolView.centerXAnchor constraintEqualToAnchor:_tile.centerXAnchor],
             [_symbolView.centerYAnchor constraintEqualToAnchor:_tile.centerYAnchor],
             [_nameLabel.topAnchor constraintEqualToAnchor:_tile.bottomAnchor constant:18.0],
@@ -368,6 +414,45 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
     return URLString.length > 0 && [[NSUserDefaults.standardUserDefaults arrayForKey:kStartWebAppsKey] containsObject:URLString];
 }
 
++ (NSString *)nameForFavoriteURL:(NSString *)URLString {
+    for (id entry in [NSUserDefaults.standardUserDefaults arrayForKey:kStartFavoritesKey]) {
+        if ([entry isKindOfClass:[NSArray class]] && [entry count] > 1 && [entry[0] isEqual:URLString] && [entry[1] isKindOfClass:[NSString class]] && [entry[1] length] > 0) {
+            return entry[1];
+        }
+    }
+    return nil;
+}
+
++ (void)loadLogoForURL:(NSString *)URLString completion:(void (^)(UIImage *image))completion {
+    NSURL *URL = [NSURL URLWithString:URLString];
+    NSString *host = StartHostForURL(URLString);
+    if (URL.host.length == 0 || completion == nil) {
+        if (completion != nil) {
+            completion(nil);
+        }
+        return;
+    }
+    UIImage *cached = [StartLogoCache() objectForKey:host];
+    if (cached != nil) {
+        completion(cached);
+        return;
+    }
+    NSMutableArray *candidates = [NSMutableArray array];
+    NSString *remembered = [[NSUserDefaults.standardUserDefaults dictionaryForKey:@"BrowserSiteIcons"] objectForKey:host];
+    if (remembered.length > 0) {
+        [candidates addObject:remembered];
+    }
+    NSString *origin = [NSString stringWithFormat:@"%@://%@", URL.scheme ?: @"https", URL.host];
+    [candidates addObject:[origin stringByAppendingString:@"/apple-touch-icon.png"]];
+    [candidates addObject:[origin stringByAppendingString:@"/apple-touch-icon-precomposed.png"]];
+    StartFetchFirstImage(candidates, 0, ^(UIImage *image) {
+        if (image != nil) {
+            [StartLogoCache() setObject:image forKey:host];
+        }
+        completion(image);
+    });
+}
+
 + (NSString *)launchWebAppURL {
     NSString *URLString = [NSUserDefaults.standardUserDefaults stringForKey:kStartLaunchWebAppKey];
     return URLString.length > 0 ? URLString : nil;
@@ -547,6 +632,19 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
             cell.symbolView.hidden = YES;
             cell.tile.backgroundColor = [BrowserFeedStore colorForFeedURL:StartHostForURL(favorite[0])];
             cell.badgeLabel.hidden = ![BrowserStartPageViewController isWebAppURL:favorite[0]];
+            cell.logoView.hidden = YES;
+            cell.logoView.image = nil;
+            cell.logoURL = favorite[0];
+            NSString *logoURL = favorite[0];
+            __weak BrowserStartFavoriteCell *weakCell = cell;
+            [BrowserStartPageViewController loadLogoForURL:logoURL completion:^(UIImage *image) {
+                if (image == nil || ![weakCell.logoURL isEqualToString:logoURL]) {
+                    return; // no logo, or the cell shows another favorite by now
+                }
+                weakCell.logoView.image = image;
+                weakCell.logoView.hidden = NO;
+                weakCell.letterLabel.hidden = YES;
+            }];
         } else {
             cell.nameLabel.text = BrowserLocalized(@"Add Favorite");
             cell.letterLabel.hidden = YES;
@@ -554,6 +652,8 @@ static NSString *StartLetterForName(NSString *name, NSString *URLString) {
             cell.symbolView.image = [UIImage systemImageNamed:@"plus" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:60.0 weight:UIImageSymbolWeightSemibold]];
             cell.tile.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.1];
             cell.badgeLabel.hidden = YES;
+            cell.logoView.hidden = YES;
+            cell.logoURL = nil;
         }
         [cell applyFocused:cell.isFocused];
         return cell;
