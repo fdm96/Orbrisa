@@ -849,6 +849,105 @@ static NSString *BrowserForceDarkScript(BOOL enabled) {
     return [NSString stringWithFormat:@"%@(%@);", BrowserForceDarkScriptFunction(), enabled ? @"true" : @"false"];
 }
 
+#pragma mark - Ad blocker (WebKit content rules)
+
+static NSString * const kBrowserAdBlockDisabledKey = @"BrowserAdBlockDisabled";
+static id BrowserAdBlockRuleList;                    // WKContentRuleList, once compiled
+static NSHashTable *BrowserAdBlockControllers;        // every tab's user content controller (weak)
+
+static NSString *BrowserAdBlockRulesJSON(void) {
+    // Ad and tracking servers – blocked when a page loads them from another site (the site itself keeps working).
+    NSArray<NSString *> *domains = @[
+        @"doubleclick.net", @"googlesyndication.com", @"googleadservices.com", @"adservice.google.com", @"googletagservices.com",
+        @"google-analytics.com", @"googletagmanager.com", @"amazon-adsystem.com", @"adnxs.com", @"adsrvr.org", @"criteo.com",
+        @"criteo.net", @"taboola.com", @"outbrain.com", @"pubmatic.com", @"rubiconproject.com", @"openx.net", @"casalemedia.com",
+        @"smartadserver.com", @"adform.net", @"yieldlove.com", @"yieldlab.net", @"teads.tv", @"moatads.com", @"scorecardresearch.com",
+        @"quantserve.com", @"advertising.com", @"adsafeprotected.com", @"doubleverify.com", @"media.net", @"zemanta.com",
+        @"3lift.com", @"sharethrough.com", @"indexww.com", @"bidswitch.net", @"contextweb.com", @"lijit.com", @"sovrn.com",
+        @"33across.com", @"adition.com", @"stroeer.io", @"adscale.de", @"ioam.de", @"seedtag.com", @"connatix.com",
+        @"exponential.com", @"revcontent.com", @"mgid.com", @"propellerads.com", @"popads.net", @"popcash.net", @"adsterra.com",
+        @"exoclick.com", @"juicyads.com", @"trafficjunky.net", @"hotjar.com",
+    ];
+    NSMutableArray *rules = [NSMutableArray array];
+    for (NSString *domain in domains) {
+        NSString *escaped = [domain stringByReplacingOccurrencesOfString:@"." withString:@"\\."];
+        [rules addObject:@{
+            @"trigger": @{@"url-filter": [NSString stringWithFormat:@"^https?://([^/:]+\\.)?%@[/:]", escaped],
+                          @"load-type": @[@"third-party"]},
+            @"action": @{@"type": @"block"},
+        }];
+    }
+    // Typical ad boxes that stay empty (or show house ads) once their server is blocked.
+    [rules addObject:@{
+        @"trigger": @{@"url-filter": @".*"},
+        @"action": @{@"type": @"css-display-none",
+                     @"selector": @"ins.adsbygoogle, .adsbygoogle, [id^='google_ads_iframe'], [id^='div-gpt-ad'], [data-google-query-id], "
+                                   ".ad-slot, .ad-container, .ad-banner, .adBanner, .advertisement, .advert, .ad-wrapper, "
+                                   "[class*='taboola'], [id*='taboola'], .OUTBRAIN, [class^='outbrain'], [aria-label='Advertisement'], "
+                                   "[aria-label='Anzeige'], .werbung, .anzeige"},
+    }];
+    NSData *data = [NSJSONSerialization dataWithJSONObject:rules options:0 error:nil];
+    return data != nil ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"[]";
+}
+
+static void BrowserAdBlockApply(id controller, BOOL add) {
+    if (controller == nil || BrowserAdBlockRuleList == nil) {
+        return;
+    }
+    SEL selector = NSSelectorFromString(add ? @"addContentRuleList:" : @"removeContentRuleList:");
+    if ([controller respondsToSelector:selector]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(controller, selector, BrowserAdBlockRuleList);
+    }
+}
+
+static void BrowserAdBlockPrepare(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        Class storeClass = NSClassFromString(@"WKContentRuleListStore");
+        SEL defaultStore = NSSelectorFromString(@"defaultStore");
+        SEL compile = NSSelectorFromString(@"compileContentRuleListForIdentifier:encodedContentRuleList:completionHandler:");
+        if (storeClass == Nil || ![storeClass respondsToSelector:defaultStore]) {
+            BrowserLog(@"[AdBlock] content rules not available");
+            return;
+        }
+        id store = ((id (*)(id, SEL))objc_msgSend)((id)storeClass, defaultStore);
+        if (![store respondsToSelector:compile]) {
+            return;
+        }
+        void (^completion)(id, NSError *) = ^(id ruleList, NSError *error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (ruleList == nil) {
+                    BrowserLog(@"[AdBlock] compile failed: %@", error);
+                    return;
+                }
+                BrowserAdBlockRuleList = ruleList;
+                if ([BrowserWebView adBlockEnabled]) {
+                    for (id controller in BrowserAdBlockControllers) {
+                        BrowserAdBlockApply(controller, YES);
+                    }
+                }
+            });
+        };
+        ((void (*)(id, SEL, id, id, id))objc_msgSend)(store, compile, @"OrbrisaAdBlock-1", BrowserAdBlockRulesJSON(), completion);
+    });
+}
+
+static void BrowserAdBlockAttach(id configuration) {
+    SEL getter = NSSelectorFromString(@"userContentController");
+    id controller = [configuration respondsToSelector:getter] ? ((id (*)(id, SEL))objc_msgSend)(configuration, getter) : nil;
+    if (controller == nil) {
+        return;
+    }
+    if (BrowserAdBlockControllers == nil) {
+        BrowserAdBlockControllers = [NSHashTable weakObjectsHashTable];
+    }
+    [BrowserAdBlockControllers addObject:controller];
+    BrowserAdBlockPrepare();
+    if ([BrowserWebView adBlockEnabled]) {
+        BrowserAdBlockApply(controller, YES);
+    }
+}
+
 static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
     if (configuration == nil) {
         return;
@@ -995,6 +1094,7 @@ static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
     }
 #endif
     BrowserInstallYouTubeCaptureUserScript(configuration);
+    BrowserAdBlockAttach(configuration);
     [self installMediaMessageHandlerInConfiguration:configuration];
 
     id webViewObject = ((id (*)(id, SEL))objc_msgSend)((id)webViewClass, @selector(alloc));
@@ -1281,6 +1381,17 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
         for (UIWindow *window in ((UIWindowScene *)scene).windows) {
             window.overrideUserInterfaceStyle = style;
         }
+    }
+}
+
++ (BOOL)adBlockEnabled {
+    return ![[NSUserDefaults standardUserDefaults] boolForKey:kBrowserAdBlockDisabledKey];
+}
+
++ (void)setAdBlockEnabled:(BOOL)adBlockEnabled {
+    [[NSUserDefaults standardUserDefaults] setBool:!adBlockEnabled forKey:kBrowserAdBlockDisabledKey];
+    for (id controller in BrowserAdBlockControllers) {
+        BrowserAdBlockApply(controller, adBlockEnabled);
     }
 }
 

@@ -51,6 +51,8 @@ FOUNDATION_EXPORT NSString * const BrowserForceDarkPagesDidChangeNotification;
 + (void)applyAppearanceToWindows;
 /// Presses "accept all" on cookie banners automatically. On by default.
 @property (class, nonatomic) BOOL autoAcceptCookies;
+/// Blocks known ad and tracking servers and hides typical ad boxes (on by default).
+@property (class, nonatomic) BOOL adBlockEnabled;
 /// YES while the app is already waiting for an answer from a page (nested waits are skipped).
 + (BOOL)isWaitingForPage;
 /// Lets the run loop run for a moment while waiting for the page, without stacking up further waits.

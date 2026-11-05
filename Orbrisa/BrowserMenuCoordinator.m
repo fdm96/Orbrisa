@@ -1749,6 +1749,16 @@ static NSUInteger const kBrowserFontSizeMax = 200;
                                  changed:^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"BrowserTabSiteColors"]; }];
 }
 
+- (BrowserAdvancedMenuItem *)adBlockMenuItem {
+    __weak typeof(self) weakSelf = self;
+    return [self toggleMenuItemWithTitle:BrowserLocalized(@"Block Ads")
+                                   value:^BOOL{ return BrowserWebView.adBlockEnabled; }
+                                 changed:^(BOOL on) {
+        BrowserWebView.adBlockEnabled = on;
+        [[weakSelf.host browserWebView] reload]; // the open page shows the change right away
+    }];
+}
+
 - (BrowserAdvancedMenuItem *)autoAcceptCookiesMenuItem {
     return [self toggleMenuItemWithTitle:BrowserLocalized(@"Accept Cookie Banners Automatically")
                                    value:^BOOL{ return BrowserWebView.autoAcceptCookies; }
@@ -1824,6 +1834,7 @@ static NSUInteger const kBrowserFontSizeMax = 200;
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Compatibility")
                                                items:@[
             [self userAgentModeMenuItem],
+            [self adBlockMenuItem],
             [self autoAcceptCookiesMenuItem],
         ]],
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Maintenance")
