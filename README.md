@@ -13,7 +13,7 @@
 [![Downloads](https://img.shields.io/github/downloads/fdm96/Orbrisa/total?label=downloads)](https://github.com/fdm96/Orbrisa/releases)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Orbrisa-72a4f2?logo=ko-fi&logoColor=white)](https://ko-fi.com/T1M629LBVF)
 
-[Features](#features) · [Screenshots](#screenshots) · [Concept](#from-concept-to-app) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
+[Features](#features) · [Screenshots](#screenshots) · [Concept](#from-concept-to-app) · [Roadmap](#roadmap--coming-next) · [Install](#install) · [Remote](#using-the-siri-remote) · [Build](#build-from-source) · [Deutsch](#deutsch)
 
 </div>
 
@@ -90,6 +90,34 @@ Orbrisa started as a set of design concepts – drawn first, then built. Here is
 | **Video popup** – Full Screen, Choose Video or Stay on Page | |
 
 </details>
+
+## Roadmap – coming next
+
+These features are designed and planned for the next versions. The pictures are concepts – the final app may look a little different.
+
+| | Feature | |
+|:---:|---|---|
+| 📖 | **Reader mode** | Only the article – no ads, no menus. Large, calm text with your choice of size, background (light, sepia, grey, dark) and font. |
+| 📰 | **RSS feeds** | Subscribe to your favourite sites. Orbrisa spots a feed on a page and shows new articles in one overview. |
+| 🖼️ | **Picture in picture** | Keep the video playing in a small window while you go on browsing. |
+| 🔒 | **Private mode** | Tabs without history or cookies, locked with a 4-digit code. |
+
+<details>
+<summary><b>🔭 Show the concepts (6)</b></summary>
+<br>
+
+| | |
+|:---:|:---:|
+| <img src="docs/roadmap/reader.jpg" alt="Concept: reader mode"> | <img src="docs/roadmap/reader-settings.jpg" alt="Concept: reader appearance settings"> |
+| **Reader mode** | **Reader** – size, background and font |
+| <img src="docs/roadmap/rss-feeds.jpg" alt="Concept: RSS feeds overview"> | <img src="docs/roadmap/rss-subscribe.jpg" alt="Concept: feed found on a page"> |
+| **RSS** – all new articles at a glance | **RSS** – feed found on a page |
+| <img src="docs/roadmap/picture-in-picture.jpg" alt="Concept: picture in picture"> | <img src="docs/roadmap/private-mode.jpg" alt="Concept: private mode with code lock"> |
+| **Picture in picture** – watch and browse | **Private mode** with code lock |
+
+</details>
+
+Got an idea for the roadmap? [Suggest it here](https://github.com/fdm96/Orbrisa/issues/new?template=feature_request.yml).
 
 ## Install
 
@@ -213,6 +241,8 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 **Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü, zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
+
+**Geplant** – Reader-Modus, RSS-Feeds, Bild-in-Bild (Video läuft weiter, während du surfst) und ein privater Modus mit Code-Sperre. Die Entwürfe findest du oben unter *Roadmap*.
 
 **Fehler oder Ideen?** – Bitte ein [Issue erstellen](https://github.com/fdm96/Orbrisa/issues/new/choose). Ein Foto vom Fernseher (einfach mit dem Handy) oder ein Log aus Xcode hilft am meisten.
 
