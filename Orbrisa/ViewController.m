@@ -546,6 +546,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic, copy) NSString *webAppURLString;
 @property (nonatomic) BOOL webAppAskedTextSize;
 @property (nonatomic) BOOL leavingWebApp;
+@property (nonatomic) NSMutableSet<UITouch *> *forwardedTouches;
 @property (nonatomic) BOOL cursorModeBeforeWebApp;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
@@ -2386,10 +2387,27 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     [super pressesEnded:presses withEvent:event];
 }
 
+// Touches go to UIKit only when UIKit also saw them begin. Forwarding a "moved" or "ended" of a touch whose
+// "began" Orbrisa kept for itself (e.g. after switching between cursor, scrolling and the web app box mid-touch)
+// made UIKit crash with "-[UIDropShadowView (null selector)]: unrecognized selector".
+- (NSSet<UITouch *> *)forwardableTouches:(NSSet<UITouch *> *)touches {
+    NSMutableSet<UITouch *> *result = [NSMutableSet set];
+    for (UITouch *touch in touches) {
+        if ([self.forwardedTouches containsObject:touch]) {
+            [result addObject:touch];
+        }
+    }
+    return result;
+}
+
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     if ([self.remoteInputController handleTouchesBegan:touches withEvent:event]) {
         return;
     }
+    if (self.forwardedTouches == nil) {
+        self.forwardedTouches = [NSMutableSet set];
+    }
+    [self.forwardedTouches unionSet:touches];
     [super touchesBegan:touches withEvent:event];
 }
 
@@ -2397,21 +2415,28 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     if ([self.remoteInputController handleTouchesMoved:touches withEvent:event]) {
         return;
     }
-    [super touchesMoved:touches withEvent:event];
+    NSSet<UITouch *> *forwardable = [self forwardableTouches:touches];
+    if (forwardable.count > 0) {
+        [super touchesMoved:forwardable withEvent:event];
+    }
 }
 
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    (void)touches;
-    (void)event;
     [self.remoteInputController handleTouchesEnded];
-    [super touchesEnded:touches withEvent:event];
+    NSSet<UITouch *> *forwardable = [self forwardableTouches:touches];
+    [self.forwardedTouches minusSet:touches];
+    if (forwardable.count > 0) {
+        [super touchesEnded:forwardable withEvent:event];
+    }
 }
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    (void)touches;
-    (void)event;
     [self.remoteInputController handleTouchesEnded];
-    [super touchesCancelled:touches withEvent:event];
+    NSSet<UITouch *> *forwardable = [self forwardableTouches:touches];
+    [self.forwardedTouches minusSet:touches];
+    if (forwardable.count > 0) {
+        [super touchesCancelled:forwardable withEvent:event];
+    }
 }
 
 @end
