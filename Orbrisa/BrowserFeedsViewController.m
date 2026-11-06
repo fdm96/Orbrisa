@@ -15,6 +15,8 @@ static CGFloat const kFeedsSidebarWidth = 440.0;
 static CGFloat const kFeedsCardHeight = 330.0;
 static CGFloat const kFeedsCardImageHeight = 190.0;
 
+static CGFloat const kFeedsWindowInset = 40.0;  // the feeds window floats with this margin
+static CGFloat const kFeedsWindowRadius = 48.0;
 static UIColor *FeedsBackgroundColor(void) { return [UIColor colorWithRed:0.08 green:0.08 blue:0.09 alpha:1.0]; }
 static UIColor *FeedsCardColor(void) { return [UIColor colorWithRed:0.15 green:0.15 blue:0.16 alpha:1.0]; }
 
@@ -260,9 +262,27 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     // The top bar stays visible above (it reads "Feeds"); everything below it gets a dark backdrop.
     self.view.backgroundColor = UIColor.clearColor;
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+    // Like a window: the page around it is dimmed, the feeds float in a rounded glass panel with a soft shadow.
+    UIView *outerShade = [UIView new];
+    outerShade.translatesAutoresizingMaskIntoConstraints = NO;
+    outerShade.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    outerShade.userInteractionEnabled = NO;
+    [self.view addSubview:outerShade];
+    UIView *windowShadow = [UIView new];
+    windowShadow.translatesAutoresizingMaskIntoConstraints = NO;
+    windowShadow.backgroundColor = FeedsBackgroundColor();
+    windowShadow.layer.cornerRadius = kFeedsWindowRadius;
+    windowShadow.layer.shadowColor = UIColor.blackColor.CGColor;
+    windowShadow.layer.shadowOpacity = 0.55;
+    windowShadow.layer.shadowRadius = 40.0;
+    windowShadow.layer.shadowOffset = CGSizeMake(0.0, 20.0);
+    windowShadow.userInteractionEnabled = NO;
+    [self.view addSubview:windowShadow];
     UIView *backdrop = [UIView new];
     backdrop.translatesAutoresizingMaskIntoConstraints = NO;
     backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.9];
+    backdrop.layer.cornerRadius = kFeedsWindowRadius;
+    backdrop.clipsToBounds = YES;
     backdrop.userInteractionEnabled = NO;
     [self.view addSubview:backdrop];
     UIView *topShade = [UIView new];
@@ -275,6 +295,10 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     // The whole feeds page lies on a light orange Liquid Glass (like .glassEffect(.regular.tint(.orange).interactive())).
     UIVisualEffectView *sidebarGlass = [[UIVisualEffectView alloc] initWithEffect:nil];
     sidebarGlass.translatesAutoresizingMaskIntoConstraints = NO;
+    sidebarGlass.layer.cornerRadius = kFeedsWindowRadius;
+    sidebarGlass.clipsToBounds = YES;
+    sidebarGlass.layer.borderWidth = 1.5;
+    sidebarGlass.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.28].CGColor; // the bright glass rim
     sidebarGlass.userInteractionEnabled = NO;
     [self.view addSubview:sidebarGlass];
     self.sidebarGlass = sidebarGlass;
@@ -328,7 +352,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     collectionView.dataSource = self;
     collectionView.delegate = self;
     collectionView.backgroundColor = UIColor.clearColor;
-    collectionView.clipsToBounds = NO;
+    collectionView.clipsToBounds = YES; // cards scroll inside the window, not past its edge
     collectionView.remembersLastFocusedIndexPath = YES;
     [collectionView registerClass:[BrowserFeedCardCell class] forCellWithReuseIdentifier:@"card"];
     [self.view addSubview:collectionView];
@@ -356,10 +380,18 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         [topShade.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [topShade.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [topShade.bottomAnchor constraintEqualToAnchor:backdrop.topAnchor],
-        [backdrop.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [backdrop.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [outerShade.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [outerShade.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [outerShade.topAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [outerShade.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [backdrop.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kFeedsWindowInset],
+        [backdrop.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-kFeedsWindowInset],
         [backdrop.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop - 8.0],
-        [backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kFeedsWindowInset],
+        [windowShadow.leadingAnchor constraintEqualToAnchor:backdrop.leadingAnchor],
+        [windowShadow.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor],
+        [windowShadow.topAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [windowShadow.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor],
 
         [sidebarGlass.leadingAnchor constraintEqualToAnchor:backdrop.leadingAnchor],
         [sidebarGlass.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor],
@@ -375,14 +407,14 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         [addButton.leadingAnchor constraintEqualToAnchor:tableView.leadingAnchor],
         [addButton.widthAnchor constraintEqualToConstant:kFeedsSidebarWidth],
         [addButton.heightAnchor constraintEqualToConstant:72.0],
-        [addButton.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-50.0],
+        [addButton.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor constant:-30.0],
 
         [chips.leadingAnchor constraintEqualToAnchor:collectionView.leadingAnchor constant:24.0],
         [chips.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop + 4.0],
         [collectionView.leadingAnchor constraintEqualToAnchor:tableView.trailingAnchor constant:30.0],
-        [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-56.0],
+        [collectionView.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor constant:-20.0],
         [collectionView.topAnchor constraintEqualToAnchor:chips.bottomAnchor constant:8.0],
-        [collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [collectionView.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor constant:-6.0],
 
         [emptyLabel.centerXAnchor constraintEqualToAnchor:collectionView.centerXAnchor],
         [emptyLabel.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
