@@ -286,3 +286,15 @@
 "Remove from Recently Visited" = "Aus „Zuletzt besucht“ entfernen";
 "Hold a recent site" = "Zuletzt besuchte Seite gedrückt halten";
 "Options: open, open as web app, add to favorites, remove from the list." = "Optionen: öffnen, als Web-App öffnen, zu Favoriten hinzufügen, aus der Liste entfernen.";
+
+/* Demo mode */
+"Demo Mode" = "Demo-Modus";
+"Demo Mode: Show Remote Presses" = "Demo-Modus: Tasten der Fernbedienung zeigen";
+"Center" = "Mitte";
+"Ring Up" = "Ring oben";
+"Ring Down" = "Ring unten";
+"Ring Left" = "Ring links";
+"Ring Right" = "Ring rechts";
+"Hold %@" = "%@ halten";
+"2× %@" = "2× %@";
+"Swipe %@" = "Wischen %@";

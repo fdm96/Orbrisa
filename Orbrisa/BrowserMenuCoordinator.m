@@ -6,6 +6,7 @@
 //
 
 #import "BrowserMenuCoordinator.h"
+#import "BrowserRemoteVisualizer.h"
 #import "BrowserLocalization.h"
 #import "BrowserLog.h"
 #import "BrowserPreferencesStore.h"
@@ -1783,6 +1784,13 @@ static NSUInteger const kBrowserFontSizeMax = 200;
     }];
 }
 
+- (BrowserAdvancedMenuItem *)demoModeMenuItem {
+    // Shows a see-through Siri Remote on the right that lights up every press – for recordings and demos.
+    return [self toggleMenuItemWithTitle:BrowserLocalized(@"Demo Mode: Show Remote Presses")
+                                   value:^BOOL{ return BrowserRemoteVisualizer.enabled; }
+                                 changed:^(BOOL on) { BrowserRemoteVisualizer.enabled = on; }];
+}
+
 - (BrowserAdvancedMenuItem *)autoAcceptCookiesMenuItem {
     return [self toggleMenuItemWithTitle:BrowserLocalized(@"Accept Cookie Banners Automatically")
                                    value:^BOOL{ return BrowserWebView.autoAcceptCookies; }
@@ -1870,6 +1878,7 @@ static NSUInteger const kBrowserFontSizeMax = 200;
                                                items:@[
             [self whatsNewMenuItem],
             [self usageGuideMenuItem],
+            [self demoModeMenuItem],
         ]],
     ] mutableCopy];
 #if DEBUG

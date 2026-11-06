@@ -7,6 +7,7 @@
 
 #import <AVKit/AVKit.h>
 #import "BrowserLog.h"
+#import "BrowserRemoteVisualizer.h"
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
@@ -131,6 +132,7 @@ static UIViewController *BrowserFindPresentedNativeVideoPlayerViewController(UIA
 }
 
 - (void)browser_sendEvent:(UIEvent *)event {
+    [BrowserRemoteVisualizer handleEvent:event]; // demo mode: show what is pressed (does nothing while off)
     Class nativeVideoPlayerClass = NSClassFromString(@"BrowserNativeVideoPlayerViewController");
     UIViewController *nativeVideoPlayerViewController = BrowserFindPresentedNativeVideoPlayerViewController(self, nativeVideoPlayerClass);
 

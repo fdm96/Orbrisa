@@ -44,6 +44,7 @@
 		B0B1C2D3E4F506172839401C /* FeedDetect.js in Resources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F506172839401B /* FeedDetect.js */; };
 		B0B1C2D3E4F506172839401F /* BrowserStartPageViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F506172839401E /* BrowserStartPageViewController.m */; };
 		B0B1C2D3E4F5061728394022 /* BrowserQuickMenuViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394021 /* BrowserQuickMenuViewController.m */; };
+		B0B1C2D3E4F5061728394025 /* BrowserRemoteVisualizer.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394024 /* BrowserRemoteVisualizer.m */; };
 		C0FFEE00A1B2C3D4E5F60003 /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE00A1B2C3D4E5F60002 /* VLCKit */; };
 /* End PBXBuildFile section */
 
@@ -142,6 +143,8 @@
 		B0B1C2D3E4F506172839401E /* BrowserStartPageViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserStartPageViewController.m; sourceTree = "<group>"; };
 		B0B1C2D3E4F5061728394020 /* BrowserQuickMenuViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserQuickMenuViewController.h; sourceTree = "<group>"; };
 		B0B1C2D3E4F5061728394021 /* BrowserQuickMenuViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserQuickMenuViewController.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394023 /* BrowserRemoteVisualizer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserRemoteVisualizer.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394024 /* BrowserRemoteVisualizer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserRemoteVisualizer.m; sourceTree = "<group>"; };
 		B0F6B4611BAEBF9900E2F26B /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -274,6 +277,8 @@
 				B0B1C2D3E4F506172839401E /* BrowserStartPageViewController.m */,
 				B0B1C2D3E4F5061728394020 /* BrowserQuickMenuViewController.h */,
 				B0B1C2D3E4F5061728394021 /* BrowserQuickMenuViewController.m */,
+				B0B1C2D3E4F5061728394023 /* BrowserRemoteVisualizer.h */,
+				B0B1C2D3E4F5061728394024 /* BrowserRemoteVisualizer.m */,
 				B0B1C2D3E4F5061728394019 /* ReaderExtract.js */,
 				B0B1C2D3E4F506172839401B /* FeedDetect.js */,
 				A0B1C2D3E4F5061728394A5F /* Localizable.strings */,
@@ -503,6 +508,7 @@
 				B0B1C2D3E4F5061728394018 /* BrowserFeedsViewController.m in Sources */,
 				B0B1C2D3E4F506172839401F /* BrowserStartPageViewController.m in Sources */,
 				B0B1C2D3E4F5061728394022 /* BrowserQuickMenuViewController.m in Sources */,
+				B0B1C2D3E4F5061728394025 /* BrowserRemoteVisualizer.m in Sources */,
 				A1B49A482D67F2B3001D58A1 /* BrowserTabViewModel.m in Sources */,
 				A1B49A552D68143D001D58A1 /* BrowserMenuCoordinator.m in Sources */,
 				A1B49A922D700030001D58A1 /* BrowserPageActionCoordinator.m in Sources */,
