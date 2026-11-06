@@ -95,6 +95,10 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         _countLabel.layer.cornerRadius = 18.0;
         _countLabel.layer.masksToBounds = YES;
         [_capsule addSubview:_countLabel];
+        // A long feed name is cut off ("Macerkopf.de - Apple New…") – the unread badge always keeps its size.
+        [_countLabel setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [_countLabel setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [_nameLabel setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
 
         [NSLayoutConstraint activateConstraints:@[
             [_capsule.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
