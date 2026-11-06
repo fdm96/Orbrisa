@@ -1454,14 +1454,6 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [super pressesBegan:presses withEvent:event];
 }
 
-- (void)viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-    // Diagnostics: who closes the start page (Back with the options panel open should not).
-    NSArray<NSString *> *stack = [NSThread callStackSymbols];
-    BrowserLog(@"[StartPage] closing: panel=%@ closedAgo=%.2f\n%@", self.panel != nil ? @"YES" : @"NO",
-               CACurrentMediaTime() - self.panelClosedTime, [[stack subarrayWithRange:NSMakeRange(0, MIN((NSUInteger)14, stack.count))] componentsJoinedByString:@"\n"]);
-}
-
 - (void)handleBackGesture:(UITapGestureRecognizer *)recognizer {
     if (recognizer.state != UIGestureRecognizerStateEnded) {
         return;
@@ -1477,8 +1469,6 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     if (self.presentedViewController != nil) {
         return; // the wallpaper window (or an alert) on top handles Back itself
     }
-    BrowserLog(@"[StartPage] Back: panel=%@ closedAgo=%.2f closing=%@", self.panel != nil ? @"YES" : @"NO",
-               CACurrentMediaTime() - self.panelClosedTime, self.closing ? @"YES" : @"NO");
     if ([self consumeMenuPress] || self.closing) {
         return;
     }

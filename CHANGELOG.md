@@ -34,12 +34,23 @@ All notable changes to Orbrisa. The format follows [Keep a Changelog](https://ke
 - Closing a tab switches to the tab on its left; the tab overview keeps the focus on that tab
 - Font size: changes no longer stack up, 100 % restores the page exactly
 - What's New also appears for a new beta of the same version
+- **Feeds** open as a floating window of light orange Liquid Glass – the page shows faintly behind it
+- **RSS button** is a Liquid Glass island like the rest of the bar: it glows orange with a white symbol when the page has a feed to subscribe to, otherwise the symbol is orange
+- Tab overview: one frosted surface from the top of the screen down to the tabs – no stripe between the bar and the tabs
+- While Feeds or Settings are open, the address field is not dimmed, so you see where you are
+- Start page options: everything else is darkened, the chosen tile gets a white ring, the panel shows the site's real logo
+- Settings → Help: the usage guide and What's New open on top of Settings, Back returns there
+- Credits for Fabio Di Marco (di marcostudio.) and Claude (Anthropic) in every source file
 
 ### Fixed
 - No more *Could Not Load Webpage* alert when a load is cancelled (e.g. when going back quickly)
 - Crashes while holding the clickpad and right after closing a screen
 - Swiping with link navigation no longer flings the page to the bottom
 - Empty tabs no longer show a blank white page
+- A freeze when tvOS delivered a clickpad touch to a screen that had just closed
+- Back with an options panel open on the start page closed the whole start page (tvOS handled the release of Back)
+- The strip behind the bar turned black after switching tabs
+- A long feed name hid the unread count
 
 ## [1.1.0-beta.1] – 2026-11-05
 

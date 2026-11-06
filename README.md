@@ -81,7 +81,9 @@
 - **Web apps** – a favorite opens full screen without the bar. Swipe to scroll, hold the clickpad for the selection box, hold the bottom of the clickpad for your other web apps.
 - **Ad blocker** – ad and tracking servers are blocked, ad boxes hidden. On by default, switch it off in the quick menu or in Settings.
 - **New quick menu** – Play/Pause opens a glass panel with font size, page appearance, actions and the ad blocker switch.
-- **Feeds in the Reader** – articles from your feeds open in the Reader, and the Reader can switch back to the web page.
+- **Feeds in the Reader** – articles from your feeds open in the Reader, and the Reader can switch back to the web page. The feeds themselves open in an orange glass window.
+- **Wallpaper** – pick a photo from Unsplash for the start page, shown softly blurred behind it.
+- **Demo mode** – Settings → Help: a see-through Siri Remote on the screen shows every press, great for recordings.
 
 ### 🧪 New in Beta 1 – Reader & RSS
 
@@ -280,7 +282,7 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
 
-**Beta 2** 🧪 – Neu: eine **Startseite** mit deinen Favoriten als Kacheln und den zuletzt besuchten Seiten mit Bild · **Web-Apps** (einen Favoriten wie eine App öffnen: Vollbild ohne Leiste, einfache Steuerung, unten auf dem Clickpad halten zeigt deine anderen Web-Apps) · ein **Werbeblocker** · ein neues **Schnellmenü** im Glas-Design · Artikel aus den **Feeds öffnen im Reader**. Die IPA `Orbrisa-1.1.0-Beta-2-unsigned.ipa` gibt es unter [Releases](https://github.com/fdm96/Orbrisa/releases).
+**Beta 2** 🧪 – Neu: eine **Startseite** mit deinen Favoriten als Kacheln und den zuletzt besuchten Seiten mit Bild · **Web-Apps** (einen Favoriten wie eine App öffnen: Vollbild ohne Leiste, einfache Steuerung, unten auf dem Clickpad halten zeigt deine anderen Web-Apps) · ein **Werbeblocker** · ein neues **Schnellmenü** im Glas-Design · Artikel aus den **Feeds öffnen im Reader** · **Hintergrundbild** von Unsplash für die Startseite · **Demo-Modus**, der jeden Tastendruck der Fernbedienung zeigt. Die IPA `Orbrisa-1.1.0-Beta-2-unsigned.ipa` gibt es unter [Releases](https://github.com/fdm96/Orbrisa/releases).
 
 **Beta 1** 🧪 – **Reader-Modus** (nur der Artikel, mit Schriftgrösse, Hintergrund Hell/Sepia/Grau/Dunkel, Schriftart und „Immer im Reader öffnen“) und **RSS-Feeds** (RSS-Knopf neben der Adressleiste, Feed-Übersicht mit ungelesenen Artikeln).
 
