@@ -7,6 +7,7 @@
 #import "BrowserFeedStore.h"
 #import "BrowserLocalization.h"
 #import "BrowserTopBarView.h"
+#import "BrowserLog.h"
 
 static NSString * const kStartFavoritesKey = @"FAVORITES";
 static NSString * const kStartHistoryKey = @"HISTORY";
@@ -420,6 +421,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *favorites; // [url, title]
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *recents;   // [url, title]
 @property (nonatomic) UIView *panelBackdrop;
+@property (nonatomic) UIView *panelHighlight; // the chosen tile, bright above the darkened page with a white ring
 @property (nonatomic) UIView *panel;
 @property (nonatomic) BrowserStartPanelRow *panelFirstRow;
 @property (nonatomic) BOOL focusFavoritesNext;
@@ -835,7 +837,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
     UIView *backdrop = [[UIView alloc] initWithFrame:self.view.bounds];
     backdrop.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    backdrop.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    backdrop.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.68];
     backdrop.userInteractionEnabled = NO;
     [self.view addSubview:backdrop];
     self.panelBackdrop = backdrop;
@@ -909,6 +911,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         [stack.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:34.0],
         [stack.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor constant:-34.0],
     ]];
+    [self attachLogoForURL:URLString toTile:tile];
     for (BrowserStartPanelRow *row in @[open, launch, always, rename, remove]) {
         row.tag = (NSInteger)index;
     }
@@ -922,6 +925,9 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     CGFloat x = MIN(MAX(CGRectGetMidX(cellFrame) - width / 2.0, kStartSideInset), bounds - kStartSideInset - width);
     CGFloat y = MIN(CGRectGetMinY(cellFrame) + kStartFavoriteTile + 70.0, CGRectGetHeight(self.view.bounds) - size.height - 40.0);
     panel.frame = CGRectMake(x, MAX(y, 140.0), width, size.height);
+    if ([cell isKindOfClass:[BrowserStartFavoriteCell class]]) {
+        [self highlightView:((BrowserStartFavoriteCell *)cell).tile cornerRadius:40.0];
+    }
     [self.view addSubview:panel];
     self.panel = panel;
     self.panelFirstRow = open;
@@ -973,7 +979,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
     UIView *backdrop = [[UIView alloc] initWithFrame:self.view.bounds];
     backdrop.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    backdrop.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    backdrop.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.68];
     backdrop.userInteractionEnabled = NO;
     [self.view addSubview:backdrop];
     self.panelBackdrop = backdrop;
@@ -1048,6 +1054,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         [stack.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:34.0],
         [stack.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor constant:-34.0],
     ]];
+    [self attachLogoForURL:URLString toTile:tile];
     for (BrowserStartPanelRow *row in buttons) {
         row.tag = (NSInteger)index;
     }
@@ -1058,8 +1065,13 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     CGRect cellFrame = cell != nil ? [cell convertRect:cell.bounds toView:self.view] : CGRectMake(CGRectGetMidX(self.view.bounds), 500.0, 0.0, 0.0);
     CGFloat boundsWidth = CGRectGetWidth(self.view.bounds);
     CGFloat x = MIN(MAX(CGRectGetMidX(cellFrame) - width / 2.0, kStartSideInset), boundsWidth - kStartSideInset - width);
-    CGFloat y = MIN(CGRectGetMidY(cellFrame) - height / 2.0, CGRectGetHeight(self.view.bounds) - height - 40.0);
+    // Above the picture when there is room, so the picture stays visible with its ring.
+    CGFloat y = CGRectGetMinY(cellFrame) - height - 30.0;
+    if (y < 140.0) {
+        y = MIN(CGRectGetMaxY(cellFrame) + 30.0, CGRectGetHeight(self.view.bounds) - height - 40.0);
+    }
     panel.frame = CGRectMake(x, MAX(y, 140.0), width, height);
+    [self highlightView:cell cornerRadius:28.0];
     [self.view addSubview:panel];
     self.panel = panel;
     self.panelFirstRow = open;
@@ -1136,12 +1148,56 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [self reloadData];
 }
 
+/// The site's real logo over the letter tile in the panel header, once it has loaded.
+- (void)attachLogoForURL:(NSString *)URLString toTile:(UIView *)tile {
+    UIImageView *logo = [[UIImageView alloc] initWithFrame:CGRectMake(0.0, 0.0, 72.0, 72.0)];
+    logo.contentMode = UIViewContentModeScaleAspectFill;
+    logo.clipsToBounds = YES;
+    logo.layer.cornerRadius = 18.0;
+    logo.hidden = YES;
+    [tile addSubview:logo];
+    [BrowserStartPageViewController loadLogoForURL:URLString completion:^(UIImage *image) {
+        if (image != nil) {
+            logo.image = image;
+            logo.hidden = NO;
+        }
+    }];
+}
+
+/// Everything else is darkened; the tile you are changing stays bright and gets a white ring.
+- (void)highlightView:(UIView *)view cornerRadius:(CGFloat)radius {
+    if (view == nil || view.window == nil) {
+        return;
+    }
+    CGRect frame = [view convertRect:view.bounds toView:self.view];
+    UIView *holder = [[UIView alloc] initWithFrame:CGRectInset(frame, -12.0, -12.0)];
+    holder.userInteractionEnabled = NO;
+    UIView *snapshot = [view snapshotViewAfterScreenUpdates:NO];
+    if (snapshot != nil) {
+        snapshot.frame = CGRectMake(12.0, 12.0, CGRectGetWidth(frame), CGRectGetHeight(frame));
+        [holder addSubview:snapshot];
+    }
+    UIView *ring = [[UIView alloc] initWithFrame:holder.bounds];
+    ring.layer.cornerRadius = radius + 12.0;
+    ring.layer.borderWidth = 6.0;
+    ring.layer.borderColor = UIColor.whiteColor.CGColor;
+    ring.layer.shadowColor = UIColor.whiteColor.CGColor;
+    ring.layer.shadowRadius = 18.0;
+    ring.layer.shadowOpacity = 0.45;
+    ring.layer.shadowOffset = CGSizeZero;
+    [holder addSubview:ring];
+    [self.view insertSubview:holder aboveSubview:self.panelBackdrop];
+    self.panelHighlight = holder;
+    holder.alpha = 0.0;
+    [UIView animateWithDuration:0.22 animations:^{ holder.alpha = 1.0; }];
+}
+
 - (BOOL)consumeMenuPress {
     if (self.panel != nil) {
         [self closePanel];
         return YES;
     }
-    return CACurrentMediaTime() - self.panelClosedTime < 0.4; // the same press, seen a second time
+    return CACurrentMediaTime() - self.panelClosedTime < 1.0; // the same press, seen a second time (or its release)
 }
 
 - (void)closePanel {
@@ -1150,8 +1206,10 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     }
     UIView *panel = self.panel;
     UIView *backdrop = self.panelBackdrop;
+    UIView *highlight = self.panelHighlight;
     self.panel = nil;
     self.panelBackdrop = nil;
+    self.panelHighlight = nil;
     self.panelFirstRow = nil;
     self.panelClosedTime = CACurrentMediaTime();
     self.collectionView.userInteractionEnabled = YES;
@@ -1161,9 +1219,11 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [UIView animateWithDuration:0.18 animations:^{
         panel.alpha = 0.0;
         backdrop.alpha = 0.0;
+        highlight.alpha = 0.0;
     } completion:^(__unused BOOL finished) {
         [panel removeFromSuperview];
         [backdrop removeFromSuperview];
+        [highlight removeFromSuperview];
     }];
     [self setNeedsFocusUpdate];
     [self updateFocusIfNeeded];
@@ -1285,6 +1345,10 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
+    if (press.type == UIPressTypeMenu && self.panel != nil) {
+        [self closePanel]; // Back with the panel open: only the panel closes, the start page stays
+        return;
+    }
     if (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause) {
         return;
     }
@@ -1292,6 +1356,8 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 }
 
 - (void)handleBackPress {
+    BrowserLog(@"[StartPage] Back: panel=%@ closedAgo=%.2f closing=%@", self.panel != nil ? @"YES" : @"NO",
+               CACurrentMediaTime() - self.panelClosedTime, self.closing ? @"YES" : @"NO");
     if ([self consumeMenuPress] || self.closing) {
         return;
     }
