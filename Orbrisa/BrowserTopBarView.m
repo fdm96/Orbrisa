@@ -133,6 +133,7 @@ static CGFloat const kTopBarFeedGap = 32.0; // room for the address pill growing
 @property (nonatomic) BrowserTopBarFocusButton *menuFocusButton;
 @property (nonatomic) BrowserTopBarFocusButton *readerFocusButton;
 @property (nonatomic) BrowserTopBarFocusButton *feedFocusButton;
+@property (nonatomic) UIVisualEffectView *feedEffectView; // the RSS button is a small glass island like the rest of the bar
 @property (nonatomic) UILabel *readerLabel;
 @property (nonatomic) UIImageView *readerIconView;
 @property (nonatomic) BOOL readerAvailable;
@@ -369,9 +370,14 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 
     // RSS button right next to the address pill – only when the page offers a feed.
     _feedFocusButton = [self newFocusButtonForAction:BrowserTopBarActionFeed symbolName:@"dot.radiowaves.up.forward" accessibilityLabel:BrowserLocalized(@"Subscribe to Feed")];
-    _feedFocusButton.backgroundColor = UIColor.systemOrangeColor;
-    _feedFocusButton.iconView.tintColor = UIColor.whiteColor;
+    _feedFocusButton.backgroundColor = UIColor.clearColor;
+    _feedFocusButton.iconView.tintColor = UIColor.systemOrangeColor;
     _feedFocusButton.layer.cornerRadius = kTopBarFeedSize / 2.0;
+    _feedEffectView = [[UIVisualEffectView alloc] initWithEffect:nil];
+    _feedEffectView.userInteractionEnabled = NO;
+    _feedEffectView.clipsToBounds = YES;
+    _feedEffectView.layer.cornerRadius = kTopBarFeedSize / 2.0;
+    [_feedFocusButton insertSubview:_feedEffectView atIndex:0];
     _feedFocusButton.layer.borderColor = UIColor.whiteColor.CGColor;
     _feedFocusButton.layer.shadowColor = UIColor.blackColor.CGColor;
     _feedFocusButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
@@ -543,7 +549,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 - (void)glassAmountDidChange:(NSNotification *)notification {
     (void)notification;
     // Only the solid layer changes – rebuilding the glass effects on every slider step made it lag.
-    for (UIVisualEffectView *effectView in @[self.leftEffectView, self.centerEffectView, self.rightEffectView]) {
+    for (UIVisualEffectView *effectView in @[self.leftEffectView, self.centerEffectView, self.rightEffectView, self.feedEffectView]) {
         BrowserApplyGlassAmount(effectView, [self solidIslandColor]);
     }
     if (self.titlePillTint != nil) {
@@ -590,6 +596,10 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     if (self.titlePillTint != nil) {
         [self applyTitlePillTint];
     }
+    self.feedEffectView.effect = [self newIslandEffect];
+    BrowserApplyGlassAmount(self.feedEffectView, [self solidIslandColor]);
+    self.feedFocusButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:[self usesGlass] ? (self.pageIsLight ? 0.35 : 0.55) : 0.14].CGColor;
+    self.feedFocusButton.layer.borderWidth = 1.0;
 }
 
 #pragma mark Layout
@@ -645,6 +655,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
                                             originY + floor((kTopBarHeight - kTopBarFeedSize) / 2.0),
                                             kTopBarFeedSize, kTopBarFeedSize);
     self.feedFocusButton.iconView.frame = self.feedFocusButton.bounds;
+    self.feedEffectView.frame = self.feedFocusButton.bounds;
     self.feedFocusButton.transform = feedTransform;
 
     for (UIView *containerView in @[self.leftContainerView, self.centerContainerView, self.rightContainerView]) {
@@ -879,9 +890,8 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 }
 
 - (void)applyFeedLook {
-    // Orange when the page offers a feed (subscribe), grey otherwise (opens the feeds overview).
-    self.feedFocusButton.backgroundColor = self.feedAvailable ? UIColor.systemOrangeColor : [UIColor colorWithWhite:0.42 alpha:0.6];
-    self.feedFocusButton.iconView.tintColor = UIColor.whiteColor;
+    // Liquid Glass like the bar; the RSS symbol is orange – bright when the page offers a feed, softer otherwise.
+    self.feedFocusButton.iconView.tintColor = self.feedAvailable ? UIColor.systemOrangeColor : [UIColor.systemOrangeColor colorWithAlphaComponent:0.55];
     self.feedFocusButton.accessibilityLabel = self.feedAvailable ? BrowserLocalized(@"Subscribe to Feed") : BrowserLocalized(@"Feeds");
 }
 
@@ -1015,7 +1025,8 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     }
     if (button == self.feedFocusButton) {
         button.transform = focused ? CGAffineTransformMakeScale(kTopBarFocusedButtonScale, kTopBarFocusedButtonScale) : CGAffineTransformIdentity;
-        button.layer.borderWidth = focused ? 3.0 : 0.0;
+        button.backgroundColor = focused ? [self focusFillColor] : UIColor.clearColor;
+        self.feedEffectView.alpha = focused ? 0.0 : 1.0;
         button.layer.shadowOpacity = focused ? 0.45 : 0.25;
         return;
     }
