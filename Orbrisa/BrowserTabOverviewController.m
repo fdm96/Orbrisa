@@ -47,8 +47,6 @@ static NSString *BrowserTabDisplayTitle(BrowserTabViewModel *tab, NSString *host
 
 static CGFloat const kTabStripTop = 148.0;          // just below the top bar (60 + 68 + gap)
 static CGFloat const kTabStripSideInset = 80.0;      // same as the top bar
-static CGFloat const kTabFrostTop = 128.0;           // the frost starts right under the bar …
-static CGFloat const kTabFrostFade = 44.0;           // … and fades in softly instead of a hard edge
 static CGFloat const kTabStripMaxWidth = 1760.0;
 static CGFloat const kTabStripHeight = 92.0;         // room for the focus zoom
 static CGFloat const kTabPillWidth = 330.0;
@@ -527,7 +525,7 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     [NSLayoutConstraint activateConstraints:@[
         [dimView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [dimView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [dimView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTabFrostTop],
+        [dimView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [dimView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
         [collectionView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
@@ -539,13 +537,9 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
-    // A soft start of the frosted glass under the bar.
-    CAGradientLayer *frostMask = [self.dimView.layer.mask isKindOfClass:[CAGradientLayer class]] ? (CAGradientLayer *)self.dimView.layer.mask : [CAGradientLayer layer];
-    frostMask.frame = self.dimView.bounds;
-    frostMask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor];
-    CGFloat height = MAX(CGRectGetHeight(self.dimView.bounds), 1.0);
-    frostMask.locations = @[@0.0, @(kTabFrostFade / height)];
-    self.dimView.layer.mask = frostMask;
+    // One frosted surface from the very top down to the tabs – no stripe between the bar and the tabs.
+    // Only the bar's own islands are left out, so they stay sharp on top of it.
+    BrowserTopBarCutOutIslands(self.dimView);
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {

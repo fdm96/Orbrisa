@@ -83,5 +83,8 @@ typedef NS_ENUM(NSInteger, BrowserTopBarAction) {
 /// Screens that lay a shade over the top bar (Feeds, Settings) leave the address pill out of it with this,
 /// so "Feeds" / "Settings" in the pill is not dimmed and stays readable.
 FOUNDATION_EXPORT void BrowserTopBarCutOutTitlePill(UIView *shade);
+/// Leaves every island of the bar (back/forward, address, RSS, buttons on the right) out of a full-screen shade,
+/// so the shade reaches up to the top without a stripe and the bar stays sharp.
+FOUNDATION_EXPORT void BrowserTopBarCutOutIslands(UIView *shade);
 
 NS_ASSUME_NONNULL_END

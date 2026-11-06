@@ -187,6 +187,26 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 }
 
 static CGRect BrowserTopBarTitlePillFrame; // in window coordinates, updated on every layout
+static CGRect BrowserTopBarIslandFrames[4]; // left, address, RSS, right – window coordinates
+
+void BrowserTopBarCutOutIslands(UIView *shade) {
+    if (shade == nil || shade.window == nil || CGRectIsEmpty(BrowserTopBarIslandFrames[1])) {
+        return;
+    }
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:shade.bounds];
+    for (NSInteger i = 0; i < 4; i++) {
+        if (CGRectIsEmpty(BrowserTopBarIslandFrames[i])) {
+            continue;
+        }
+        CGRect hole = [shade convertRect:BrowserTopBarIslandFrames[i] fromView:nil];
+        [path appendPath:[UIBezierPath bezierPathWithRoundedRect:hole cornerRadius:CGRectGetHeight(hole) / 2.0]];
+    }
+    CAShapeLayer *mask = [shade.layer.mask isKindOfClass:[CAShapeLayer class]] ? (CAShapeLayer *)shade.layer.mask : [CAShapeLayer layer];
+    mask.fillRule = kCAFillRuleEvenOdd;
+    mask.path = path.CGPath;
+    mask.frame = shade.bounds;
+    shade.layer.mask = mask;
+}
 
 void BrowserTopBarCutOutTitlePill(UIView *shade) {
     if (shade == nil || CGRectIsEmpty(BrowserTopBarTitlePillFrame) || shade.window == nil) {
@@ -656,6 +676,12 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
                                             kTopBarFeedSize, kTopBarFeedSize);
     self.feedFocusButton.iconView.frame = self.feedFocusButton.bounds;
     self.feedEffectView.frame = self.feedFocusButton.bounds;
+    if (self.window != nil && !self.hidden) {
+        BrowserTopBarIslandFrames[0] = [self convertRect:self.leftContainerView.frame toView:nil];
+        BrowserTopBarIslandFrames[1] = [self convertRect:self.centerContainerView.frame toView:nil];
+        BrowserTopBarIslandFrames[2] = [self convertRect:self.feedFocusButton.frame toView:nil];
+        BrowserTopBarIslandFrames[3] = [self convertRect:self.rightContainerView.frame toView:nil];
+    }
     self.feedFocusButton.transform = feedTransform;
 
     for (UIView *containerView in @[self.leftContainerView, self.centerContainerView, self.rightContainerView]) {
