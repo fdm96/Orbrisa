@@ -6,9 +6,7 @@
 "100 % (Default)" = "100 % (Standard)";
 "Accept Cookie Banners Automatically" = "Cookie-Banner automatisch akzeptieren";
 "Add Current Page to Favorites" = "Aktuelle Seite zu Favoriten hinzufügen";
-"Adjust the glass effect smoothly or turn it off completely." = "Den Glas-Effekt stufenlos einstellen oder ganz ausschalten.";
 "Afterwards, Orbrisa shows you how to use the Siri Remote." = "Danach zeigt dir Orbrisa die Bedienung mit der Siri Remote.";
-"All tabs with their logos right under the address bar – in each site's colour if you like." = "Alle Tabs mit Logo direkt unter der Adressleiste – auf Wunsch in der Farbe der Seite.";
 "Appearance" = "Darstellung";
 "Automatic" = "Automatisch";
 "Back" = "Zurück";
@@ -34,13 +32,11 @@
 "Cursor & Scrolling" = "Cursor & Scrollen";
 "Dark" = "Dunkel";
 "Dark Mode" = "Dunkelmodus";
-"Dark websites – automatic like the Apple TV, light or dark." = "Webseiten dunkel – automatisch wie das Apple TV, hell oder dunkel.";
 "DASH stream (VLC)" = "DASH-Stream (VLC)";
 "Delete a Favorite" = "Favorit löschen";
 "Dismiss" = "Schliessen";
 "Done" = "Fertig";
 "Enter address or search" = "Adresse eingeben oder suchen";
-"Enter Address or Search with Google" = "Adresse eingeben oder mit Google suchen";
 "Enter an Address or Search" = "Adresse eingeben oder suchen";
 "Enter URL or Search" = "Adresse eingeben oder suchen";
 "Exit" = "Beenden";
@@ -52,7 +48,6 @@
 "Found (%lu), but nothing playable:\n%@" = "Gefunden (%lu), aber nichts Abspielbares:\n%@";
 "Full Screen" = "Vollbild";
 "Full Screen Player" = "Vollbild-Player";
-"Go Forward" = "Vorwärts";
 "Go To Home Page" = "Zur Startseite";
 "Goes back one page. Closes menus, the keyboard and link navigation. On the first page: quits the app." = "Eine Seite zurück. Schliesst Menüs, Tastatur und Link-Navigation. Auf der ersten Seite: App beenden.";
 "Google This Page" = "Diese Seite googeln";
@@ -80,9 +75,7 @@
 "Moves the cursor. In scroll mode the page scrolls – scrolling down hides the bar, scrolling up brings it back." = "Bewegt den Cursor. Im Scroll-Modus scrollt die Seite – nach unten verschwindet die Leiste, nach oben kommt sie zurück.";
 "Name New Favorite" = "Name des neuen Favoriten";
 "Navigation" = "Navigation";
-"New Settings" = "Neue Einstellungen";
 "New Tab" = "Neuer Tab";
-"New Tab Strip" = "Neue Tab-Leiste";
 "Next Found Video" = "Nächstes gefundenes Video";
 "No other videos found." = "Keine weiteren Videos gefunden.";
 "No Video for the Apple TV Player" = "Kein Video für den Apple-TV-Player";
@@ -95,13 +88,11 @@
 "Orbrisa asks: Full Screen (Apple TV player, without ads), Choose Video or Stay on Page." = "Orbrisa fragt: Vollbild (Apple-TV-Player, ohne Werbung), Video auswählen oder auf der Seite bleiben.";
 "Orbrisa keeps up to five tabs open at once." = "Orbrisa hält höchstens fünf Tabs gleichzeitig offen.";
 "Play Current URL" = "Aktuelle Adresse abspielen";
-"Press Back to close" = "Zurück-Taste zum Schliessen";
 "Press Play/Pause twice" = "Play/Pause zweimal drücken";
 "Press the center" = "Mitte drücken";
 "Press the center twice" = "Mitte zweimal drücken";
 "Press the top of the ring" = "Oben am Ring drücken";
 "Quick Menu" = "Schnellmenü";
-"Quick menu: forward, enter an address, reload the page." = "Schnellmenü: Vorwärts, Adresse eingeben, Seite neu laden.";
 "Red button" = "Roter Knopf";
 "Reload" = "Neu laden";
 "Reload Page" = "Seite neu laden";
@@ -123,7 +114,6 @@
 "Swipe in the player" = "Im Player wischen";
 "Swipe on the clickpad" = "Über das Clickpad wischen";
 "Swipe or press left/right  ·  Click: done" = "Wischen oder links/rechts drücken  ·  Klicken: fertig";
-"Switches and design like the tvOS Settings." = "Schalter und Aussehen wie in den tvOS-Einstellungen.";
 "Switches between cursor mode and scroll mode." = "Wechselt zwischen Cursor-Modus und Scroll-Modus.";
 "Tab icon in the bar" = "Tab-Symbol in der Leiste";
 "Tabs" = "Tabs";
@@ -146,7 +136,6 @@
 "Video Can't Be Played" = "Video lässt sich nicht abspielen";
 "Video Playback" = "Videowiedergabe";
 "Video Playing" = "Video läuft";
-"Videos in the Apple TV Player" = "Videos im Apple-TV-Player";
 "VLC couldn't play this video. The site probably only allows it in its own player." = "VLC konnte dieses Video nicht abspielen. Die Seite lässt es vermutlich nur in ihrem eigenen Player zu.";
 "VLC Player Missing" = "VLC-Player fehlt";
 "VLC · Center: Play/Pause · ◀︎ ▶︎ 10 s · Swipe: scrub · Back: close" = "VLC · Mitte: Play/Pause · ◀︎ ▶︎ 10 s · Wischen: spulen · Zurück: schliessen";
@@ -156,7 +145,6 @@
 "Which Video?" = "Welches Video?";
 "You can still open Settings by double-tapping the Play/Pause button." = "Die Einstellungen öffnest du weiterhin mit zweimal Play/Pause.";
 "YouTube Extraction Failed" = "YouTube-Video nicht gefunden";
-"“Full Screen” opens the actual video in the Apple TV player – ads before it are skipped." = "„Vollbild“ öffnet den echten Film im Apple-TV-Player – Werbung davor wird übersprungen.";
 "Link Navigation" = "Link-Navigation";
 "hold" = "halten";
 
@@ -167,10 +155,6 @@
 "Subscribe to Feed" = "Feed abonnieren";
 "Swipe: scroll  ·  Play/Pause: appearance  ·  Back: close Reader" = "Wischen: scrollen  ·  Play/Pause: Darstellung  ·  Zurück: Reader beenden";
 "%ld min read" = "%ld Min. Lesezeit";
-"Click to change  ·  Back: done" = "Klicken: ändern  ·  Zurück: fertig";
-"Font Size: %ld %%" = "Schriftgrösse: %ld %%";
-"Background: %@" = "Hintergrund: %@";
-"Font: %@" = "Schrift: %@";
 "Serif" = "Serif";
 "System" = "System";
 "Sepia" = "Sepia";
@@ -181,7 +165,6 @@
 "%lu new articles" = "%lu neue Artikel";
 "No feeds yet. Open a website and choose “Subscribe to Feed” in Settings – Orbrisa finds the feed for you." = "Noch keine Feeds. Öffne eine Webseite und wähle in den Einstellungen „Feed abonnieren“ – Orbrisa findet den Feed für dich.";
 "No articles found. The site may be offline – try again later." = "Keine Artikel gefunden. Die Seite ist vielleicht nicht erreichbar – versuch es später nochmals.";
-"Click: open article  ·  Play/Pause on a feed: unsubscribe  ·  Back: close" = "Klicken: Artikel öffnen  ·  Play/Pause auf einem Feed: abbestellen  ·  Zurück: schliessen";
 "Unsubscribe from “%@”?" = "„%@“ abbestellen?";
 "Unsubscribe" = "Abbestellen";
 "OK" = "OK";
@@ -196,11 +179,6 @@
 "Feed Found: %@" = "Feed gefunden: %@";
 "Subscribe" = "Abonnieren";
 "Not Now" = "Nicht jetzt";
-"Reader Mode" = "Reader-Modus";
-"Only the article – large, calm text with your own size, background and font." = "Nur der Artikel – grosse, ruhige Schrift mit eigener Grösse, Hintergrund und Schrift.";
-"RSS Feeds" = "RSS-Feeds";
-"Subscribe to your favourite sites and see all new articles in one place." = "Abonniere deine Lieblingsseiten und sieh alle neuen Artikel an einem Ort.";
-"This Is a Beta" = "Das ist eine Beta";
 "Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot." = "Fehler gefunden oder eine Idee? Melde es auf GitHub – ein Foto vom Fernseher hilft sehr.";
 "Reader" = "Reader";
 "Always Open in Reader" = "Immer im Reader öffnen";
@@ -212,3 +190,118 @@
 "All" = "Alle";
 "Unread" = "Ungelesen";
 "Add Feed" = "Feed hinzufügen";
+"Recently Visited" = "Zuletzt besucht";
+"Add Favorite" = "Favorit hinzufügen";
+"Web App" = "Web-App";
+"Open as Web App" = "Als Web-App öffnen";
+"Rename" = "Umbenennen";
+"Remove" = "Entfernen";
+"Name" = "Name";
+"Address" = "Adresse";
+"Leave Web App" = "Web-App verlassen";
+"Full screen – no bar, no buttons" = "Ganzer Bildschirm – ohne Leiste und Knöpfe";
+"Open When Orbrisa Starts" = "Beim Start von Orbrisa öffnen";
+"Orbrisa starts right away with this web app" = "Orbrisa startet direkt mit dieser Web-App";
+"Always Open as Web App" = "Immer als Web-App öffnen";
+"A click on the tile opens it full screen" = "Ein Klick auf die Kachel öffnet sie im Vollbild";
+"Block Ads" = "Werbung blockieren";
+"Web App · Hold the middle: pick · Play/Pause: menu" = "Web-App · Mitte gedrückt halten: auswählen · Play/Pause: Menü";
+"Next page →" = "Nächste Seite →";
+"← Previous page" = "← Vorherige Seite";
+"Orbrisa Start Page" = "Orbrisa";
+"Web Apps" = "Web-Apps";
+"Start Page" = "Startseite";
+"Open" = "Offen";
+"Original" = "Original";
+"Actions" = "Aktionen";
+"Search" = "Suchen";
+"Show Web Page" = "Webseite anzeigen";
+
+/* Beta 2 – What's New */
+"New Start Page" = "Neue Startseite";
+"Your favorites as large tiles and recently visited sites with real pictures. Hold a favorite for its options." = "Deine Favoriten als grosse Kacheln und zuletzt besuchte Seiten mit echtem Bild. Halte einen Favoriten gedrückt für seine Optionen.";
+"Open a favorite as an app: full screen, no bar, simple remote controls – hold the bottom of the clickpad for your other web apps." = "Öffne einen Favoriten als App: Vollbild, keine Leiste, einfache Steuerung – unten auf dem Clickpad halten zeigt deine anderen Web-Apps.";
+"Ad Blocker" = "Werbeblocker";
+"Blocks ad and tracking servers and hides ad boxes. Switch it off in the quick menu or in Settings." = "Blockiert Werbe- und Tracking-Server und blendet Werbeflächen aus. Ausschalten im Schnellmenü oder in den Einstellungen.";
+
+/* Beta 2 – usage guide pages and What's New per release */
+"Browsing" = "Surfen";
+"Buttons & Menus" = "Tasten & Menüs";
+"Tabs & Start Page" = "Tabs & Startseite";
+"Close a tab" = "Tab schliessen";
+"Play/Pause in the tab overview closes the selected tab – Orbrisa goes to the tab on its left." = "Play/Pause in der Tab-Übersicht schliesst den gewählten Tab – Orbrisa wechselt zum Tab links davon.";
+"New tab or Home button" = "Neuer Tab oder Home-Taste";
+"Shows your favorites and the recently visited sites. Ring left/right scrolls the favorites." = "Zeigt deine Favoriten und die zuletzt besuchten Seiten. Ring links/rechts blättert durch die Favoriten.";
+"Hold a favorite" = "Favorit gedrückt halten";
+"Options: open as web app, open when Orbrisa starts, rename, remove. Play/Pause works too." = "Optionen: als Web-App öffnen, beim Start öffnen, umbenennen, entfernen. Geht auch mit Play/Pause.";
+"Back on the start page" = "Zurück auf der Startseite";
+"Closes it and shows the page – an empty tab shows Google." = "Schliesst sie und zeigt die Seite – ein leerer Tab zeigt Google.";
+"Using a Web App" = "Web-App bedienen";
+"Scrolls the page – anywhere, no cursor needed." = "Scrollt die Seite – überall, ohne Cursor.";
+"Hold the center" = "Mitte gedrückt halten";
+"Shows the selection box. Swipe moves it, press the center to open what it marks." = "Zeigt das Auswahlfeld. Wischen bewegt es, Mitte drücken öffnet das Markierte.";
+"Ring left / right" = "Ring links / rechts";
+"Turns to the previous or next page on sites with several pages." = "Blättert auf Seiten mit mehreren Seiten zur vorherigen oder nächsten Seite.";
+"Switching & Leaving" = "Wechseln & Verlassen";
+"Your other web apps slide up – pick one, or go to the start page." = "Deine anderen Web-Apps fahren hoch – wähle eine oder geh zur Startseite.";
+"Goes back inside the web app. On its first page: to the start page." = "Geht in der Web-App zurück. Auf ihrer ersten Seite: zur Startseite.";
+"Quick menu with the text size for this web app and “Leave Web App”." = "Schnellmenü mit der Schriftgrösse für diese Web-App und „Web-App verlassen“.";
+"Reader button in the address bar" = "Reader-Knopf in der Adressleiste";
+"Appears when a page has an article and shows it as calm, large text." = "Erscheint, wenn eine Seite einen Artikel hat, und zeigt ihn als ruhigen, grossen Text.";
+"Swipe in the Reader" = "Wischen im Reader";
+"Scrolls the article." = "Scrollt den Artikel.";
+"Play/Pause in the Reader" = "Play/Pause im Reader";
+"Appearance: font size, background, font, “Always Open in Reader” and “Show Web Page”." = "Darstellung: Schriftgrösse, Hintergrund, Schrift, „Immer im Reader öffnen“ und „Webseite anzeigen“.";
+"RSS button next to the address" = "RSS-Knopf neben der Adresse";
+"Orange: subscribe to the page's feed. Grey: opens your feeds." = "Orange: den Feed der Seite abonnieren. Grau: öffnet deine Feeds.";
+"Click an article" = "Artikel anklicken";
+"Opens it in the Reader. Back takes you to the feed list again." = "Öffnet ihn im Reader. Zurück bringt dich wieder zur Feed-Liste.";
+"Play/Pause on a feed" = "Play/Pause auf einem Feed";
+"Unsubscribes from the feed." = "Beendet das Abo des Feeds.";
+"Starting a Video" = "Video starten";
+"In the Player" = "Im Player";
+"Swipe or press left / right for more  ·  Back to close" = "Wischen oder links / rechts drücken für mehr  ·  Zurück zum Schliessen";
+"Quick menu: font size, page appearance, search, Reader, reload and the ad blocker." = "Schnellmenü: Schriftgrösse, Darstellung der Seite, Suchen, Reader, Neu laden und Werbeblocker.";
+"New in Beta 2" = "Neu in Beta 2";
+"New Quick Menu" = "Neues Schnellmenü";
+"Play/Pause opens a glass panel with font size, page appearance, actions and the ad blocker." = "Play/Pause öffnet ein Glas-Fenster mit Schriftgrösse, Darstellung, Aktionen und dem Werbeblocker.";
+"Beta 1 – Reader & RSS" = "Beta 1 – Reader & RSS";
+"Reader Mode" = "Reader-Modus";
+"Only the article – large, calm text with your own size, background and font." = "Nur der Artikel – grosser, ruhiger Text mit eigener Grösse, Hintergrund und Schrift.";
+"RSS Feeds" = "RSS-Feeds";
+"Subscribe to your favourite sites and see all new articles in one place – they open in the Reader." = "Abonniere deine Lieblingsseiten und sieh alle neuen Artikel an einem Ort – sie öffnen im Reader.";
+"Version 1.0 – Orbrisa" = "Version 1.0 – Orbrisa";
+"Videos in the Apple TV Player" = "Videos im Apple-TV-Player";
+"“Full Screen” opens the actual video in the Apple TV player – ads before it are skipped." = "„Vollbild“ öffnet den echten Film im Apple-TV-Player – Werbung davor wird übersprungen.";
+"New Tab Strip" = "Neue Tab-Leiste";
+"All tabs with their logos right under the address bar – in each site's colour if you like." = "Alle Tabs mit Logo direkt unter der Adressleiste – auf Wunsch in der Farbe der Seite.";
+"New Settings" = "Neue Einstellungen";
+"Switches and design like the tvOS Settings." = "Schalter und Aussehen wie in den tvOS-Einstellungen.";
+"Adjust the glass effect smoothly or turn it off completely." = "Den Glas-Effekt stufenlos einstellen oder ganz ausschalten.";
+
+/* Start page – recently visited options */
+"Opens the page with the bar" = "Öffnet die Seite mit der Leiste";
+"Add to Favorites" = "Zu Favoriten hinzufügen";
+"As a tile at the top of the start page" = "Als Kachel oben auf der Startseite";
+"Remove from Recently Visited" = "Aus „Zuletzt besucht“ entfernen";
+"Hold a recent site" = "Zuletzt besuchte Seite gedrückt halten";
+"Options: open, open as web app, add to favorites, remove from the list." = "Optionen: öffnen, als Web-App öffnen, zu Favoriten hinzufügen, aus der Liste entfernen.";
+
+/* Demo mode */
+"Demo Mode" = "Demo-Modus";
+"Demo Mode: Show Remote Presses" = "Demo-Modus: Tasten der Fernbedienung zeigen";
+"Center" = "Mitte";
+"Ring Up" = "Ring oben";
+"Ring Down" = "Ring unten";
+"Ring Left" = "Ring links";
+"Ring Right" = "Ring rechts";
+"Hold %@" = "%@ halten";
+"2× %@" = "2× %@";
+"Swipe %@" = "Wischen %@";
+
+/* Start page wallpaper */
+"Wallpaper" = "Hintergrundbild";
+"Photos from Unsplash – shown blurred behind the start page" = "Fotos von Unsplash – unscharf hinter der Startseite";
+"Loading photos …" = "Fotos werden geladen …";
+"The photos could not be loaded. Check the internet connection and try again." = "Die Fotos konnten nicht geladen werden. Prüfe die Internetverbindung und versuche es nochmal.";
+"No Wallpaper" = "Kein Hintergrundbild";

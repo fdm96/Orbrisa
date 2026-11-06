@@ -1,3 +1,11 @@
+//
+//  BrowserTabCoordinator.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
+#import <objc/runtime.h>
 #import "BrowserTabCoordinator.h"
 #import "BrowserLocalization.h"
 #import "BrowserLog.h"
@@ -307,6 +315,8 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 
 #pragma mark - Strip behind the top bar
 
+static char kBrowserWebViewEdgeColorKey; // each tab's web view remembers its strip colour
+
 // The web view starts below the top bar, so the strip behind the glass islands shows the container view.
 // Give that strip the page's own background colour so the bar floats on the page instead of on a black band.
 - (void)updateChromeBackgroundFromActiveWebView {
@@ -339,6 +349,28 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 
         [self.topMenuView setPageIsLight:[self colorIsLight:color] animated:YES];
         [self rememberPageEdgeColor:color];
+        objc_setAssociatedObject(webView, &kBrowserWebViewEdgeColorKey, color, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+}
+
+/// After switching tabs: the tab's own colour right away, then read again once its page is on screen
+/// (a parked web view answers late or not at all – the strip stayed black).
+- (void)restoreChromeBackgroundForActiveWebView {
+    BrowserWebView *webView = self.activeWebView;
+    UIColor *color = webView != nil ? objc_getAssociatedObject(webView, &kBrowserWebViewEdgeColorKey) : nil;
+    if (color != nil) {
+        self.browserContainerView.backgroundColor = color;
+        [webView setPageEdgeColor:color];
+        [self.topMenuView setPageIsLight:[self colorIsLight:color] animated:NO];
+    }
+    __weak typeof(self) weakSelf = self;
+    __weak BrowserWebView *weakWebView = webView;
+    for (NSNumber *delay in @[@0.3, @1.0, @2.5]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (weakWebView != nil && weakSelf.activeWebView == weakWebView && weakWebView.request != nil) {
+                [weakSelf updateChromeBackgroundFromActiveWebView];
+            }
+        });
     }
 }
 
@@ -392,6 +424,13 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 }
 
 - (void)loadHomePage {
+    if (self.preferencesStore.homePageURLString.length == 0 && [self.host respondsToSelector:@selector(browserTabCoordinatorShowStartPage)]) {
+        id<BrowserTabCoordinatorHost> host = self.host;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [host browserTabCoordinatorShowStartPage];
+        });
+        return;
+    }
     NSURLRequest *homePageRequest = [self.navigationService homePageRequest];
     if (homePageRequest != nil) {
         [self.activeWebView loadRequest:homePageRequest];
@@ -436,6 +475,7 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
     }
 
     self.activeWebView = activeWebView;
+    [self restoreChromeBackgroundForActiveWebView];
     [self.topMenuView.loadingSpinner stopAnimating];
     [self.activeWebView removeFromSuperview];
     [self.browserContainerView addSubview:self.activeWebView];
@@ -489,10 +529,7 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
     NSString *URLString = tab.URLString.length > 0 ? tab.URLString : tab.requestURL;
     if (URLString.length == 0) {
         if (fallbackToHomePage) {
-            NSURLRequest *homePageRequest = [self.navigationService homePageRequest];
-            if (homePageRequest != nil) {
-                [webView loadRequest:homePageRequest];
-            }
+            [self loadHomePage]; // an empty tab: the home page, or the start page when there is none – never a blank page
         }
         return;
     }
@@ -555,7 +592,31 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 
     if (snapshotImage != nil) {
         tab.snapshotImage = snapshotImage;
+        [self saveThumbnail:snapshotImage forURL:webView.request.URL];
     }
+}
+
+/// A small picture of the page per site, for "Recently Visited" on the start page.
+- (void)saveThumbnail:(UIImage *)image forURL:(NSURL *)URL {
+    NSString *host = URL.host.lowercaseString;
+    if ([host hasPrefix:@"www."]) {
+        host = [host substringFromIndex:4];
+    }
+    if (host.length == 0 || image.size.width < 10.0) {
+        return;
+    }
+    CGSize size = CGSizeMake(640.0, round(640.0 * image.size.height / image.size.width));
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+    format.scale = 1.0;
+    UIImage *small = [[[UIGraphicsImageRenderer alloc] initWithSize:size format:format] imageWithActions:^(__unused UIGraphicsImageRendererContext *context) {
+        [image drawInRect:CGRectMake(0.0, 0.0, size.width, size.height)];
+    }];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+        NSURL *folder = [caches URLByAppendingPathComponent:@"OrbrisaThumbnails" isDirectory:YES];
+        [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
+        [UIImageJPEGRepresentation(small, 0.7) writeToURL:[folder URLByAppendingPathComponent:[host stringByAppendingString:@".jpg"]] atomically:YES];
+    });
 }
 
 - (void)captureSnapshotForCurrentTab {
@@ -796,6 +857,21 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
                           "return best || (location.protocol.indexOf('http') === 0 ? location.origin + '/favicon.ico' : ''); })()"];
     if (iconURL.length > 0) {
         tab.iconURLString = iconURL;
+        // Remembered per site, so the start page can show the real logo on a favorite's tile.
+        NSString *host = request.URL.host.lowercaseString;
+        if ([host hasPrefix:@"www."]) {
+            host = [host substringFromIndex:4];
+        }
+        if (host.length > 0) {
+            NSMutableDictionary *icons = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserSiteIcons"] mutableCopy] ?: [NSMutableDictionary dictionary];
+            if (![icons[host] isEqualToString:iconURL]) {
+                icons[host] = iconURL;
+                if (icons.count > 300) {
+                    [icons removeObjectForKey:icons.allKeys.firstObject];
+                }
+                [[NSUserDefaults standardUserDefaults] setObject:icons forKey:@"BrowserSiteIcons"];
+            }
+        }
     }
 
     if (tab == self.activeTab) {

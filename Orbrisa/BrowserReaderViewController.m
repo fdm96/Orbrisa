@@ -2,6 +2,8 @@
 //  BrowserReaderViewController.m
 //  Orbrisa
 //
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
 
 #import "BrowserReaderViewController.h"
 #import "BrowserLocalization.h"
@@ -46,6 +48,7 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
 @property (nonatomic) UIButton *serifButton;
 @property (nonatomic) UIButton *systemButton;
 @property (nonatomic) UIButton *alwaysButton;
+@property (nonatomic) UIButton *webPageButton;
 @property (nonatomic) UILabel *alwaysLabel;
 @property (nonatomic) UIView *alwaysTrack;
 @property (nonatomic) UIView *alwaysKnob;
@@ -60,6 +63,15 @@ static UIColor *BrowserReaderColor(UInt32 hex) {
 @end
 
 @implementation BrowserReaderViewController
+
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    if (self.isBeingDismissed && self.didClose != nil) {
+        void (^didClose)(void) = self.didClose;
+        self.didClose = nil;
+        didClose();
+    }
+}
 
 #pragma mark - Page script
 
@@ -521,13 +533,20 @@ static NSString * const kReaderAlwaysHostsKey = @"BrowserReaderAlwaysHosts";
         [self.alwaysTrack.heightAnchor constraintEqualToConstant:46.0],
     ]];
 
+    // Back to the normal web page
+    self.webPageButton = [self panelControlWithSize:CGSizeMake(0.0, 76.0) radius:38.0];
+    UIImageSymbolConfiguration *webConfig = [UIImageSymbolConfiguration configurationWithPointSize:24.0 weight:UIImageSymbolWeightSemibold];
+    [self.webPageButton setImage:[UIImage systemImageNamed:@"safari" withConfiguration:webConfig] forState:UIControlStateNormal];
+    [self.webPageButton setTitle:[@"  " stringByAppendingString:BrowserLocalized(@"Show Web Page")] forState:UIControlStateNormal];
+    self.webPageButton.titleLabel.font = [UIFont systemFontOfSize:24.0 weight:UIFontWeightSemibold];
+
     UIView *spacer = [UIView new];
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
         title,
         [self sectionLabel:BrowserLocalized(@"Font Size")], sizeRow,
         [self sectionLabel:BrowserLocalized(@"Background")], themeRow,
         [self sectionLabel:BrowserLocalized(@"Font")], fontRow,
-        spacer, self.alwaysButton,
+        spacer, self.webPageButton, self.alwaysButton,
     ]];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     stack.axis = UILayoutConstraintAxisVertical;
@@ -535,6 +554,7 @@ static NSString * const kReaderAlwaysHostsKey = @"BrowserReaderAlwaysHosts";
     [stack setCustomSpacing:34.0 afterView:title];
     [stack setCustomSpacing:34.0 afterView:sizeRow];
     [stack setCustomSpacing:34.0 afterView:themeRow];
+    [stack setCustomSpacing:14.0 afterView:self.webPageButton];
     [panel.contentView addSubview:stack];
     [self.view addSubview:panel];
     self.panelView = panel;
@@ -586,6 +606,9 @@ static NSString * const kReaderAlwaysHostsKey = @"BrowserReaderAlwaysHosts";
     }
     [self styleControl:self.serifButton selected:self.serif];
     [self styleControl:self.systemButton selected:!self.serif];
+    [self styleControl:self.webPageButton selected:NO];
+    BOOL webFocused = (self.focusedControl == self.webPageButton);
+    self.webPageButton.tintColor = webFocused ? [UIColor colorWithWhite:0.11 alpha:1.0] : UIColor.whiteColor;
 
     BOOL always = [self alwaysOpens];
     BOOL alwaysFocused = (self.focusedControl == self.alwaysButton);
@@ -609,6 +632,11 @@ static NSString * const kReaderAlwaysHostsKey = @"BrowserReaderAlwaysHosts";
         self.serif = YES;
     } else if (button == self.systemButton) {
         self.serif = NO;
+    } else if (button == self.webPageButton) {
+        // The normal page is right behind the Reader: just close it (and stay on the page, not back to the feeds).
+        self.didClose = nil;
+        [self dismissViewControllerAnimated:YES completion:nil];
+        return;
     } else if (button == self.alwaysButton) {
         NSString *host = [self articleHost];
         if (host.length > 0) {

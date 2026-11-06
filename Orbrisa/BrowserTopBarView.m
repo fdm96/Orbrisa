@@ -1,3 +1,10 @@
+//
+//  BrowserTopBarView.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "BrowserTopBarView.h"
 #import "BrowserLocalization.h"
 
@@ -126,6 +133,7 @@ static CGFloat const kTopBarFeedGap = 32.0; // room for the address pill growing
 @property (nonatomic) BrowserTopBarFocusButton *menuFocusButton;
 @property (nonatomic) BrowserTopBarFocusButton *readerFocusButton;
 @property (nonatomic) BrowserTopBarFocusButton *feedFocusButton;
+@property (nonatomic) UIVisualEffectView *feedEffectView; // the RSS button is a small glass island like the rest of the bar
 @property (nonatomic) UILabel *readerLabel;
 @property (nonatomic) UIImageView *readerIconView;
 @property (nonatomic) BOOL readerAvailable;
@@ -138,6 +146,7 @@ static CGFloat const kTopBarFeedGap = 32.0; // room for the address pill growing
 @property (nonatomic) CGFloat progressFraction;
 @property (nonatomic, copy) NSString *subtitleText;
 @property (nonatomic) BOOL pageIsLight;
+@property (nonatomic) UIColor *titlePillTint;
 @property (nonatomic) BOOL subtitleSecure;
 @property (nonatomic) BOOL overrideTitleActive;
 @property (nonatomic, copy) NSString *stashedTitleText;
@@ -175,6 +184,42 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     }
     fill.backgroundColor = solidColor;
     fill.alpha = 1.0 - BrowserGlassAmount();
+}
+
+static CGRect BrowserTopBarTitlePillFrame; // in window coordinates, updated on every layout
+static CGRect BrowserTopBarIslandFrames[4]; // left, address, RSS, right – window coordinates
+
+void BrowserTopBarCutOutIslands(UIView *shade) {
+    if (shade == nil || shade.window == nil || CGRectIsEmpty(BrowserTopBarIslandFrames[1])) {
+        return;
+    }
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:shade.bounds];
+    for (NSInteger i = 0; i < 4; i++) {
+        if (CGRectIsEmpty(BrowserTopBarIslandFrames[i])) {
+            continue;
+        }
+        CGRect hole = [shade convertRect:BrowserTopBarIslandFrames[i] fromView:nil];
+        [path appendPath:[UIBezierPath bezierPathWithRoundedRect:hole cornerRadius:CGRectGetHeight(hole) / 2.0]];
+    }
+    CAShapeLayer *mask = [shade.layer.mask isKindOfClass:[CAShapeLayer class]] ? (CAShapeLayer *)shade.layer.mask : [CAShapeLayer layer];
+    mask.fillRule = kCAFillRuleEvenOdd;
+    mask.path = path.CGPath;
+    mask.frame = shade.bounds;
+    shade.layer.mask = mask;
+}
+
+void BrowserTopBarCutOutTitlePill(UIView *shade) {
+    if (shade == nil || CGRectIsEmpty(BrowserTopBarTitlePillFrame) || shade.window == nil) {
+        return;
+    }
+    CGRect hole = [shade convertRect:BrowserTopBarTitlePillFrame fromView:nil];
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:shade.bounds];
+    [path appendPath:[UIBezierPath bezierPathWithRoundedRect:hole cornerRadius:CGRectGetHeight(hole) / 2.0]];
+    CAShapeLayer *mask = [shade.layer.mask isKindOfClass:[CAShapeLayer class]] ? (CAShapeLayer *)shade.layer.mask : [CAShapeLayer layer];
+    mask.fillRule = kCAFillRuleEvenOdd;
+    mask.path = path.CGPath;
+    mask.frame = shade.bounds;
+    shade.layer.mask = mask;
 }
 
 @implementation BrowserTopBarView
@@ -345,9 +390,14 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 
     // RSS button right next to the address pill – only when the page offers a feed.
     _feedFocusButton = [self newFocusButtonForAction:BrowserTopBarActionFeed symbolName:@"dot.radiowaves.up.forward" accessibilityLabel:BrowserLocalized(@"Subscribe to Feed")];
-    _feedFocusButton.backgroundColor = UIColor.systemOrangeColor;
-    _feedFocusButton.iconView.tintColor = UIColor.whiteColor;
+    _feedFocusButton.backgroundColor = UIColor.clearColor;
+    _feedFocusButton.iconView.tintColor = UIColor.systemOrangeColor;
     _feedFocusButton.layer.cornerRadius = kTopBarFeedSize / 2.0;
+    _feedEffectView = [[UIVisualEffectView alloc] initWithEffect:nil];
+    _feedEffectView.userInteractionEnabled = NO;
+    _feedEffectView.clipsToBounds = YES;
+    _feedEffectView.layer.cornerRadius = kTopBarFeedSize / 2.0;
+    [_feedFocusButton insertSubview:_feedEffectView atIndex:0];
     _feedFocusButton.layer.borderColor = UIColor.whiteColor.CGColor;
     _feedFocusButton.layer.shadowColor = UIColor.blackColor.CGColor;
     _feedFocusButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
@@ -490,11 +540,41 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     return [UIBlurEffect effectWithStyle:self.pageIsLight ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
 }
 
+- (void)setTitlePillTintColor:(UIColor *)tintColor {
+    self.titlePillTint = tintColor;
+    [self applyTitlePillTint];
+    [self refreshSubtitle];
+}
+
+- (void)applyTitlePillTint {
+    UIColor *tint = self.titlePillTint;
+    if (tint == nil) {
+        self.centerEffectView.effect = [self newIslandEffect];
+        BrowserApplyGlassAmount(self.centerEffectView, [self solidIslandColor]);
+        self.URLLabel.textColor = self.centerFocused ? [self focusedTintColor] : [self idleTintColor];
+        return;
+    }
+#if __has_include(<UIKit/UIGlassEffect.h>)
+    if (@available(tvOS 26.0, *)) {
+        UIGlassEffect *glass = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
+        glass.interactive = YES;
+        glass.tintColor = tint;
+        self.centerEffectView.effect = glass;
+    }
+#endif
+    BrowserApplyGlassAmount(self.centerEffectView, tint);
+    self.URLLabel.textColor = UIColor.whiteColor;
+}
+
 - (void)glassAmountDidChange:(NSNotification *)notification {
     (void)notification;
     // Only the solid layer changes – rebuilding the glass effects on every slider step made it lag.
     for (UIVisualEffectView *effectView in @[self.leftEffectView, self.centerEffectView, self.rightEffectView]) {
         BrowserApplyGlassAmount(effectView, [self solidIslandColor]);
+    }
+    [self applyFeedGlass];
+    if (self.titlePillTint != nil) {
+        BrowserApplyGlassAmount(self.centerEffectView, self.titlePillTint);
     }
 }
 
@@ -534,6 +614,12 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
             containerView.layer.borderWidth = 1.0;
         }
     }
+    if (self.titlePillTint != nil) {
+        [self applyTitlePillTint];
+    }
+    [self applyFeedGlass];
+    self.feedFocusButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:[self usesGlass] ? (self.pageIsLight ? 0.35 : 0.55) : 0.14].CGColor;
+    self.feedFocusButton.layer.borderWidth = 1.0;
 }
 
 #pragma mark Layout
@@ -580,12 +666,22 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
         centerWidth = MAX(200.0, maxCenterMaxX - centerX);
     }
     self.centerContainerView.frame = CGRectMake(centerX, originY, centerWidth, kTopBarHeight);
+    if (self.window != nil) {
+        BrowserTopBarTitlePillFrame = [self convertRect:self.centerContainerView.frame toView:nil];
+    }
     CGAffineTransform feedTransform = self.feedFocusButton.transform;
     self.feedFocusButton.transform = CGAffineTransformIdentity;
     self.feedFocusButton.frame = CGRectMake(centerX + centerWidth + kTopBarFeedGap,
                                             originY + floor((kTopBarHeight - kTopBarFeedSize) / 2.0),
                                             kTopBarFeedSize, kTopBarFeedSize);
     self.feedFocusButton.iconView.frame = self.feedFocusButton.bounds;
+    self.feedEffectView.frame = self.feedFocusButton.bounds;
+    if (self.window != nil && !self.hidden) {
+        BrowserTopBarIslandFrames[0] = [self convertRect:self.leftContainerView.frame toView:nil];
+        BrowserTopBarIslandFrames[1] = [self convertRect:self.centerContainerView.frame toView:nil];
+        BrowserTopBarIslandFrames[2] = [self convertRect:self.feedFocusButton.frame toView:nil];
+        BrowserTopBarIslandFrames[3] = [self convertRect:self.rightContainerView.frame toView:nil];
+    }
     self.feedFocusButton.transform = feedTransform;
 
     for (UIView *containerView in @[self.leftContainerView, self.centerContainerView, self.rightContainerView]) {
@@ -720,7 +816,8 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 - (void)setOverrideTitle:(NSString *)title subtitle:(NSString *)subtitle symbolName:(NSString *)symbolName {
     [self setOverrideTitle:title subtitle:subtitle];
     UIImage *symbol = (title != nil && symbolName.length > 0)
-        ? [[self symbolImageNamed:symbolName pointSize:22.0] imageWithTintColor:UIColor.systemOrangeColor renderingMode:UIImageRenderingModeAlwaysOriginal] : nil;
+        ? [[self symbolImageNamed:symbolName pointSize:22.0] imageWithTintColor:(self.titlePillTint != nil ? UIColor.whiteColor : UIColor.systemOrangeColor)
+                                                         renderingMode:UIImageRenderingModeAlwaysOriginal] : nil;
     if (symbol == nil) {
         return;
     }
@@ -781,7 +878,7 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 }
 
 - (void)refreshSubtitle {
-    UIColor *color = [self subtitleColorFocused:self.centerFocused];
+    UIColor *color = self.titlePillTint != nil ? [UIColor colorWithWhite:1.0 alpha:0.85] : [self subtitleColorFocused:self.centerFocused];
     NSMutableAttributedString *text = [[NSMutableAttributedString alloc] init];
 
     if (self.subtitleSecure) {
@@ -818,10 +915,33 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     self.tabsFocusButton.accessibilityValue = tabCount > 0 ? [NSString stringWithFormat:BrowserLocalized(@"%lu open"), (unsigned long)tabCount] : nil;
 }
 
+- (void)applyFeedGlass {
+    UIColor *orange = [UIColor colorWithRed:1.0 green:0.55 blue:0.0 alpha:0.95];
+    if (self.feedAvailable) {
+#if __has_include(<UIKit/UIGlassEffect.h>)
+        if (@available(tvOS 26.0, *)) {
+            UIGlassEffect *glass = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
+            glass.interactive = YES;
+            glass.tintColor = orange;
+            self.feedEffectView.effect = glass;
+        }
+#endif
+        BrowserApplyGlassAmount(self.feedEffectView, orange);
+    } else {
+        self.feedEffectView.effect = [self newIslandEffect];
+        BrowserApplyGlassAmount(self.feedEffectView, [self solidIslandColor]);
+    }
+}
+
 - (void)applyFeedLook {
-    // Orange when the page offers a feed (subscribe), grey otherwise (opens the feeds overview).
-    self.feedFocusButton.backgroundColor = self.feedAvailable ? UIColor.systemOrangeColor : [UIColor colorWithWhite:0.42 alpha:0.6];
-    self.feedFocusButton.iconView.tintColor = UIColor.whiteColor;
+    // A feed to subscribe to: the button glows orange (orange glass) with a white symbol.
+    // No feed: clear Liquid Glass like the bar with an orange symbol (opens your feeds).
+    [self applyFeedGlass];
+    self.feedFocusButton.iconView.tintColor = self.feedAvailable ? UIColor.whiteColor : UIColor.systemOrangeColor;
+    self.feedFocusButton.layer.shadowColor = (self.feedAvailable ? UIColor.systemOrangeColor : UIColor.blackColor).CGColor;
+    self.feedFocusButton.layer.shadowOffset = self.feedAvailable ? CGSizeZero : CGSizeMake(0.0, 6.0);
+    self.feedFocusButton.layer.shadowRadius = self.feedAvailable ? 16.0 : 12.0;
+    self.feedFocusButton.layer.shadowOpacity = self.feedAvailable ? 0.7 : 0.25;
     self.feedFocusButton.accessibilityLabel = self.feedAvailable ? BrowserLocalized(@"Subscribe to Feed") : BrowserLocalized(@"Feeds");
 }
 
@@ -938,7 +1058,7 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     if (button == self.URLFocusButton) {
         self.centerFocused = focused;
         self.centerFocusFillView.alpha = focused ? 1.0 : 0.0;
-        self.URLLabel.textColor = focused ? [self focusedTintColor] : [self idleTintColor];
+        self.URLLabel.textColor = self.titlePillTint != nil ? UIColor.whiteColor : (focused ? [self focusedTintColor] : [self idleTintColor]);
         self.centerContainerView.transform = focused ? CGAffineTransformMakeScale(kTopBarCenterFocusedScale, kTopBarCenterFocusedScale)
                                                      : CGAffineTransformIdentity;
         [self refreshSubtitle];
@@ -955,8 +1075,11 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     }
     if (button == self.feedFocusButton) {
         button.transform = focused ? CGAffineTransformMakeScale(kTopBarFocusedButtonScale, kTopBarFocusedButtonScale) : CGAffineTransformIdentity;
-        button.layer.borderWidth = focused ? 3.0 : 0.0;
-        button.layer.shadowOpacity = focused ? 0.45 : 0.25;
+        BOOL fill = focused && !self.feedAvailable; // the orange button just grows and glows stronger
+        button.backgroundColor = fill ? [self focusFillColor] : UIColor.clearColor;
+        self.feedEffectView.alpha = fill ? 0.0 : 1.0;
+        button.layer.borderWidth = (focused && self.feedAvailable) ? 3.0 : 1.0;
+        button.layer.shadowOpacity = self.feedAvailable ? (focused ? 0.9 : 0.7) : (focused ? 0.45 : 0.25);
         return;
     }
 

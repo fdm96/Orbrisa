@@ -1,3 +1,10 @@
+//
+//  BrowserViewModel.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "BrowserViewModel.h"
 
 #import "BrowserTabViewModel.h"
@@ -57,7 +64,8 @@ static NSUInteger const kMaximumTabCount = 5;
     if (self.tabs.count == 0) {
         self.activeTabIndex = NSNotFound;
     } else if (tabIndex == self.activeTabIndex) {
-        self.activeTabIndex = MIN(tabIndex, self.tabs.count - 1);
+        // Closing the open tab goes to the tab on its left (the first tab goes to the next one).
+        self.activeTabIndex = MIN(MAX(tabIndex - 1, 0), (NSInteger)self.tabs.count - 1);
     } else if (tabIndex < self.activeTabIndex) {
         self.activeTabIndex -= 1;
     }

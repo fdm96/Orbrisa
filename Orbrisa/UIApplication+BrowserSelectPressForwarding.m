@@ -1,5 +1,13 @@
+//
+//  UIApplication+BrowserSelectPressForwarding.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import <AVKit/AVKit.h>
 #import "BrowserLog.h"
+#import "BrowserRemoteVisualizer.h"
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
@@ -124,6 +132,7 @@ static UIViewController *BrowserFindPresentedNativeVideoPlayerViewController(UIA
 }
 
 - (void)browser_sendEvent:(UIEvent *)event {
+    [BrowserRemoteVisualizer handleEvent:event]; // demo mode: show what is pressed (does nothing while off)
     Class nativeVideoPlayerClass = NSClassFromString(@"BrowserNativeVideoPlayerViewController");
     UIViewController *nativeVideoPlayerViewController = BrowserFindPresentedNativeVideoPlayerViewController(self, nativeVideoPlayerClass);
 
@@ -198,7 +207,18 @@ static UIViewController *BrowserFindPresentedNativeVideoPlayerViewController(UIA
             }
         }
 
-        [self browser_sendEvent:event];
+        // tvOS sometimes hands a clickpad touch to the container of a screen that has just closed
+        // ("-[UIDropShadowView (null selector)]: unrecognized selector") and the app freezes. That one
+        // touch is not needed anywhere – drop it and keep running.
+        @try {
+            [self browser_sendEvent:event];
+        } @catch (NSException *exception) {
+            if (![exception.name isEqualToString:NSInvalidArgumentException] ||
+                [exception.reason rangeOfString:@"unrecognized selector"].location == NSNotFound) {
+                @throw;
+            }
+            BrowserLog(@"[InputTrace][App] dropped a touch tvOS could not deliver: %@", exception.reason);
+        }
         return;
     }
 

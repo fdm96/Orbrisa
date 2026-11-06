@@ -1,3 +1,10 @@
+//
+//  BrowserWebView.h
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -37,6 +44,8 @@ FOUNDATION_EXPORT NSString * const BrowserForceDarkPagesDidChangeNotification;
 - (void)goForward;
 - (nullable NSString *)stringByEvaluatingJavaScriptFromString:(NSString * _Nonnull)script;
 - (NSString * _Nonnull)runtimeMediaPreferenceReport;
+/// Debug builds: which WebRTC / gamepad features this WebKit has and whether Orbrisa could switch them on.
++ (NSString * _Nonnull)cloudGamingFeatureReport;
 - (void)setUserAgent:(NSString * _Nullable)userAgent;
 - (void)pauseAllMediaPlayback;
 /// Dark mode for websites: light pages are shown dark. Saved across launches.
@@ -49,6 +58,8 @@ FOUNDATION_EXPORT NSString * const BrowserForceDarkPagesDidChangeNotification;
 + (void)applyAppearanceToWindows;
 /// Presses "accept all" on cookie banners automatically. On by default.
 @property (class, nonatomic) BOOL autoAcceptCookies;
+/// Blocks known ad and tracking servers and hides typical ad boxes (on by default).
+@property (class, nonatomic) BOOL adBlockEnabled;
 /// YES while the app is already waiting for an answer from a page (nested waits are skipped).
 + (BOOL)isWaitingForPage;
 /// Lets the run loop run for a moment while waiting for the page, without stacking up further waits.

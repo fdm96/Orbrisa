@@ -1,3 +1,10 @@
+//
+//  BrowserMenuCoordinator.h
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import <UIKit/UIKit.h>
 #import "BrowserWebView.h"
 
@@ -35,5 +42,7 @@
 - (instancetype)initWithHost:(id<BrowserMenuCoordinatorHost>)host
             preferencesStore:(BrowserPreferencesStore *)preferencesStore;
 - (void)showAdvancedMenu;
+/// The font size slider from Settings (50–200 %), for one value of its own – e.g. a web app's text size.
+- (void)presentTextSizeSliderWithValue:(NSUInteger)value changed:(void (^)(NSUInteger size))changed;
 
 @end

@@ -1,3 +1,10 @@
+//
+//  BrowserWebView.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "BrowserWebView.h"
 #import "BrowserLog.h"
 
@@ -280,6 +287,110 @@ static void BrowserSetBooleanSelectorIfAvailable(id object, NSString *selectorNa
     }
 }
 
+#if DEBUG
+// Experiment (Debug builds only): switch on the WebKit features cloud gaming needs, if this WebKit has them.
+static NSMutableString *BrowserCloudGamingReport;
+
+static void BrowserEnableCloudGamingFeatures(id preferences) {
+    if (BrowserCloudGamingReport == nil) {
+        BrowserCloudGamingReport = [NSMutableString string];
+    }
+    [BrowserCloudGamingReport setString:@""];
+    for (NSString *selectorName in @[@"_setPeerConnectionEnabled:", @"_setMediaDevicesEnabled:", @"_setGamepadsEnabled:", @"_setWebGPUEnabled:"]) {
+        BOOL available = [preferences respondsToSelector:NSSelectorFromString(selectorName)];
+        BrowserSetBooleanSelectorIfAvailable(preferences, selectorName, YES);
+        [BrowserCloudGamingReport appendFormat:@"%@ %@\n", selectorName, available ? @"set" : @"missing"];
+    }
+
+    NSArray *features = nil;
+    for (id target in @[preferences, [preferences class]]) {
+        for (NSString *name in @[@"_features", @"_experimentalFeatures", @"_internalDebugFeatures"]) {
+            SEL selector = NSSelectorFromString(name);
+            if (![target respondsToSelector:selector]) {
+                continue;
+            }
+            id list = ((id (*)(id, SEL))objc_msgSend)(target, selector);
+            if ([list isKindOfClass:[NSArray class]]) {
+                features = [(features ?: @[]) arrayByAddingObjectsFromArray:list];
+            }
+        }
+        if (features.count > 0) {
+            break;
+        }
+    }
+    SEL setEnabled = NSSelectorFromString(@"_setEnabled:forFeature:");
+    SEL isEnabled = NSSelectorFromString(@"_isEnabledForFeature:");
+    NSUInteger matches = 0;
+    for (id feature in features) {
+        NSString *key = BrowserStringValueForKnownSelectors(feature, @[@"key", @"name"]) ?: @"";
+        NSString *lower = key.lowercaseString;
+        BOOL wanted = [lower containsString:@"peerconnection"] || [lower containsString:@"webrtc"] || [lower containsString:@"gamepad"]
+            || [lower containsString:@"mediadevices"] || [lower containsString:@"mediastream"] || [lower containsString:@"webgpu"];
+        BOOL reportOnly = NO;
+        if (!wanted && !reportOnly) {
+            continue;
+        }
+        matches++;
+        BOOL before = [preferences respondsToSelector:isEnabled] ? ((BOOL (*)(id, SEL, id))objc_msgSend)(preferences, isEnabled, feature) : NO;
+        if (wanted && !before && [preferences respondsToSelector:setEnabled]) {
+            ((void (*)(id, SEL, BOOL, id))objc_msgSend)(preferences, setEnabled, YES, feature);
+        }
+        BOOL after = [preferences respondsToSelector:isEnabled] ? ((BOOL (*)(id, SEL, id))objc_msgSend)(preferences, isEnabled, feature) : before;
+        [BrowserCloudGamingReport appendFormat:@"%@: %@%@\n", key, before ? @"on" : @"off", (after != before) ? @" → on" : @""];
+    }
+    [BrowserCloudGamingReport appendFormat:@"(%lu WebKit features, %lu related)", (unsigned long)features.count, (unsigned long)matches];
+}
+#endif
+
+#if DEBUG
+// Experiment (Debug builds only): website data (IndexedDB, local storage, caches) in our own Caches folder,
+// because the default location is not reachable for the web process on tvOS ("STORAGE-NONE" on some sites).
+static NSMutableString *BrowserStorageReport;
+
+static id BrowserSharedCustomDataStore(void) {
+    static id store;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        BrowserStorageReport = [NSMutableString string];
+        Class configurationClass = NSClassFromString(@"_WKWebsiteDataStoreConfiguration");
+        Class storeClass = NSClassFromString(@"WKWebsiteDataStore");
+        SEL initWithConfiguration = NSSelectorFromString(@"_initWithConfiguration:");
+        if (configurationClass == Nil || storeClass == Nil || ![storeClass instancesRespondToSelector:initWithConfiguration]) {
+            [BrowserStorageReport appendString:@"Own data store: not possible (private classes missing)"];
+            return;
+        }
+        id configuration = [[configurationClass alloc] init];
+        NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+        NSURL *base = [caches URLByAppendingPathComponent:@"OrbrisaWebData" isDirectory:YES];
+        NSDictionary<NSString *, NSString *> *folders = @{
+            @"_setIndexedDBDatabaseDirectory:": @"IndexedDB",
+            @"_setWebStorageDirectory:": @"LocalStorage",
+            @"_setCacheStorageDirectory:": @"CacheStorage",
+            @"setGeneralStorageDirectory:": @"General",
+            @"_setServiceWorkerRegistrationDirectory:": @"ServiceWorkers",
+            @"_setWebSQLDatabaseDirectory:": @"WebSQL",
+            @"_setResourceLoadStatisticsDirectory:": @"ResourceLoadStatistics",
+            @"setNetworkCacheDirectory:": @"NetworkCache",
+        };
+        NSUInteger set = 0;
+        for (NSString *selectorName in folders) {
+            SEL selector = NSSelectorFromString(selectorName);
+            if (![configuration respondsToSelector:selector]) {
+                continue;
+            }
+            NSURL *folder = [base URLByAppendingPathComponent:folders[selectorName] isDirectory:YES];
+            [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
+            ((void (*)(id, SEL, id))objc_msgSend)(configuration, selector, folder);
+            set++;
+        }
+        store = ((id (*)(id, SEL, id))objc_msgSend)([storeClass alloc], initWithConfiguration, configuration);
+        [BrowserStorageReport appendFormat:@"Own data store: %@ (%lu of %lu folders set, in Caches/OrbrisaWebData)",
+            store != nil ? @"active" : @"failed", (unsigned long)set, (unsigned long)folders.count];
+    });
+    return store;
+}
+#endif
+
 static void BrowserConfigurePrivateMediaPreferences(id configuration) {
     if (configuration == nil) {
         return;
@@ -299,6 +410,9 @@ static void BrowserConfigurePrivateMediaPreferences(id configuration) {
     BrowserSetBooleanSelectorIfAvailable(preferences, @"_setManagedMediaSourceEnabled:", YES);
     BrowserSetBooleanSelectorIfAvailable(preferences, @"_setMediaCapabilityGrantsEnabled:", YES);
     BrowserSetBooleanSelectorIfAvailable(preferences, @"_setVideoQualityIncludesDisplayCompositingEnabled:", YES);
+#if DEBUG
+    BrowserEnableCloudGamingFeatures(preferences);
+#endif
 }
 
 static NSString *BrowserYouTubeRequestCaptureScript(void) {
@@ -708,31 +822,75 @@ static NSString *BrowserCookieAutoAcceptScript(void) {
         @"(function(){\n"
         @"if (window.__tvCookieAutoAccept) { return; }\n"
         @"window.__tvCookieAutoAccept = true;\n"
-        @"var SELECTORS = ['#L2AGLb', '#onetrust-accept-btn-handler', '#didomi-notice-agree-button', '.fc-cta-consent', '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll', '#CybotCookiebotDialogBodyButtonAccept', '.cky-btn-accept', '#cookiescript_accept', '[data-testid=\"uc-accept-all-button\"]', 'button[data-cookiefirst-action=\"accept\"]', '.qc-cmp2-summary-buttons button[mode=\"primary\"]', '#truste-consent-button', '.cmpboxbtnyes', '.sp_choice_type_11', 'button[aria-label=\"Accept all\"]', 'button[aria-label=\"Alle akzeptieren\"]'];\n"
-        @"var WORDS = ['alle akzeptieren', 'alles akzeptieren', 'alle annehmen', 'alle cookies akzeptieren', 'alle zulassen', 'alle cookies zulassen', 'akzeptieren und schliessen', 'akzeptieren und schließen', 'zustimmen und weiter', 'einverstanden', 'akzeptieren', 'zustimmen', 'accept all', 'accept all cookies', 'allow all', 'allow all cookies', 'i agree', 'agree', 'accept', 'accept cookies', 'got it', 'tout accepter', 'accepter', \"j'accepte\", 'accetta tutto', 'accetta', 'accetto'];\n"
-        @"function visible(el){ var r = el.getBoundingClientRect(); var s = getComputedStyle(el); return r.width > 2 && r.height > 2 && s.visibility !== 'hidden' && s.display !== 'none'; }\n"
-        @"function roots(){ var list = [document]; var uc = document.querySelector('#usercentrics-root, #usercentrics-cmp-ui'); if (uc && uc.shadowRoot) { list.push(uc.shadowRoot); } return list; }\n"
+        @"var SELECTORS = ['#L2AGLb', 'form[action*=\"consent.google\"] button', 'form[action*=\"consent.youtube\"] button',\n"
+        @" '#onetrust-accept-btn-handler', '#accept-recommended-btn-handler', '#didomi-notice-agree-button', '.fc-cta-consent', '.fc-button.fc-cta-consent',\n"
+        @" '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll', '#CybotCookiebotDialogBodyButtonAccept', '#CybotCookiebotDialogBodyLevelButtonAccept',\n"
+        @" '.cky-btn-accept', '#cookiescript_accept', '[data-testid=\"uc-accept-all-button\"]', '#uc-btn-accept-banner', 'button[data-cookiefirst-action=\"accept\"]',\n"
+        @" '.qc-cmp2-summary-buttons button[mode=\"primary\"]', '#truste-consent-button', '#cmpbntyestxt', '.cmpboxbtnyes', '#cmpwelcomebtnyes a',\n"
+        @" '.sp_choice_type_11', '.message-component.sp_choice_type_11', 'button[title=\"Zustimmen\"]', 'button[title=\"Alle akzeptieren\"]', 'button[title=\"Accept all\"]',\n"
+        @" 'button[title=\"Zustimmen und weiter\"]', 'button[title=\"Akzeptieren und weiter\"]', 'button[title=\"Einverstanden\"]',\n"
+        @" '._brlbs-btn-accept-all', '[data-borlabs-cookie-accept-all]', '.brlbs-btn-accept-all', '.cmplz-accept', '.cm-btn-accept-all', '.cm-btn-success',\n"
+        @" '.osano-cm-accept-all', '.iubenda-cs-accept-btn', '.moove-gdpr-infobar-allow-all', '#cn-accept-cookie', '#wt-cli-accept-all-btn',\n"
+        @" '#cookie_action_close_header', '#shopify-pc__banner__btn-accept', '#axeptio_btn_acceptAll', '#tarteaucitronPersonalize2', '.cc-btn.cc-allow',\n"
+        @" '.cc-btn.cc-dismiss', '#accept-cookies', '#acceptAllCookies', '#accept-all-cookies', '[data-action=\"accept-all\"]', '[data-cookie-accept-all]',\n"
+        @" 'a[data-rcb-accept-all]', '.consent-accept-all', '.js-accept-all-cookies', 'button[aria-label=\"Accept all\"]', 'button[aria-label=\"Alle akzeptieren\"]',\n"
+        @" 'button[aria-label=\"Accept all cookies\"]', 'button[aria-label=\"Zustimmen\"]', 'button[aria-label=\"Alle Cookies akzeptieren\"]'];\n"
+        @"var STRONG = ['alle akzeptieren', 'alles akzeptieren', 'alle annehmen', 'alles annehmen', 'alle cookies akzeptieren', 'alle cookies annehmen', 'alle zulassen',\n"
+        @" 'alle cookies zulassen', 'alle erlauben', 'alle cookies erlauben', 'akzeptieren und schliessen', 'akzeptieren und schließen', 'akzeptieren und weiter',\n"
+        @" 'zustimmen und weiter', 'zustimmen & weiter', 'akzeptieren & weiter', 'akzeptieren & schließen', 'alle akzeptieren & schließen', 'ich stimme zu', 'ja, ich stimme zu',\n"
+        @" 'cookies akzeptieren', 'cookies zulassen', 'accept all', 'accept all cookies', 'accept & continue', 'accept and continue', 'allow all', 'allow all cookies',\n"
+        @" 'allow cookies', 'accept cookies', 'agree and continue', 'agree & continue', 'i accept', 'tout accepter', 'accepter et continuer', 'accetta tutto', 'accetta tutti',\n"
+        @" 'aceptar todo', 'aceptar todas', 'alles accepteren'];\n"
+        @"var WEAK = ['akzeptieren', 'zustimmen', 'einverstanden', 'annehmen', 'erlauben', 'zulassen', 'verstanden', 'ok', 'okay', 'accept', 'agree', 'i agree',\n"
+        @" 'allow', 'got it', 'continue', 'weiter', 'accepter', \"j'accepte\", 'accetta', 'accetto', 'aceptar', 'accepteren'];\n"
+        @"var CONTEXT = /cookie|consent|datenschutz|privacy|einwillig|tracking|partner|zustimm|gdpr|dsgvo|personali/i;\n"
+        @"function visible(el){ var r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) { return false; } var s = getComputedStyle(el); return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0'; }\n"
+        @"function roots(){\n"
+        @"  var list = [document];\n"
+        @"  for (var i = 0; i < list.length && i < 40; i++) {\n"
+        @"    var hosts = list[i].querySelectorAll('*');\n"
+        @"    for (var j = 0; j < hosts.length; j++) { if (hosts[j].shadowRoot) { list.push(hosts[j].shadowRoot); } }\n"
+        @"  }\n"
+        @"  return list;\n"
+        @"}\n"
+        @"function label(b){ return (b.innerText || b.value || b.getAttribute('aria-label') || b.getAttribute('title') || '').trim().toLowerCase().replace(/[\\s ]+/g, ' ').replace(/[!.»›→✓]+$/g, '').trim(); }\n"
+        @"function inConsent(el){\n"
+        @"  if (window.top !== window.self) { return true; }\n"
+        @"  var n = el;\n"
+        @"  for (var d = 0; n && d < 10; d++) {\n"
+        @"    var id = ((n.id || '') + ' ' + (typeof n.className === 'string' ? n.className : '')).toLowerCase();\n"
+        @"    if (CONTEXT.test(id)) { return true; }\n"
+        @"    if (d >= 2 && n.innerText && n.innerText.length < 4000 && CONTEXT.test(n.innerText)) { return true; }\n"
+        @"    n = n.parentElement || (n.getRootNode && n.getRootNode().host);\n"
+        @"  }\n"
+        @"  return false;\n"
+        @"}\n"
         @"function tryClick(){\n"
         @"  var all = roots();\n"
         @"  for (var r = 0; r < all.length; r++) {\n"
         @"    for (var i = 0; i < SELECTORS.length; i++) {\n"
-        @"      var el = all[r].querySelector(SELECTORS[i]);\n"
+        @"      var el = null; try { el = all[r].querySelector(SELECTORS[i]); } catch (e) {}\n"
         @"      if (el && visible(el)) { el.click(); return true; }\n"
         @"    }\n"
         @"  }\n"
+        @"  var weak = null;\n"
         @"  for (var r2 = 0; r2 < all.length; r2++) {\n"
-        @"    var buttons = all[r2].querySelectorAll('button, [role=\"button\"], a.button, input[type=\"button\"], input[type=\"submit\"]');\n"
+        @"    var buttons = all[r2].querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"], span[tabindex], div[tabindex]');\n"
         @"    for (var j = 0; j < buttons.length; j++) {\n"
         @"      var b = buttons[j];\n"
-        @"      var t = (b.innerText || b.value || b.getAttribute('aria-label') || '').trim().toLowerCase().replace(/\\s+/g, ' ');\n"
-        @"      if (t.length > 0 && t.length < 40 && WORDS.indexOf(t) >= 0 && visible(b)) { b.click(); return true; }\n"
+        @"      var t = label(b);\n"
+        @"      if (t.length === 0 || t.length > 45) { continue; }\n"
+        @"      if (STRONG.indexOf(t) >= 0 && visible(b) && inConsent(b)) { b.click(); return true; }\n"
+        @"      if (!weak && WEAK.indexOf(t) >= 0 && visible(b) && inConsent(b)) { weak = b; }\n"
         @"    }\n"
         @"  }\n"
+        @"  if (weak) { weak.click(); return true; }\n"
         @"  return false;\n"
         @"}\n"
-        @"var tries = 0;\n"
-        @"var timer = setInterval(function(){ tries += 1; if (tryClick() || tries > 30) { clearInterval(timer); } }, 500);\n"
-        @"tryClick();\n"
+        @"var tries = 0, clicks = 0;\n"
+        @"function step(){ tries += 1; if (tryClick()) { clicks += 1; } if (clicks >= 3 || tries > 60) { clearInterval(timer); } }\n"
+        @"var timer = setInterval(step, 500);\n"
+        @"setTimeout(step, 50);\n"
         @"})();\n";
     });
     return script;
@@ -740,6 +898,168 @@ static NSString *BrowserCookieAutoAcceptScript(void) {
 
 static NSString *BrowserForceDarkScript(BOOL enabled) {
     return [NSString stringWithFormat:@"%@(%@);", BrowserForceDarkScriptFunction(), enabled ? @"true" : @"false"];
+}
+
+#pragma mark - Ad blocker (WebKit content rules)
+
+static NSString * const kBrowserAdBlockDisabledKey = @"BrowserAdBlockDisabled";
+static id BrowserAdBlockRuleList;                    // WKContentRuleList, once compiled
+static NSHashTable *BrowserAdBlockControllers;        // every tab's user content controller (weak)
+
+static NSArray<NSString *> *BrowserAdBlockDomains(void) {
+    static NSArray<NSString *> *domains;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+    domains = @[
+        @"doubleclick.net", @"googlesyndication.com", @"googleadservices.com", @"adservice.google.com", @"googletagservices.com",
+        @"google-analytics.com", @"googletagmanager.com", @"amazon-adsystem.com", @"adnxs.com", @"adsrvr.org", @"criteo.com",
+        @"criteo.net", @"taboola.com", @"outbrain.com", @"pubmatic.com", @"rubiconproject.com", @"openx.net", @"casalemedia.com",
+        @"smartadserver.com", @"adform.net", @"yieldlove.com", @"yieldlab.net", @"teads.tv", @"moatads.com", @"scorecardresearch.com",
+        @"quantserve.com", @"advertising.com", @"adsafeprotected.com", @"doubleverify.com", @"media.net", @"zemanta.com",
+        @"3lift.com", @"sharethrough.com", @"indexww.com", @"bidswitch.net", @"contextweb.com", @"lijit.com", @"sovrn.com",
+        @"33across.com", @"adition.com", @"stroeer.io", @"adscale.de", @"ioam.de", @"seedtag.com", @"connatix.com",
+        @"exponential.com", @"revcontent.com", @"mgid.com", @"propellerads.com", @"popads.net", @"popcash.net", @"adsterra.com",
+        @"exoclick.com", @"juicyads.com", @"trafficjunky.net", @"hotjar.com", @"2mdn.net", @"adsystem.com", @"serving-sys.com",
+        @"flashtalking.com", @"adhese.com", @"adtech.de", @"emetriq.de", @"theadex.com", @"aniview.com", @"glomex.com",
+    ];
+    });
+    return domains;
+}
+
+/// YES for an ad or tracking server (the host itself or any of its subdomains).
+static BOOL BrowserAdBlockHostBlocked(NSString *host) {
+    host = host.lowercaseString;
+    if (host.length == 0) {
+        return NO;
+    }
+    for (NSString *domain in BrowserAdBlockDomains()) {
+        if ([host isEqualToString:domain] || [host hasSuffix:[@"." stringByAppendingString:domain]]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+/// Hides ad boxes – also those that appear later, and the frames of ad servers.
+static NSString *BrowserAdBlockCSS(void) {
+    NSMutableArray *selectors = [@[
+        @"ins.adsbygoogle", @".adsbygoogle", @"[id^='google_ads_iframe']", @"[id^='div-gpt-ad']", @"[id*='div-gpt-ad']",
+        @"[data-google-query-id]", @"[data-ad-slot]", @"[data-adunit]", @"[data-ad-unit]", @"amp-ad", @"amp-embed",
+        @".ad-slot", @".ad-container", @".ad-banner", @".adBanner", @".advertisement", @".advert", @".ad-wrapper",
+        @"[class*='taboola']", @"[id*='taboola']", @".OUTBRAIN", @"[class^='outbrain']", @"[aria-label='Advertisement']",
+        @"[aria-label='Anzeige']", @".werbung", @".anzeige", @"[id*='skyscraper']", @"[class*='skyscraper']",
+        @"[id*='Skyscraper']", @"[class*='sticky-ad']", @"[id^='adngin']", @"[class*='adngin']", @"[id*='AdSlot']", @"[class*='AdSlot']",
+    ] mutableCopy];
+    for (NSString *domain in BrowserAdBlockDomains()) {
+        [selectors addObject:[NSString stringWithFormat:@"iframe[src*='%@']", domain]];
+    }
+    return [[selectors componentsJoinedByString:@","] stringByAppendingString:@"{display:none !important;visibility:hidden !important;}"];
+}
+
+static NSString *BrowserAdBlockScript(void) {
+    NSData *css = [NSJSONSerialization dataWithJSONObject:@[BrowserAdBlockCSS()] options:0 error:nil];
+    NSString *cssArray = css != nil ? [[NSString alloc] initWithData:css encoding:NSUTF8StringEncoding] : @"['']";
+    return [NSString stringWithFormat:
+            @"(function(){try{if(window.__orbrisaAdBlock){return;}window.__orbrisaAdBlock=true;"
+            @"var css=%@[0];function add(){if(document.getElementById('__orbrisaAdBlock')){return true;}"
+            @"var root=document.head||document.documentElement;if(!root){return false;}"
+            @"var s=document.createElement('style');s.id='__orbrisaAdBlock';s.textContent=css;root.appendChild(s);return true;}"
+            @"if(!add()){document.addEventListener('DOMContentLoaded',add);}"
+            @"}catch(e){}})();", cssArray];
+}
+
+static NSString *BrowserAdBlockRulesJSON(void) {
+    // Ad and tracking servers – blocked when a page loads them from another site (the site itself keeps working).
+    NSArray<NSString *> *domains = BrowserAdBlockDomains();
+    NSMutableArray *rules = [NSMutableArray array];
+    for (NSString *domain in domains) {
+        NSString *escaped = [domain stringByReplacingOccurrencesOfString:@"." withString:@"\\."];
+        [rules addObject:@{
+            @"trigger": @{@"url-filter": [NSString stringWithFormat:@"^https?://([^/:]+\\.)?%@[/:]", escaped],
+                          @"load-type": @[@"third-party"]},
+            @"action": @{@"type": @"block"},
+        }];
+    }
+    // Typical ad boxes that stay empty (or show house ads) once their server is blocked.
+    [rules addObject:@{
+        @"trigger": @{@"url-filter": @".*"},
+        @"action": @{@"type": @"css-display-none",
+                     @"selector": @"ins.adsbygoogle, .adsbygoogle, [id^='google_ads_iframe'], [id^='div-gpt-ad'], [data-google-query-id], "
+                                   ".ad-slot, .ad-container, .ad-banner, .adBanner, .advertisement, .advert, .ad-wrapper, "
+                                   "[class*='taboola'], [id*='taboola'], .OUTBRAIN, [class^='outbrain'], [aria-label='Advertisement'], "
+                                   "[aria-label='Anzeige'], .werbung, .anzeige"},
+    }];
+    NSData *data = [NSJSONSerialization dataWithJSONObject:rules options:0 error:nil];
+    return data != nil ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"[]";
+}
+
+static void BrowserAdBlockApply(id controller, BOOL add) {
+    if (controller == nil || BrowserAdBlockRuleList == nil) {
+        return;
+    }
+    SEL selector = NSSelectorFromString(add ? @"addContentRuleList:" : @"removeContentRuleList:");
+    if ([controller respondsToSelector:selector]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(controller, selector, BrowserAdBlockRuleList);
+    }
+}
+
+static void BrowserAdBlockPrepare(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        Class storeClass = NSClassFromString(@"WKContentRuleListStore");
+        SEL defaultStore = NSSelectorFromString(@"defaultStore");
+        SEL compile = NSSelectorFromString(@"compileContentRuleListForIdentifier:encodedContentRuleList:completionHandler:");
+        if (storeClass == Nil || ![storeClass respondsToSelector:defaultStore]) {
+            BrowserLog(@"[AdBlock] content rules not available");
+            return;
+        }
+        id store = nil;
+        SEL storeWithURL = NSSelectorFromString(@"storeWithURL:");
+        if ([storeClass respondsToSelector:storeWithURL]) {
+            NSURL *caches = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
+            NSURL *folder = [caches URLByAppendingPathComponent:@"OrbrisaContentRules" isDirectory:YES];
+            [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
+            store = ((id (*)(id, SEL, id))objc_msgSend)((id)storeClass, storeWithURL, folder);
+        }
+        if (store == nil) {
+            store = ((id (*)(id, SEL))objc_msgSend)((id)storeClass, defaultStore);
+        }
+        if (![store respondsToSelector:compile]) {
+            return;
+        }
+        void (^completion)(id, NSError *) = ^(id ruleList, NSError *error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (ruleList == nil) {
+                    BrowserLog(@"[AdBlock] compile failed: %@", error);
+                    return;
+                }
+                BrowserAdBlockRuleList = ruleList;
+                BrowserLog(@"[AdBlock] content rules ready");
+                if ([BrowserWebView adBlockEnabled]) {
+                    for (id controller in BrowserAdBlockControllers) {
+                        BrowserAdBlockApply(controller, YES);
+                    }
+                }
+            });
+        };
+        ((void (*)(id, SEL, id, id, id))objc_msgSend)(store, compile, @"OrbrisaAdBlock-1", BrowserAdBlockRulesJSON(), completion);
+    });
+}
+
+static void BrowserAdBlockAttach(id configuration) {
+    SEL getter = NSSelectorFromString(@"userContentController");
+    id controller = [configuration respondsToSelector:getter] ? ((id (*)(id, SEL))objc_msgSend)(configuration, getter) : nil;
+    if (controller == nil) {
+        return;
+    }
+    if (BrowserAdBlockControllers == nil) {
+        BrowserAdBlockControllers = [NSHashTable weakObjectsHashTable];
+    }
+    [BrowserAdBlockControllers addObject:controller];
+    BrowserAdBlockPrepare();
+    if ([BrowserWebView adBlockEnabled]) {
+        BrowserAdBlockApply(controller, YES);
+    }
 }
 
 static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
@@ -779,11 +1099,36 @@ static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
         ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, userScript);
     }
 
+#if DEBUG
+    // Experiment: the Apple TV never gives the page keyboard focus (Orbrisa drives it with its own cursor),
+    // so document.hasFocus() is false and games pause until the next click. Tell the page it has focus.
+    static NSString * const focusScript =
+        @"(function(){try{if(window.__orbrisaFocus){return;}window.__orbrisaFocus=true;"
+        @"Document.prototype.hasFocus=function(){return true;};"
+        @"window.addEventListener('blur',function(e){if(e.target===window){e.stopImmediatePropagation();}},true);"
+        @"document.addEventListener('DOMContentLoaded',function(){try{window.dispatchEvent(new FocusEvent('focus'));}catch(e){}});"
+        @"}catch(e){}})();";
+    id focusUserScript = ((id (*)(id, SEL))objc_msgSend)((id)userScriptClass, @selector(alloc));
+    focusUserScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(focusUserScript, userScriptInitializer, focusScript, 0, NO);
+    if (focusUserScript != nil) {
+        ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, focusUserScript);
+    }
+#endif
+
     // Video stream capture: at document start (0), in every frame, so players in iframes are seen too.
     id mediaScript = ((id (*)(id, SEL))objc_msgSend)((id)userScriptClass, @selector(alloc));
     mediaScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(mediaScript, userScriptInitializer, BrowserMediaCaptureScript(), 0, NO);
     if (mediaScript != nil) {
         ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, mediaScript);
+    }
+
+    // Ad blocker: hide ad boxes and ad frames, in every frame, from the start.
+    if ([BrowserWebView adBlockEnabled]) {
+        id adScript = ((id (*)(id, SEL))objc_msgSend)((id)userScriptClass, @selector(alloc));
+        adScript = ((id (*)(id, SEL, id, NSInteger, BOOL))objc_msgSend)(adScript, userScriptInitializer, BrowserAdBlockScript(), 0, NO);
+        if (adScript != nil) {
+            ((void (*)(id, SEL, id))objc_msgSend)(userContentController, addUserScriptSelector, adScript);
+        }
     }
 
     // Cookie banners: at document end (1), in every frame, because many banners live in an iframe.
@@ -864,7 +1209,15 @@ static void BrowserInstallYouTubeCaptureUserScript(id configuration) {
         ((void (*)(id, SEL, BOOL))objc_msgSend)(configuration, allowsInlineMediaPlaybackSelector, allowsInlineMediaPlayback);
     }
     BrowserConfigurePrivateMediaPreferences(configuration);
+#if DEBUG
+    id customDataStore = BrowserSharedCustomDataStore();
+    SEL setDataStore = NSSelectorFromString(@"setWebsiteDataStore:");
+    if (customDataStore != nil && [configuration respondsToSelector:setDataStore]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(configuration, setDataStore, customDataStore);
+    }
+#endif
     BrowserInstallYouTubeCaptureUserScript(configuration);
+    BrowserAdBlockAttach(configuration);
     [self installMediaMessageHandlerInConfiguration:configuration];
 
     id webViewObject = ((id (*)(id, SEL))objc_msgSend)((id)webViewClass, @selector(alloc));
@@ -1154,6 +1507,18 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
     }
 }
 
++ (BOOL)adBlockEnabled {
+    return ![[NSUserDefaults standardUserDefaults] boolForKey:kBrowserAdBlockDisabledKey];
+}
+
++ (void)setAdBlockEnabled:(BOOL)adBlockEnabled {
+    [[NSUserDefaults standardUserDefaults] setBool:!adBlockEnabled forKey:kBrowserAdBlockDisabledKey];
+    for (id controller in BrowserAdBlockControllers) {
+        BrowserAdBlockApply(controller, adBlockEnabled);
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:BrowserForceDarkPagesDidChangeNotification object:nil];
+}
+
 + (BOOL)autoAcceptCookies {
     return ![[NSUserDefaults standardUserDefaults] boolForKey:kBrowserAutoAcceptCookiesDisabledKey];
 }
@@ -1403,6 +1768,15 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
     [self stringByEvaluatingJavaScriptFromString:pauseScript];
 }
 
++ (NSString *)cloudGamingFeatureReport {
+#if DEBUG
+    NSString *features = BrowserCloudGamingReport.length > 0 ? [BrowserCloudGamingReport copy] : @"No WebKit preferences were configured yet.";
+    return [NSString stringWithFormat:@"%@\n%@", BrowserStorageReport ?: @"Own data store: not tried", features];
+#else
+    return @"";
+#endif
+}
+
 - (NSString *)runtimeMediaPreferenceReport {
     if (self.runtimeWebView == nil) {
         return @"Runtime web view unavailable.";
@@ -1641,6 +2015,13 @@ static NSInteger BrowserMediaQualityInURL(NSString *URLString) {
         }
     }
 
+    if (!isMainFrameRequest && [BrowserWebView adBlockEnabled] && BrowserAdBlockHostBlocked(request.URL.host)) {
+        if (decisionHandler != nil) {
+            decisionHandler(0); // an ad frame: not loaded at all
+        }
+        return;
+    }
+
     BOOL shouldAllow = YES;
     if ([self.delegate respondsToSelector:@selector(webView:shouldStartLoadWithRequest:navigationType:)]) {
         shouldAllow = [self.delegate webView:self shouldStartLoadWithRequest:request navigationType:navigationType];
@@ -1687,6 +2068,12 @@ windowFeatures:(id)windowFeatures {
 
 + (id)defaultWebsiteDataStore {
     BrowserEnsureWebKitRuntimeLoaded();
+#if DEBUG
+    id customDataStore = BrowserSharedCustomDataStore(); // cookies and "Clear Cache" use the same store as the tabs
+    if (customDataStore != nil) {
+        return customDataStore;
+    }
+#endif
     Class dataStoreClass = NSClassFromString(kBrowserWebsiteDataStoreClassName);
     SEL selector = NSSelectorFromString(@"defaultDataStore");
     if (dataStoreClass == Nil || ![dataStoreClass respondsToSelector:selector]) {

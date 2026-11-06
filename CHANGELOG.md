@@ -2,6 +2,56 @@
 
 All notable changes to Orbrisa. The format follows [Keep a Changelog](https://keepachangelog.com), versions follow [Semantic Versioning](https://semver.org).
 
+## [1.1.0-beta.2] – 2026-11-06
+
+**Beta 2** – a new start page, web apps and an ad blocker. Please report anything odd – a photo of your TV helps a lot.
+
+### Added
+- **Start page** for new tabs and the Home button – the Liquid Glass top bar, your favorites as large tiles and *Recently Visited* with real page pictures
+  - Favorites stay in one row and scroll sideways, only *Recently Visited* scrolls up and down
+  - Hold a favorite (or press Play/Pause on it) for its options: *Open as Web App*, *Open When Orbrisa Starts*, *Always Open as Web App*, *Rename*, *Remove*
+  - Hold a recently visited site for *Open*, *Open as Web App*, *Add to Favorites* and *Remove from Recently Visited*
+  - Settings → *Home Page*: the Orbrisa start page or a website of your choice
+  - An empty tab loads Google behind the start page – Back simply shows it, never a blank page
+  - *Wallpaper* button under the address field: pick a photo from Unsplash (via Lorem Picsum, no account needed) in a glass window – it is shown softly blurred behind the start page
+- **Web apps** – open a favorite like a native app
+  - Full screen, no bar, a splash screen with the site's logo
+  - Swipe scrolls anywhere; hold the clickpad for a selection box (a soft glass droplet – blue on dark pages, green on light pages); left / right turns pages
+  - Hold the bottom of the clickpad: your other web apps slide up on Liquid Glass
+  - Own text size per web app; Back goes back inside the app and, on its first page, to the start page; taking the cursor leaves the web app
+- **Ad blocker** – WebKit content rules for ad and tracking servers, ad frames are blocked while loading, typical ad boxes are hidden. Switch in Settings → Compatibility and in the quick menu
+- **New quick menu** (Play/Pause), designed like the Reader's appearance panel: font size, page appearance (*Original*, *Automatic*, *Light*, *Dark*), action buttons and the ad blocker switch
+- **Feeds open in the Reader** – pick an article and it opens in the Reader; Back returns to the feed list
+- **Reader:** *Show Web Page* in the appearance panel
+- **Usage guide on six pages** with page dots like Apple's – browsing, buttons & menus, tabs & start page, web apps, Reader & feeds, videos. Swipe or press left / right to turn the page
+- **Demo mode** (Settings → Help): a see-through Siri Remote on the right edge lights up every press, hold and swipe – for screen recordings and showing Orbrisa to others
+- **What's New** has one page per release: Beta 2, Beta 1 (Reader & RSS) and 1.0 – press the ring left / right to see what came before; the version in Settings reads "1.1.0 Beta 2"
+
+### Changed
+- Unread counts in the feeds are red badges like on Apple devices
+- The feed button opens your feeds directly when you already follow the page (the *Already Subscribed* message only appears when you subscribe again)
+- Cookie banners: many more consent tools are recognised (also inside shadow DOM and frames), more button texts, retries for 30 seconds
+- Closing a tab switches to the tab on its left; the tab overview keeps the focus on that tab
+- Font size: changes no longer stack up, 100 % restores the page exactly
+- What's New also appears for a new beta of the same version
+- **Feeds** open as a floating window of light orange Liquid Glass – the page shows faintly behind it
+- **RSS button** is a Liquid Glass island like the rest of the bar: it glows orange with a white symbol when the page has a feed to subscribe to, otherwise the symbol is orange
+- Tab overview: one frosted surface from the top of the screen down to the tabs – no stripe between the bar and the tabs
+- While Feeds or Settings are open, the address field is not dimmed, so you see where you are
+- Start page options: everything else is darkened, the chosen tile gets a white ring, the panel shows the site's real logo
+- Settings → Help: the usage guide and What's New open on top of Settings, Back returns there
+- Credits for Fabio Di Marco (di marcostudio.) and Claude (Anthropic) in every source file
+
+### Fixed
+- No more *Could Not Load Webpage* alert when a load is cancelled (e.g. when going back quickly)
+- Crashes while holding the clickpad and right after closing a screen
+- Swiping with link navigation no longer flings the page to the bottom
+- Empty tabs no longer show a blank white page
+- A freeze when tvOS delivered a clickpad touch to a screen that had just closed
+- Back with an options panel open on the start page closed the whole start page (tvOS handled the release of Back)
+- The strip behind the bar turned black after switching tabs
+- A long feed name hid the unread count
+
 ## [1.1.0-beta.1] – 2026-11-05
 
 **Beta 1** – try the new Reader and RSS feeds. Things may still change; please report anything odd.

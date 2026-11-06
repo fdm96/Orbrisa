@@ -1,3 +1,10 @@
+//
+//  ContentProvider.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "ContentProvider.h"
 
 /// The shared App Group (group.<bundle id of the app>), written into Info.plist at build time.

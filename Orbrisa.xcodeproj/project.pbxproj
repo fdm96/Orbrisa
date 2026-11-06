@@ -42,6 +42,10 @@
 		B0B1C2D3E4F5061728394018 /* BrowserFeedsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394017 /* BrowserFeedsViewController.m */; };
 		B0B1C2D3E4F506172839401A /* ReaderExtract.js in Resources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394019 /* ReaderExtract.js */; };
 		B0B1C2D3E4F506172839401C /* FeedDetect.js in Resources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F506172839401B /* FeedDetect.js */; };
+		B0B1C2D3E4F506172839401F /* BrowserStartPageViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F506172839401E /* BrowserStartPageViewController.m */; };
+		B0B1C2D3E4F5061728394022 /* BrowserQuickMenuViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394021 /* BrowserQuickMenuViewController.m */; };
+		B0B1C2D3E4F5061728394025 /* BrowserRemoteVisualizer.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394024 /* BrowserRemoteVisualizer.m */; };
+		B0B1C2D3E4F5061728394028 /* BrowserWallpaperViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B0B1C2D3E4F5061728394027 /* BrowserWallpaperViewController.m */; };
 		C0FFEE00A1B2C3D4E5F60003 /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE00A1B2C3D4E5F60002 /* VLCKit */; };
 /* End PBXBuildFile section */
 
@@ -136,6 +140,14 @@
 		B0B1C2D3E4F5061728394017 /* BrowserFeedsViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserFeedsViewController.m; sourceTree = "<group>"; };
 		B0B1C2D3E4F5061728394019 /* ReaderExtract.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ReaderExtract.js; sourceTree = "<group>"; };
 		B0B1C2D3E4F506172839401B /* FeedDetect.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = FeedDetect.js; sourceTree = "<group>"; };
+		B0B1C2D3E4F506172839401D /* BrowserStartPageViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserStartPageViewController.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F506172839401E /* BrowserStartPageViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserStartPageViewController.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394020 /* BrowserQuickMenuViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserQuickMenuViewController.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394021 /* BrowserQuickMenuViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserQuickMenuViewController.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394023 /* BrowserRemoteVisualizer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserRemoteVisualizer.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394024 /* BrowserRemoteVisualizer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserRemoteVisualizer.m; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394026 /* BrowserWallpaperViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserWallpaperViewController.h; sourceTree = "<group>"; };
+		B0B1C2D3E4F5061728394027 /* BrowserWallpaperViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BrowserWallpaperViewController.m; sourceTree = "<group>"; };
 		B0F6B4611BAEBF9900E2F26B /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -264,6 +276,14 @@
 				B0B1C2D3E4F5061728394014 /* BrowserFeedStore.m */,
 				B0B1C2D3E4F5061728394016 /* BrowserFeedsViewController.h */,
 				B0B1C2D3E4F5061728394017 /* BrowserFeedsViewController.m */,
+				B0B1C2D3E4F506172839401D /* BrowserStartPageViewController.h */,
+				B0B1C2D3E4F506172839401E /* BrowserStartPageViewController.m */,
+				B0B1C2D3E4F5061728394020 /* BrowserQuickMenuViewController.h */,
+				B0B1C2D3E4F5061728394021 /* BrowserQuickMenuViewController.m */,
+				B0B1C2D3E4F5061728394023 /* BrowserRemoteVisualizer.h */,
+				B0B1C2D3E4F5061728394024 /* BrowserRemoteVisualizer.m */,
+				B0B1C2D3E4F5061728394026 /* BrowserWallpaperViewController.h */,
+				B0B1C2D3E4F5061728394027 /* BrowserWallpaperViewController.m */,
 				B0B1C2D3E4F5061728394019 /* ReaderExtract.js */,
 				B0B1C2D3E4F506172839401B /* FeedDetect.js */,
 				A0B1C2D3E4F5061728394A5F /* Localizable.strings */,
@@ -491,6 +511,10 @@
 				B0B1C2D3E4F5061728394012 /* BrowserReaderViewController.m in Sources */,
 				B0B1C2D3E4F5061728394015 /* BrowserFeedStore.m in Sources */,
 				B0B1C2D3E4F5061728394018 /* BrowserFeedsViewController.m in Sources */,
+				B0B1C2D3E4F506172839401F /* BrowserStartPageViewController.m in Sources */,
+				B0B1C2D3E4F5061728394022 /* BrowserQuickMenuViewController.m in Sources */,
+				B0B1C2D3E4F5061728394025 /* BrowserRemoteVisualizer.m in Sources */,
+				B0B1C2D3E4F5061728394028 /* BrowserWallpaperViewController.m in Sources */,
 				A1B49A482D67F2B3001D58A1 /* BrowserTabViewModel.m in Sources */,
 				A1B49A552D68143D001D58A1 /* BrowserMenuCoordinator.m in Sources */,
 				A1B49A922D700030001D58A1 /* BrowserPageActionCoordinator.m in Sources */,
@@ -553,7 +577,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OrbrisaTopShelf/OrbrisaTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OrbrisaTopShelf/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -576,7 +600,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OrbrisaTopShelf/OrbrisaTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OrbrisaTopShelf/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -711,7 +735,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_ENTITLEMENTS = Orbrisa/Orbrisa.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				EMBED_ASSET_PACKS_IN_PRODUCT_BUNDLE = YES;
 				ENABLE_ON_DEMAND_RESOURCES = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -744,7 +768,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_ENTITLEMENTS = Orbrisa/Orbrisa.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				EMBED_ASSET_PACKS_IN_PRODUCT_BUNDLE = YES;
 				ENABLE_ON_DEMAND_RESOURCES = NO;
 				FRAMEWORK_SEARCH_PATHS = "";

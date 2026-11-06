@@ -1,3 +1,10 @@
+//
+//  BrowserTabCoordinator.h
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
@@ -17,6 +24,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)browserTabCoordinatorUpdateTextFontSize;
 - (BOOL)browserTabCoordinatorIsCursorModeEnabled;
 - (BOOL)browserTabCoordinatorIsTabOverviewVisible;
+@optional
+/// No own home page set: show Orbrisa's start page instead.
+- (void)browserTabCoordinatorShowStartPage;
 
 @end
 

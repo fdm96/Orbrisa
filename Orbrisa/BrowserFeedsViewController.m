@@ -2,8 +2,11 @@
 //  BrowserFeedsViewController.m
 //  Orbrisa
 //
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
 
 #import "BrowserFeedsViewController.h"
+#import "BrowserTopBarView.h"
 #import "BrowserFeedStore.h"
 #import "BrowserLocalization.h"
 
@@ -12,6 +15,8 @@ static CGFloat const kFeedsSidebarWidth = 440.0;
 static CGFloat const kFeedsCardHeight = 330.0;
 static CGFloat const kFeedsCardImageHeight = 190.0;
 
+static CGFloat const kFeedsWindowInset = 40.0;  // the feeds window floats with this margin
+static CGFloat const kFeedsWindowRadius = 48.0;
 static UIColor *FeedsBackgroundColor(void) { return [UIColor colorWithRed:0.08 green:0.08 blue:0.09 alpha:1.0]; }
 static UIColor *FeedsCardColor(void) { return [UIColor colorWithRed:0.15 green:0.15 blue:0.16 alpha:1.0]; }
 
@@ -25,13 +30,27 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     return cache;
 }
 
+#pragma mark - Unread badge
+
+/// The red count bubble like on iPhone and Apple TV: a circle for one digit, a capsule for more, the number in the middle.
+@interface BrowserBadgeLabel : UILabel
+@end
+
+@implementation BrowserBadgeLabel
+- (CGSize)intrinsicContentSize {
+    CGSize size = [super intrinsicContentSize];
+    CGFloat height = 36.0;
+    return CGSizeMake(MAX(height, ceil(size.width) + 22.0), height);
+}
+@end
+
 #pragma mark - Feed row (left)
 
 @interface BrowserFeedRowCell : UITableViewCell
 @property (nonatomic) UIView *capsule;
 @property (nonatomic) UILabel *badge;
 @property (nonatomic) UILabel *nameLabel;
-@property (nonatomic) UILabel *countLabel;
+@property (nonatomic) BrowserBadgeLabel *countLabel;
 @end
 
 @implementation BrowserFeedRowCell
@@ -67,13 +86,19 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         _nameLabel.font = [UIFont systemFontOfSize:26.0 weight:UIFontWeightSemibold];
         [_capsule addSubview:_nameLabel];
 
-        _countLabel = [UILabel new];
+        _countLabel = [BrowserBadgeLabel new];
         _countLabel.translatesAutoresizingMaskIntoConstraints = NO;
-        _countLabel.font = [UIFont systemFontOfSize:19.0 weight:UIFontWeightBold];
+        _countLabel.font = [UIFont monospacedDigitSystemFontOfSize:21.0 weight:UIFontWeightBold];
         _countLabel.textAlignment = NSTextAlignmentCenter;
-        _countLabel.layer.cornerRadius = 17.0;
+        _countLabel.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
+        _countLabel.backgroundColor = UIColor.systemRedColor;
+        _countLabel.layer.cornerRadius = 18.0;
         _countLabel.layer.masksToBounds = YES;
         [_capsule addSubview:_countLabel];
+        // A long feed name is cut off ("Macerkopf.de - Apple New…") – the unread badge always keeps its size.
+        [_countLabel setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [_countLabel setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [_nameLabel setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
 
         [NSLayoutConstraint activateConstraints:@[
             [_capsule.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
@@ -89,8 +114,6 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
             [_nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_countLabel.leadingAnchor constant:-12.0],
             [_countLabel.trailingAnchor constraintEqualToAnchor:_capsule.trailingAnchor constant:-20.0],
             [_countLabel.centerYAnchor constraintEqualToAnchor:_capsule.centerYAnchor],
-            [_countLabel.heightAnchor constraintEqualToConstant:34.0],
-            [_countLabel.widthAnchor constraintGreaterThanOrEqualToConstant:40.0],
         ]];
         [self applyFocused:NO];
     }
@@ -101,7 +124,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     self.capsule.backgroundColor = focused ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.07];
     self.capsule.layer.shadowOpacity = focused ? 0.35 : 0.0;
     self.nameLabel.textColor = focused ? [UIColor colorWithWhite:0.1 alpha:1.0] : [UIColor colorWithWhite:0.95 alpha:1.0];
-    self.countLabel.backgroundColor = focused ? UIColor.systemBlueColor : [UIColor colorWithWhite:1.0 alpha:0.16];
+    self.countLabel.backgroundColor = UIColor.systemRedColor;
     self.countLabel.textColor = UIColor.whiteColor;
     self.capsule.transform = focused ? CGAffineTransformMakeScale(1.03, 1.03) : CGAffineTransformIdentity;
 }
@@ -211,6 +234,9 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 #pragma mark - Screen
 
 @interface BrowserFeedsViewController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate>
+@property (nonatomic) UIView *topShade;
+@property (nonatomic) UIView *windowShadow;
+@property (nonatomic) UIVisualEffectView *sidebarGlass; // light orange Liquid Glass over the whole page background
 @property (nonatomic) UIButton *allChip;
 @property (nonatomic) UIButton *unreadChip;
 @property (nonatomic) UIButton *addButton;
@@ -241,9 +267,28 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     // The top bar stays visible above (it reads "Feeds"); everything below it gets a dark backdrop.
     self.view.backgroundColor = UIColor.clearColor;
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+    // Like a window: the page around it is dimmed, the feeds float in a rounded glass panel with a soft shadow.
+    UIView *outerShade = [UIView new];
+    outerShade.translatesAutoresizingMaskIntoConstraints = NO;
+    outerShade.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    outerShade.userInteractionEnabled = NO;
+    [self.view addSubview:outerShade];
+    UIView *windowShadow = [UIView new];
+    windowShadow.translatesAutoresizingMaskIntoConstraints = NO;
+    windowShadow.backgroundColor = UIColor.clearColor; // only its shadow – the page behind must shine through the glass
+    windowShadow.layer.cornerRadius = kFeedsWindowRadius;
+    windowShadow.layer.shadowColor = UIColor.blackColor.CGColor;
+    windowShadow.layer.shadowOpacity = 0.55;
+    windowShadow.layer.shadowRadius = 40.0;
+    windowShadow.layer.shadowOffset = CGSizeMake(0.0, 20.0);
+    windowShadow.userInteractionEnabled = NO;
+    [self.view addSubview:windowShadow];
+    self.windowShadow = windowShadow;
     UIView *backdrop = [UIView new];
     backdrop.translatesAutoresizingMaskIntoConstraints = NO;
-    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.97];
+    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.4]; // light: the glass lets the page show a little
+    backdrop.layer.cornerRadius = kFeedsWindowRadius;
+    backdrop.clipsToBounds = YES;
     backdrop.userInteractionEnabled = NO;
     [self.view addSubview:backdrop];
     UIView *topShade = [UIView new];
@@ -251,6 +296,18 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     topShade.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
     topShade.userInteractionEnabled = NO;
     [self.view addSubview:topShade];
+    self.topShade = topShade;
+
+    // The whole feeds page lies on a light orange Liquid Glass (like .glassEffect(.regular.tint(.orange).interactive())).
+    UIVisualEffectView *sidebarGlass = [[UIVisualEffectView alloc] initWithEffect:nil];
+    sidebarGlass.translatesAutoresizingMaskIntoConstraints = NO;
+    sidebarGlass.layer.cornerRadius = kFeedsWindowRadius;
+    sidebarGlass.clipsToBounds = YES;
+    sidebarGlass.layer.borderWidth = 1.5;
+    sidebarGlass.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.28].CGColor; // the bright glass rim
+    sidebarGlass.userInteractionEnabled = NO;
+    [self.view addSubview:sidebarGlass];
+    self.sidebarGlass = sidebarGlass;
 
     UILabel *sidebarTitle = [UILabel new];
     sidebarTitle.translatesAutoresizingMaskIntoConstraints = NO;
@@ -301,7 +358,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     collectionView.dataSource = self;
     collectionView.delegate = self;
     collectionView.backgroundColor = UIColor.clearColor;
-    collectionView.clipsToBounds = NO;
+    collectionView.clipsToBounds = YES; // cards scroll inside the window, not past its edge
     collectionView.remembersLastFocusedIndexPath = YES;
     [collectionView registerClass:[BrowserFeedCardCell class] forCellWithReuseIdentifier:@"card"];
     [self.view addSubview:collectionView];
@@ -329,10 +386,23 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         [topShade.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [topShade.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [topShade.bottomAnchor constraintEqualToAnchor:backdrop.topAnchor],
-        [backdrop.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [backdrop.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [outerShade.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [outerShade.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [outerShade.topAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [outerShade.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [backdrop.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:kFeedsWindowInset],
+        [backdrop.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-kFeedsWindowInset],
         [backdrop.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop - 8.0],
-        [backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-kFeedsWindowInset],
+        [windowShadow.leadingAnchor constraintEqualToAnchor:backdrop.leadingAnchor],
+        [windowShadow.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor],
+        [windowShadow.topAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [windowShadow.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor],
+
+        [sidebarGlass.leadingAnchor constraintEqualToAnchor:backdrop.leadingAnchor],
+        [sidebarGlass.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor],
+        [sidebarGlass.topAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [sidebarGlass.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor],
 
         [sidebarTitle.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:110.0],
         [sidebarTitle.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop + 12.0],
@@ -343,14 +413,14 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         [addButton.leadingAnchor constraintEqualToAnchor:tableView.leadingAnchor],
         [addButton.widthAnchor constraintEqualToConstant:kFeedsSidebarWidth],
         [addButton.heightAnchor constraintEqualToConstant:72.0],
-        [addButton.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-50.0],
+        [addButton.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor constant:-30.0],
 
         [chips.leadingAnchor constraintEqualToAnchor:collectionView.leadingAnchor constant:24.0],
         [chips.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop + 4.0],
         [collectionView.leadingAnchor constraintEqualToAnchor:tableView.trailingAnchor constant:30.0],
-        [collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-56.0],
+        [collectionView.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor constant:-20.0],
         [collectionView.topAnchor constraintEqualToAnchor:chips.bottomAnchor constant:8.0],
-        [collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [collectionView.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor constant:-6.0],
 
         [emptyLabel.centerXAnchor constraintEqualToAnchor:collectionView.centerXAnchor],
         [emptyLabel.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
@@ -371,8 +441,34 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     [self reloadContent]; // shows the last loaded articles while the new ones come in
 }
 
+/// Orange glass – a deeper orange when Orbrisa is in dark mode (the window's style; this screen itself is always dark).
+- (void)applySidebarGlass {
+    UITraitCollection *traits = self.presentingViewController.view.window.traitCollection ?: UIScreen.mainScreen.traitCollection;
+    BOOL dark = traits.userInterfaceStyle == UIUserInterfaceStyleDark;
+    // Only a light tint: the dark base below keeps the white text readable.
+    UIColor *orange = dark ? [UIColor colorWithRed:0.72 green:0.33 blue:0.0 alpha:0.32] : [UIColor colorWithRed:1.0 green:0.58 blue:0.0 alpha:0.42];
+    Class glassClass = NSClassFromString(@"UIGlassEffect");
+    if (glassClass != Nil) {
+        id glass = [[glassClass alloc] init];
+        if ([glass respondsToSelector:@selector(setTintColor:)]) {
+            [glass setValue:orange forKey:@"tintColor"];
+        }
+        if ([glass respondsToSelector:NSSelectorFromString(@"setInteractive:")]) {
+            [glass setValue:@YES forKey:@"interactive"];
+        }
+        if ([glass isKindOfClass:[UIVisualEffect class]]) {
+            self.sidebarGlass.effect = glass;
+            self.sidebarGlass.contentView.backgroundColor = UIColor.clearColor;
+            return;
+        }
+    }
+    self.sidebarGlass.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
+    self.sidebarGlass.contentView.backgroundColor = orange;
+}
+
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self applySidebarGlass];
     if (self.headerChanged != nil) {
         self.headerChanged(self.headerSubtitle ?: @"");
     }
@@ -455,6 +551,18 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    BrowserTopBarCutOutTitlePill(self.topShade); // "Feeds" in the address pill stays bright
+    // The shadow only falls outside the window, so the glass inside stays clear.
+    CGRect windowRect = self.windowShadow.bounds;
+    self.windowShadow.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:windowRect cornerRadius:kFeedsWindowRadius].CGPath;
+    CAShapeLayer *outside = [CAShapeLayer layer];
+    CGRect area = CGRectInset(windowRect, -140.0, -140.0);
+    outside.frame = area;
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:CGRectMake(0.0, 0.0, CGRectGetWidth(area), CGRectGetHeight(area))];
+    [path appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectOffset(windowRect, 140.0, 140.0) cornerRadius:kFeedsWindowRadius]];
+    outside.path = path.CGPath;
+    outside.fillRule = kCAFillRuleEvenOdd;
+    self.windowShadow.layer.mask = outside;
     UICollectionViewFlowLayout *layout = (UICollectionViewFlowLayout *)self.collectionView.collectionViewLayout;
     CGFloat available = CGRectGetWidth(self.collectionView.bounds) - layout.sectionInset.left - layout.sectionInset.right;
     CGFloat width = floor((available - 2.0 * layout.minimumInteritemSpacing) / 3.0);
@@ -522,7 +630,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     cell.badge.text = feed != nil ? [[name substringToIndex:MIN((NSUInteger)1, name.length)] uppercaseString] : @"★";
     cell.badge.backgroundColor = feed != nil ? [BrowserFeedStore colorForFeedURL:URLString] : UIColor.systemOrangeColor;
     NSUInteger unread = [[BrowserFeedStore sharedStore] unreadCountForFeedURL:URLString];
-    cell.countLabel.text = [NSString stringWithFormat:@" %lu ", (unsigned long)unread];
+    cell.countLabel.text = [NSString stringWithFormat:@"%lu", (unsigned long)unread];
     cell.countLabel.hidden = (unread == 0);
     [cell applyFocused:cell.isFocused];
     return cell;

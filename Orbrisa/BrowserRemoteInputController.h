@@ -1,3 +1,10 @@
+//
+//  BrowserRemoteInputController.h
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
@@ -25,6 +32,20 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)browserRemoteInputControllerPersistSession;
 /// Link navigation: jump between the links and buttons of a page with the remote's arrow clicks.
 - (void)browserRemoteInputControllerLinkNavigationDidChangeActive:(BOOL)active;
+@optional
+/// Menu while link navigation is on. Return YES when handled (a web app goes back instead of switching to the mouse).
+- (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu;
+/// The cursor (mouse) was switched on or off.
+- (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled;
+/// Left / right click while scrolling (no cursor, no link navigation). Return YES when handled.
+- (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction;
+/// Back while a screen is open: YES when that screen used it itself (e.g. closed a panel) and must stay.
+- (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu;
+/// Holding the middle of the clickpad (Select). Return YES when it did something (e.g. the web app selection box).
+- (BOOL)browserRemoteInputControllerHandleSelectHold;
+/// Holding the bottom of the clickpad. Return YES when it did something (e.g. the web app dock).
+- (BOOL)browserRemoteInputControllerHandleDownHold;
+@required
 /// direction is "up", "down", "left" or "right". Returns "ok", "scrolled", "edge", "top" or "none".
 - (NSString *)browserRemoteInputControllerLinkNavigationMove:(NSString *)direction;
 - (void)browserRemoteInputControllerLinkNavigationActivate;
@@ -55,6 +76,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)handleTouchesEnded;
 - (void)setCursorModeEnabled:(BOOL)cursorModeEnabled;
 - (void)setLinkNavigationActive:(BOOL)linkNavigationActive;
+/// After a long press of the clickpad was used for something else: the press ending is not a click.
+- (void)ignoreSelectPressBriefly;
 - (void)refreshInteractionState;
 
 @end

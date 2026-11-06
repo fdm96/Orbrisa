@@ -4,6 +4,7 @@
 //
 //  Created by Steven Troughton-Smith on 20/09/2015.
 //  Improved by Jip van Akker on 14/10/2015 through 10/01/2019
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
 //
 
 #import "BrowserMenuCoordinator.h"
@@ -15,6 +16,7 @@
 #import "BrowserRemoteInputController.h"
 #import "BrowserSessionStore.h"
 #import "BrowserTabViewModel.h"
+#import "BrowserLog.h"
 #import "BrowserTabCoordinator.h"
 #import "BrowserTabOverviewController.h"
 #import "BrowserVideoPlaybackCoordinator.h"
@@ -22,7 +24,10 @@
 #import "BrowserReaderViewController.h"
 #import "BrowserFeedStore.h"
 #import "BrowserFeedsViewController.h"
+#import "BrowserStartPageViewController.h"
+#import "BrowserQuickMenuViewController.h"
 #import "ViewController.h"
+#import <objc/runtime.h>
 
 static NSString * const kBrowserGlobalSelectPressEndedNotification = @"BrowserGlobalSelectPressEndedNotification";
 
@@ -186,8 +191,54 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
 @end
 
-/// Full-screen guide with every remote gesture of the browser, drawn with the Siri Remote parts.
+#pragma mark - Page dots
+
+/// The little dots under paged screens, like on Apple's onboarding: the current page is white, the others dim.
+@interface BrowserPageDotsView : UIStackView
+- (instancetype)initWithCount:(NSUInteger)count;
+- (void)setCurrent:(NSUInteger)current;
+@end
+
+@implementation BrowserPageDotsView
+
+- (instancetype)initWithCount:(NSUInteger)count {
+    self = [super initWithFrame:CGRectZero];
+    if (self) {
+        self.axis = UILayoutConstraintAxisHorizontal;
+        self.alignment = UIStackViewAlignmentCenter;
+        self.spacing = 16.0;
+        self.translatesAutoresizingMaskIntoConstraints = NO;
+        for (NSUInteger i = 0; i < count; i++) {
+            UIView *dot = [UIView new];
+            dot.translatesAutoresizingMaskIntoConstraints = NO;
+            dot.layer.cornerRadius = 7.0;
+            [dot.widthAnchor constraintEqualToConstant:14.0].active = YES;
+            [dot.heightAnchor constraintEqualToConstant:14.0].active = YES;
+            [self addArrangedSubview:dot];
+        }
+        self.hidden = count < 2;
+        [self setCurrent:0];
+    }
+    return self;
+}
+
+- (void)setCurrent:(NSUInteger)current {
+    [UIView animateWithDuration:0.25 animations:^{
+        for (NSUInteger i = 0; i < self.arrangedSubviews.count; i++) {
+            UIView *dot = self.arrangedSubviews[i];
+            dot.backgroundColor = (i == current) ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.3];
+            dot.transform = (i == current) ? CGAffineTransformMakeScale(1.15, 1.15) : CGAffineTransformIdentity;
+        }
+    }];
+}
+
+@end
+
+/// Full-screen guide with every remote gesture of the browser, drawn with the Siri Remote parts – on several pages.
 @interface BrowserUsageGuideViewController : UIViewController
+@property (nonatomic, copy) NSArray<UIView *> *pages;
+@property (nonatomic) BrowserPageDotsView *dots;
+@property (nonatomic) NSInteger pageIndex;
 @end
 
 @implementation BrowserUsageGuideViewController
@@ -242,6 +293,166 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     return column;
 }
 
+- (UIView *)pageWithTitle:(NSString *)pageTitle columns:(NSArray<NSArray<UIView *> *> *)columnViews {
+    NSMutableArray<UIView *> *columns = [NSMutableArray array];
+    for (NSArray<UIView *> *views in columnViews) {
+        [columns addObject:[self columnWithViews:views]];
+    }
+    while (columns.count < 2) {
+        [columns addObject:[UIView new]]; // keep the columns the same width on pages with one column
+    }
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:columns];
+    row.axis = UILayoutConstraintAxisHorizontal;
+    row.distribution = UIStackViewDistributionFillEqually;
+    row.alignment = UIStackViewAlignmentTop;
+    row.spacing = 90.0;
+
+    UILabel *heading = [UILabel new];
+    heading.text = pageTitle;
+    heading.font = [UIFont systemFontOfSize:34.0 weight:UIFontWeightSemibold];
+    heading.textColor = UIColor.systemBlueColor;
+
+    UIStackView *page = [[UIStackView alloc] initWithArrangedSubviews:@[heading, row]];
+    page.axis = UILayoutConstraintAxisVertical;
+    page.alignment = UIStackViewAlignmentFill;
+    page.spacing = 34.0;
+    page.translatesAutoresizingMaskIntoConstraints = NO;
+    return page;
+}
+
+- (NSArray<UIView *> *)buildPages {
+    UIView *browsing = [self pageWithTitle:BrowserLocalized(@"Browsing") columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Cursor & Scrolling")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe on the clickpad")
+                       text:BrowserLocalized(@"Moves the cursor. In scroll mode the page scrolls – scrolling down hides the bar, scrolling up brings it back.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Press the center")
+                       text:BrowserLocalized(@"Clicks at the cursor. Text fields open the keyboard right away, “Search” submits.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:@"2×"
+                      title:BrowserLocalized(@"Press the center twice")
+                       text:BrowserLocalized(@"Switches between cursor mode and scroll mode.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Top Bar")],
+          [self rowWithKind:BrowserRemoteIconKindRingUp badge:nil
+                      title:BrowserLocalized(@"Press the top of the ring")
+                       text:BrowserLocalized(@"Jumps into the bar: Back, Forward, Reload, Address, Home, Tabs, Full Screen, Menu. The bottom of the ring leaves it again.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Click the address")
+                       text:BrowserLocalized(@"The keyboard opens right away. An address opens the page, anything else is searched on Google.")],
+          [self rowWithKind:BrowserRemoteIconKindRedButton badge:nil
+                      title:BrowserLocalized(@"Red button")
+                       text:BrowserLocalized(@"When the bar is hidden (full screen), clicking the red button at the top brings it back.")]],
+    ]];
+
+    UIView *buttons = [self pageWithTitle:BrowserLocalized(@"Buttons & Menus") columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Buttons")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back button")
+                       text:BrowserLocalized(@"Goes back one page. Closes menus, the keyboard and link navigation. On the first page: quits the app.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:@"Play/Pause"
+                       text:BrowserLocalized(@"Quick menu: font size, page appearance, search, Reader, reload and the ad blocker.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:@"2×"
+                      title:BrowserLocalized(@"Press Play/Pause twice")
+                       text:BrowserLocalized(@"Opens Settings with favorites, history, appearance, font size and more.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Link Navigation")],
+          [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold the bottom of the ring")
+                       text:BrowserLocalized(@"Turns link navigation on or off. A white frame shows the selected link.")],
+          [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil
+                      title:BrowserLocalized(@"Ring up / down / left / right")
+                       text:BrowserLocalized(@"Jumps to the next link. At the very top it continues into the bar (or to the red button).")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Press the center")
+                       text:BrowserLocalized(@"Opens the selected link.")]],
+    ]];
+
+    UIView *tabs = [self pageWithTitle:BrowserLocalized(@"Tabs & Start Page") columns:@[
+        @[[self sectionLabel:@"Tabs"],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Tab icon in the bar")
+                       text:BrowserLocalized(@"Shows all tabs with their logos. Ring left/right selects, click switches, Play/Pause closes the tab.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:BrowserLocalized(@"Close a tab")
+                       text:BrowserLocalized(@"Play/Pause in the tab overview closes the selected tab – Orbrisa goes to the tab on its left.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Start Page")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"New tab or Home button")
+                       text:BrowserLocalized(@"Shows your favorites and the recently visited sites. Ring left/right scrolls the favorites.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold a favorite")
+                       text:BrowserLocalized(@"Options: open as web app, open when Orbrisa starts, rename, remove. Play/Pause works too.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold a recent site")
+                       text:BrowserLocalized(@"Options: open, open as web app, add to favorites, remove from the list.")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back on the start page")
+                       text:BrowserLocalized(@"Closes it and shows the page – an empty tab shows Google.")]],
+    ]];
+
+    UIView *webApps = [self pageWithTitle:BrowserLocalized(@"Web Apps") columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Using a Web App")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe on the clickpad")
+                       text:BrowserLocalized(@"Scrolls the page – anywhere, no cursor needed.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold the center")
+                       text:BrowserLocalized(@"Shows the selection box. Swipe moves it, press the center to open what it marks.")],
+          [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil
+                      title:BrowserLocalized(@"Ring left / right")
+                       text:BrowserLocalized(@"Turns to the previous or next page on sites with several pages.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Switching & Leaving")],
+          [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold the bottom of the ring")
+                       text:BrowserLocalized(@"Your other web apps slide up – pick one, or go to the start page.")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back button")
+                       text:BrowserLocalized(@"Goes back inside the web app. On its first page: to the start page.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:@"Play/Pause"
+                       text:BrowserLocalized(@"Quick menu with the text size for this web app and “Leave Web App”.")]],
+    ]];
+
+    UIView *reader = [self pageWithTitle:BrowserLocalized(@"Reader & Feeds") columns:@[
+        @[[self sectionLabel:@"Reader"],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Reader button in the address bar")
+                       text:BrowserLocalized(@"Appears when a page has an article and shows it as calm, large text.")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe in the Reader")
+                       text:BrowserLocalized(@"Scrolls the article.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:BrowserLocalized(@"Play/Pause in the Reader")
+                       text:BrowserLocalized(@"Appearance: font size, background, font, “Always Open in Reader” and “Show Web Page”.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Feeds")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"RSS button next to the address")
+                       text:BrowserLocalized(@"Orange: subscribe to the page's feed. Grey: opens your feeds.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Click an article")
+                       text:BrowserLocalized(@"Opens it in the Reader. Back takes you to the feed list again.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:BrowserLocalized(@"Play/Pause on a feed")
+                       text:BrowserLocalized(@"Unsubscribes from the feed.")]],
+    ]];
+
+    UIView *videos = [self pageWithTitle:@"Videos" columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Starting a Video")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Start a video")
+                       text:BrowserLocalized(@"Orbrisa asks: Full Screen (Apple TV player, without ads), Choose Video or Stay on Page.")]],
+        @[[self sectionLabel:BrowserLocalized(@"In the Player")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe in the player")
+                       text:BrowserLocalized(@"Scrubs forward and back. Press the center to confirm, ring left/right jumps 10 seconds.")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back in the player")
+                       text:BrowserLocalized(@"Closes the player and takes you back to the page.")]],
+    ]];
+
+    return @[browsing, buttons, tabs, webApps, reader, videos];
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.clearColor;
@@ -262,79 +473,25 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     title.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:title];
 
-    UIStackView *left = [self columnWithViews:@[
-        [self sectionLabel:BrowserLocalized(@"Cursor & Scrolling")],
-        [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
-                    title:BrowserLocalized(@"Swipe on the clickpad")
-                     text:BrowserLocalized(@"Moves the cursor. In scroll mode the page scrolls – scrolling down hides the bar, scrolling up brings it back.")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Press the center")
-                     text:BrowserLocalized(@"Clicks at the cursor. Text fields open the keyboard right away, “Search” submits.")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:@"2×"
-                    title:BrowserLocalized(@"Press the center twice")
-                     text:BrowserLocalized(@"Switches between cursor mode and scroll mode.")],
-        [self sectionLabel:BrowserLocalized(@"Link Navigation")],
-        [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
-                    title:BrowserLocalized(@"Hold the bottom of the ring")
-                     text:BrowserLocalized(@"Turns link navigation on or off. A white frame shows the selected link.")],
-        [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil
-                    title:BrowserLocalized(@"Ring up / down / left / right")
-                     text:BrowserLocalized(@"Jumps to the next link. At the very top it continues into the bar (or to the red button).")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Press the center")
-                     text:BrowserLocalized(@"Opens the selected link.")],
-    ]];
+    UIView *pageArea = [UIView new];
+    pageArea.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:pageArea];
+    self.pages = [self buildPages];
+    for (UIView *page in self.pages) {
+        [pageArea addSubview:page];
+        [NSLayoutConstraint activateConstraints:@[
+            [page.topAnchor constraintEqualToAnchor:pageArea.topAnchor],
+            [page.leadingAnchor constraintEqualToAnchor:pageArea.leadingAnchor],
+            [page.trailingAnchor constraintEqualToAnchor:pageArea.trailingAnchor],
+        ]];
+        page.alpha = 0.0;
+    }
 
-    UIStackView *right = [self columnWithViews:@[
-        [self sectionLabel:BrowserLocalized(@"Top Bar")],
-        [self rowWithKind:BrowserRemoteIconKindRingUp badge:nil
-                    title:BrowserLocalized(@"Press the top of the ring")
-                     text:BrowserLocalized(@"Jumps into the bar: Back, Forward, Reload, Address, Home, Tabs, Full Screen, Menu. The bottom of the ring leaves it again.")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Click the address")
-                     text:BrowserLocalized(@"The keyboard opens right away. An address opens the page, anything else is searched on Google.")],
-        [self rowWithKind:BrowserRemoteIconKindRedButton badge:nil
-                    title:BrowserLocalized(@"Red button")
-                     text:BrowserLocalized(@"When the bar is hidden (full screen), clicking the red button at the top brings it back.")],
-        [self sectionLabel:BrowserLocalized(@"Buttons")],
-        [self rowWithKind:BrowserRemoteIconKindBack badge:nil
-                    title:BrowserLocalized(@"Back button")
-                     text:BrowserLocalized(@"Goes back one page. Closes menus, the keyboard and link navigation. On the first page: quits the app.")],
-        [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
-                    title:@"Play/Pause"
-                     text:BrowserLocalized(@"Quick menu: forward, enter an address, reload the page.")],
-        [self rowWithKind:BrowserRemoteIconKindPlayPause badge:@"2×"
-                    title:BrowserLocalized(@"Press Play/Pause twice")
-                     text:BrowserLocalized(@"Opens Settings with favorites, history, appearance, font size and more.")],
-    ]];
-
-    UIStackView *third = [self columnWithViews:@[
-        [self sectionLabel:@"Tabs"],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Tab icon in the bar")
-                     text:BrowserLocalized(@"Shows all tabs with their logos. Ring left/right selects, click switches, Play/Pause closes the tab.")],
-        [self sectionLabel:@"Videos"],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Start a video")
-                     text:BrowserLocalized(@"Orbrisa asks: Full Screen (Apple TV player, without ads), Choose Video or Stay on Page.")],
-        [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
-                    title:BrowserLocalized(@"Swipe in the player")
-                     text:BrowserLocalized(@"Scrubs forward and back. Press the center to confirm, ring left/right jumps 10 seconds.")],
-        [self rowWithKind:BrowserRemoteIconKindBack badge:nil
-                    title:BrowserLocalized(@"Back in the player")
-                     text:BrowserLocalized(@"Closes the player and takes you back to the page.")],
-    ]];
-
-    UIStackView *columns = [[UIStackView alloc] initWithArrangedSubviews:@[left, right, third]];
-    columns.axis = UILayoutConstraintAxisHorizontal;
-    columns.distribution = UIStackViewDistributionFillEqually;
-    columns.alignment = UIStackViewAlignmentTop;
-    columns.spacing = 56.0;
-    columns.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:columns];
+    self.dots = [[BrowserPageDotsView alloc] initWithCount:self.pages.count];
+    [self.view addSubview:self.dots];
 
     UILabel *footer = [UILabel new];
-    footer.text = BrowserLocalized(@"Press Back to close");
+    footer.text = BrowserLocalized(@"Swipe or press left / right for more  ·  Back to close");
     footer.font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightMedium];
     footer.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
     footer.translatesAutoresizingMaskIntoConstraints = NO;
@@ -342,13 +499,47 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
     [NSLayoutConstraint activateConstraints:@[
         [title.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:60.0],
-        [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:80.0],
-        [columns.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:30.0],
-        [columns.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:80.0],
-        [columns.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-80.0],
-        [footer.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-40.0],
+        [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:120.0],
+        [pageArea.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:36.0],
+        [pageArea.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:120.0],
+        [pageArea.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-120.0],
+        [pageArea.bottomAnchor constraintEqualToAnchor:self.dots.topAnchor constant:-20.0],
+        [self.dots.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.dots.bottomAnchor constraintEqualToAnchor:footer.topAnchor constant:-18.0],
+        [footer.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-44.0],
         [footer.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
     ]];
+
+    for (NSNumber *direction in @[@(UISwipeGestureRecognizerDirectionLeft), @(UISwipeGestureRecognizerDirectionRight)]) {
+        UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swiped:)];
+        swipe.direction = direction.unsignedIntegerValue;
+        [self.view addGestureRecognizer:swipe];
+    }
+    self.pageIndex = -1;
+    [self showPage:0];
+}
+
+- (void)swiped:(UISwipeGestureRecognizer *)swipe {
+    [self showPage:self.pageIndex + (swipe.direction == UISwipeGestureRecognizerDirectionLeft ? 1 : -1)];
+}
+
+/// Pages slide sideways like the tvOS onboarding screens; the dots below show where you are.
+- (void)showPage:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.pages.count || index == self.pageIndex) {
+        return;
+    }
+    UIView *old = self.pageIndex >= 0 ? self.pages[(NSUInteger)self.pageIndex] : nil;
+    UIView *next = self.pages[(NSUInteger)index];
+    CGFloat shift = (index > self.pageIndex ? 1.0 : -1.0) * 120.0;
+    self.pageIndex = index;
+    [self.dots setCurrent:(NSUInteger)index];
+    next.transform = old != nil ? CGAffineTransformMakeTranslation(shift, 0.0) : CGAffineTransformIdentity;
+    [UIView animateWithDuration:(old != nil ? 0.35 : 0.0) delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        old.alpha = 0.0;
+        old.transform = CGAffineTransformMakeTranslation(-shift, 0.0);
+        next.alpha = 1.0;
+        next.transform = CGAffineTransformIdentity;
+    } completion:nil];
 }
 
 - (BOOL)canBecomeFirstResponder {
@@ -360,9 +551,36 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self becomeFirstResponder];
 }
 
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    // Handled on release; swallowing the start keeps the browser underneath from reacting.
+    UIPressType type = presses.anyObject.type;
+    if (type == UIPressTypeMenu || type == UIPressTypeSelect || type == UIPressTypePlayPause
+        || type == UIPressTypeLeftArrow || type == UIPressTypeRightArrow) {
+        return;
+    }
+    [super pressesBegan:presses withEvent:event];
+}
+
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-    UIPress *press = presses.anyObject;
-    if (press.type == UIPressTypeMenu || press.type == UIPressTypeSelect || press.type == UIPressTypePlayPause) {
+    UIPressType type = presses.anyObject.type;
+    if (type == UIPressTypeLeftArrow) {
+        [self showPage:self.pageIndex - 1];
+        return;
+    }
+    if (type == UIPressTypeRightArrow) {
+        [self showPage:self.pageIndex + 1];
+        return;
+    }
+    if (type == UIPressTypeSelect) {
+        // Next page – on the last page the guide closes.
+        if (self.pageIndex + 1 < (NSInteger)self.pages.count) {
+            [self showPage:self.pageIndex + 1];
+        } else {
+            [self dismissViewControllerAnimated:YES completion:nil];
+        }
+        return;
+    }
+    if (type == UIPressTypeMenu || type == UIPressTypePlayPause) {
         [self dismissViewControllerAnimated:YES completion:nil];
         return;
     }
@@ -378,6 +596,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic, copy) void (^continueHandler)(void);
 @property (nonatomic) UIButton *continueButton;
 @property (nonatomic) BOOL showsGuideHint; // NO when opened from Settings → Help
+@property (nonatomic, copy) NSArray<UIView *> *pages;
+@property (nonatomic) BrowserPageDotsView *dots;
+@property (nonatomic) NSInteger pageIndex;
 @end
 
 @implementation BrowserWhatsNewViewController
@@ -451,20 +672,79 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     versionLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
     versionLabel.textAlignment = NSTextAlignmentCenter;
 
-    UIStackView *features = [[UIStackView alloc] initWithArrangedSubviews:@[
-        [self featureWithSymbol:@"text.alignleft" color:UIColor.systemOrangeColor
-                          title:BrowserLocalized(@"Reader Mode")
-                           text:BrowserLocalized(@"Only the article – large, calm text with your own size, background and font.")],
-        [self featureWithSymbol:@"dot.radiowaves.up.forward" color:UIColor.systemBlueColor
-                          title:BrowserLocalized(@"RSS Feeds")
-                           text:BrowserLocalized(@"Subscribe to your favourite sites and see all new articles in one place.")],
-        [self featureWithSymbol:@"ladybug.fill" color:UIColor.systemGreenColor
-                          title:BrowserLocalized(@"This Is a Beta")
-                           text:BrowserLocalized(@"Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot.")],
-    ]];
-    features.axis = UILayoutConstraintAxisVertical;
-    features.spacing = 34.0;
-    features.alignment = UIStackViewAlignmentLeading;
+    // One page per release, newest first – the dots below show there is more (ring left / right or swipe).
+    NSArray<NSArray *> *releases = @[
+        @[BrowserLocalized(@"New in Beta 2"), @[
+            [self featureWithSymbol:@"house.fill" color:UIColor.systemBlueColor
+                              title:BrowserLocalized(@"New Start Page")
+                               text:BrowserLocalized(@"Your favorites as large tiles and recently visited sites with real pictures. Hold a favorite for its options.")],
+            [self featureWithSymbol:@"app.badge.fill" color:UIColor.systemIndigoColor
+                              title:BrowserLocalized(@"Web Apps")
+                               text:BrowserLocalized(@"Open a favorite as an app: full screen, no bar, simple remote controls – hold the bottom of the clickpad for your other web apps.")],
+            [self featureWithSymbol:@"hand.raised.fill" color:UIColor.systemRedColor
+                              title:BrowserLocalized(@"Ad Blocker")
+                               text:BrowserLocalized(@"Blocks ad and tracking servers and hides ad boxes. Switch it off in the quick menu or in Settings.")],
+            [self featureWithSymbol:@"slider.horizontal.3" color:UIColor.systemTealColor
+                              title:BrowserLocalized(@"New Quick Menu")
+                               text:BrowserLocalized(@"Play/Pause opens a glass panel with font size, page appearance, actions and the ad blocker.")],
+        ]],
+        @[BrowserLocalized(@"Beta 1 – Reader & RSS"), @[
+            [self featureWithSymbol:@"text.alignleft" color:UIColor.systemOrangeColor
+                              title:BrowserLocalized(@"Reader Mode")
+                               text:BrowserLocalized(@"Only the article – large, calm text with your own size, background and font.")],
+            [self featureWithSymbol:@"dot.radiowaves.up.forward" color:UIColor.systemBlueColor
+                              title:BrowserLocalized(@"RSS Feeds")
+                               text:BrowserLocalized(@"Subscribe to your favourite sites and see all new articles in one place – they open in the Reader.")],
+        ]],
+        @[BrowserLocalized(@"Version 1.0 – Orbrisa"), @[
+            [self featureWithSymbol:@"play.tv.fill" color:UIColor.systemPurpleColor
+                              title:BrowserLocalized(@"Videos in the Apple TV Player")
+                               text:BrowserLocalized(@"“Full Screen” opens the actual video in the Apple TV player – ads before it are skipped.")],
+            [self featureWithSymbol:@"square.on.square" color:UIColor.systemGreenColor
+                              title:BrowserLocalized(@"New Tab Strip")
+                               text:BrowserLocalized(@"All tabs with their logos right under the address bar – in each site's colour if you like.")],
+            [self featureWithSymbol:@"gearshape.fill" color:UIColor.systemGrayColor
+                              title:BrowserLocalized(@"New Settings")
+                               text:BrowserLocalized(@"Switches and design like the tvOS Settings.")],
+            [self featureWithSymbol:@"drop.fill" color:UIColor.systemCyanColor
+                              title:@"Liquid Glass"
+                               text:BrowserLocalized(@"Adjust the glass effect smoothly or turn it off completely.")],
+        ]],
+    ];
+
+    UIView *pageArea = [UIView new];
+    pageArea.translatesAutoresizingMaskIntoConstraints = NO;
+    NSMutableArray<UIView *> *pages = [NSMutableArray array];
+    for (NSArray *release in releases) {
+        UILabel *heading = [UILabel new];
+        heading.text = release[0];
+        heading.font = [UIFont systemFontOfSize:30.0 weight:UIFontWeightSemibold];
+        heading.textColor = UIColor.systemBlueColor;
+        NSMutableArray<UIView *> *rows = [NSMutableArray arrayWithObject:heading];
+        [rows addObjectsFromArray:release[1]];
+        UIStackView *page = [[UIStackView alloc] initWithArrangedSubviews:rows];
+        page.axis = UILayoutConstraintAxisVertical;
+        page.alignment = UIStackViewAlignmentLeading;
+        page.spacing = 30.0;
+        page.translatesAutoresizingMaskIntoConstraints = NO;
+        page.alpha = 0.0;
+        [pageArea addSubview:page];
+        [NSLayoutConstraint activateConstraints:@[
+            [page.topAnchor constraintEqualToAnchor:pageArea.topAnchor],
+            [page.leadingAnchor constraintEqualToAnchor:pageArea.leadingAnchor],
+            [page.trailingAnchor constraintEqualToAnchor:pageArea.trailingAnchor],
+        ]];
+        [pages addObject:page];
+    }
+    self.pages = pages;
+    self.dots = [[BrowserPageDotsView alloc] initWithCount:pages.count];
+
+    UILabel *betaLabel = [UILabel new];
+    betaLabel.text = BrowserLocalized(@"Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot.");
+    betaLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
+    betaLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
+
+    // No swiping here: the pages only turn with the ring (left / right), so a touch on the clickpad never moves them.
 
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
@@ -487,20 +767,43 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     hintLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
     hintLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
 
-    UIStackView *content = [[UIStackView alloc] initWithArrangedSubviews:(self.showsGuideHint ? @[titleLabel, versionLabel, features, button, hintLabel] : @[titleLabel, versionLabel, features, button])];
+    UIStackView *content = [[UIStackView alloc] initWithArrangedSubviews:(self.showsGuideHint ? @[titleLabel, versionLabel, pageArea, self.dots, betaLabel, button, hintLabel] : @[titleLabel, versionLabel, pageArea, self.dots, betaLabel, button])];
     content.axis = UILayoutConstraintAxisVertical;
     content.alignment = UIStackViewAlignmentCenter;
     content.spacing = 18.0;
-    [content setCustomSpacing:60.0 afterView:versionLabel];
-    [content setCustomSpacing:70.0 afterView:features];
+    [content setCustomSpacing:50.0 afterView:versionLabel];
+    [content setCustomSpacing:26.0 afterView:pageArea];
+    [content setCustomSpacing:22.0 afterView:self.dots];
+    [content setCustomSpacing:40.0 afterView:betaLabel];
     content.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:content];
 
     [NSLayoutConstraint activateConstraints:@[
         [content.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [content.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
-        [features.widthAnchor constraintEqualToConstant:1000.0],
+        [pageArea.widthAnchor constraintEqualToConstant:1000.0],
+        [pageArea.heightAnchor constraintEqualToConstant:540.0],
     ]];
+    self.pageIndex = -1;
+    [self showPage:0];
+}
+
+- (void)showPage:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.pages.count || index == self.pageIndex) {
+        return;
+    }
+    UIView *old = self.pageIndex >= 0 ? self.pages[(NSUInteger)self.pageIndex] : nil;
+    UIView *next = self.pages[(NSUInteger)index];
+    CGFloat shift = (index > self.pageIndex ? 1.0 : -1.0) * 100.0;
+    self.pageIndex = index;
+    [self.dots setCurrent:(NSUInteger)index];
+    next.transform = old != nil ? CGAffineTransformMakeTranslation(shift, 0.0) : CGAffineTransformIdentity;
+    [UIView animateWithDuration:(old != nil ? 0.35 : 0.0) delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        old.alpha = 0.0;
+        old.transform = CGAffineTransformMakeTranslation(-shift, 0.0);
+        next.alpha = 1.0;
+        next.transform = CGAffineTransformIdentity;
+    } completion:nil];
 }
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
@@ -522,6 +825,10 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         [self continueTapped];
         return;
     }
+    if (presses.anyObject.type == UIPressTypeLeftArrow || presses.anyObject.type == UIPressTypeRightArrow) {
+        [self showPage:self.pageIndex + (presses.anyObject.type == UIPressTypeRightArrow ? 1 : -1)];
+        return;
+    }
     [super pressesEnded:presses withEvent:event];
 }
 
@@ -537,6 +844,17 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL pageHasFeed;
 @property (nonatomic) NSUInteger pageProbeGeneration;
 @property (nonatomic, copy) NSString *autoReaderURL;
+@property (nonatomic) CFTimeInterval feedReaderPendingUntil; // an article opened from the feeds: show it in the Reader once it has loaded
+@property (nonatomic) BOOL webAppMode;
+@property (nonatomic) BOOL didHandleLaunchWebApp;
+@property (nonatomic) BOOL didShowLaunchStartPage;
+@property (nonatomic) UIView *webAppHintView;
+@property (nonatomic) UIView *webAppSplashView;
+@property (nonatomic, copy) NSString *webAppURLString;
+@property (nonatomic) BOOL webAppAskedTextSize;
+@property (nonatomic) BOOL leavingWebApp;
+@property (nonatomic) NSMutableSet<UITouch *> *forwardedTouches;
+@property (nonatomic) BOOL cursorModeBeforeWebApp;
 @property (nonatomic) BrowserPageActionCoordinator *pageActionCoordinator;
 @property (nonatomic) BrowserPreferencesStore *preferencesStore;
 @property (nonatomic) BrowserRemoteInputController *remoteInputController;
@@ -556,6 +874,37 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) CGFloat lastScrollPosition;
 @property (nonatomic, weak) UIScrollView *lastScrollView;
 @property (nonatomic, getter=isTopBarScrolledAway) BOOL topBarScrolledAway;
+
+@end
+
+#pragma mark - Keep closed screens alive a moment
+
+// A screen that closes while a finger still rests on the clickpad (a click IS a touch) was freed before UIKit had
+// finished that touch. UIKit then sent the touch's end to the freed memory – by then reused by a "UIDropShadowView" –
+// and crashed with "-[UIDropShadowView (null selector)]: unrecognized selector". Holding every closed screen for
+// three seconds lets the touch finish first.
+@implementation UIViewController (BrowserKeepAliveAfterDismiss)
+
++ (void)load {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        Method original = class_getInstanceMethod(self, @selector(viewDidDisappear:));
+        Method replacement = class_getInstanceMethod(self, @selector(browser_viewDidDisappear:));
+        if (original != NULL && replacement != NULL) {
+            method_exchangeImplementations(original, replacement);
+        }
+    });
+}
+
+- (void)browser_viewDidDisappear:(BOOL)animated {
+    [self browser_viewDidDisappear:animated]; // the original implementation
+    if (self.isBeingDismissed) {
+        UIViewController *keep = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            (void)keep;
+        });
+    }
+}
 
 @end
 
@@ -650,7 +999,19 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    NSString *launchWebApp = self.didHandleLaunchWebApp ? nil : [BrowserStartPageViewController launchWebAppURL];
+    self.didHandleLaunchWebApp = YES;
+    if (launchWebApp != nil) {
+        self.webAppMode = YES; // no start page underneath
+    }
+    BOOL firstAppearance = !self.didShowLaunchStartPage;
+    self.didShowLaunchStartPage = YES;
     [self.tabCoordinator webViewDidAppear];
+    if (launchWebApp != nil) {
+        [self browserOpenWebAppWithURLString:launchWebApp];
+    } else if (firstAppearance && self.preferencesStore.homePageURLString.length == 0) {
+        [self browserShowStartPage]; // the open tabs stay behind it – Back goes to them
+    }
     [BrowserWebView applyAppearanceToWindows];
     [self openPendingAppURL];
     // The tips dialog used to pop up at every launch; it stays available in Settings → Help.
@@ -872,7 +1233,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
             break;
         case BrowserTopBarActionFeed:
             [self deactivateTopBarFocusMode];
-            if (self.pageHasFeed) {
+            if (self.pageHasFeed && ![self browserPageFeedIsSubscribed]) {
                 [self browserSubscribeToPageFeed];
             } else {
                 [self browserShowFeeds];
@@ -884,47 +1245,71 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }
 }
 
+- (NSUInteger)effectiveTextFontSize {
+    // A web app keeps its own text size (asked the first time it opens).
+    NSNumber *size = self.webAppMode && self.webAppURLString.length > 0
+        ? [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"][self.webAppURLString] : nil;
+    return size != nil ? size.unsignedIntegerValue : self.viewModel.textFontSize;
+}
+
+- (void)askWebAppTextSize {
+    // The same font size slider as in Settings – but only for this web app.
+    NSString *URLString = self.webAppURLString;
+    if (URLString.length == 0) {
+        return;
+    }
+    __weak typeof(self) weakSelf = self;
+    [self.menuCoordinator presentTextSizeSliderWithValue:[self effectiveTextFontSize] changed:^(NSUInteger size) {
+        NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+        sizes[URLString] = @(size);
+        [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
+        [weakSelf updateTextFontSize];
+    }];
+    // Asked once: even when the slider is closed without a change, the current size counts as chosen.
+    NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+    if (sizes[URLString] == nil) {
+        sizes[URLString] = @([self effectiveTextFontSize]);
+        [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
+    }
+}
+
 - (void)updateTextFontSize {
     if (self.webview == nil) {
         return;
     }
 
+    // Three passes, so sizes never stack up: undo our own sizes, read every element's page size, then write the new ones.
+    // (Reading and writing in one pass made em-based text grow twice – the page "went crazy" and never found its way back.)
     NSString *jsString = [[NSString alloc] initWithFormat:
                           @"(function(){"
-                           "var value='%lu%%';"
-                           "var multiplier=%lu/100;"
-                           "if (document.documentElement && document.documentElement.style) {"
-                               "document.documentElement.style.setProperty('-webkit-text-size-adjust', value, 'important');"
-                               "document.documentElement.style.setProperty('text-size-adjust', value, 'important');"
+                           "var m=%lu/100;"
+                           "var roots=[document.documentElement, document.body];"
+                           "roots.forEach(function(r){ if (r && r.style) { r.style.removeProperty('-webkit-text-size-adjust'); r.style.removeProperty('text-size-adjust'); } });"
+                           "if (!document.body || !window.getComputedStyle) { return ''; }"
+                           "var els=document.querySelectorAll('body, body *');"
+                           "for (var i=0;i<els.length;i++){ var e=els[i];"
+                               "if (!e.hasAttribute('data-orb-fs')) { continue; }"
+                               "var prev=e.getAttribute('data-orb-inline')||'';"
+                               "e.style.removeProperty('font-size');"
+                               "if (prev) { var parts=prev.split('|'); e.style.setProperty('font-size', parts[0], parts[1]||''); }"
+                               "e.removeAttribute('data-orb-fs'); e.removeAttribute('data-orb-inline');"
                            "}"
-                           "if (document.body && document.body.style) {"
-                               "document.body.style.setProperty('-webkit-text-size-adjust', value, 'important');"
-                               "document.body.style.setProperty('text-size-adjust', value, 'important');"
+                           "if (Math.abs(m-1)<0.001) { return 'reset'; }"
+                           "var sizes=[];"
+                           "for (var j=0;j<els.length;j++){ var t=els[j].tagName ? els[j].tagName.toLowerCase() : '';"
+                               "if (t==='script'||t==='style'||t==='noscript'||t==='svg') { sizes.push(0); continue; }"
+                               "var px=parseFloat(window.getComputedStyle(els[j]).fontSize||'');"
+                               "sizes.push(isFinite(px)&&px>0 ? px : 0);"
                            "}"
-                           "if (!document.body || !window.getComputedStyle) { return value; }"
-                           "var elements = document.querySelectorAll('body, body *');"
-                           "for (var i = 0; i < elements.length; i++) {"
-                               "var element = elements[i];"
-                               "if (!element || !element.tagName) { continue; }"
-                               "var tagName = element.tagName.toLowerCase();"
-                               "if (tagName === 'script' || tagName === 'style' || tagName === 'noscript') { continue; }"
-                               "var originalSize = element.getAttribute('data-browser-original-font-size');"
-                               "if (!originalSize) {"
-                                   "var computedSize = window.getComputedStyle(element).fontSize || '';"
-                                   "if (computedSize.indexOf('px') == -1) { continue; }"
-                                   "var parsedSize = parseFloat(computedSize);"
-                                   "if (!isFinite(parsedSize) || parsedSize <= 0) { continue; }"
-                                   "originalSize = String(parsedSize);"
-                                   "element.setAttribute('data-browser-original-font-size', originalSize);"
-                               "}"
-                               "var baseSize = parseFloat(originalSize);"
-                               "if (!isFinite(baseSize) || baseSize <= 0) { continue; }"
-                               "element.style.setProperty('font-size', (baseSize * multiplier) + 'px', 'important');"
+                           "for (var k=0;k<els.length;k++){ if (!sizes[k]) { continue; } var el=els[k];"
+                               "var inline=el.style.getPropertyValue('font-size');"
+                               "el.setAttribute('data-orb-inline', inline ? inline+'|'+el.style.getPropertyPriority('font-size') : '');"
+                               "el.setAttribute('data-orb-fs','1');"
+                               "el.style.setProperty('font-size', (sizes[k]*m)+'px', 'important');"
                            "}"
-                           "return value;"
+                           "return 'ok';"
                           "})()",
-                          (unsigned long)self.viewModel.textFontSize,
-                          (unsigned long)self.viewModel.textFontSize];
+                          (unsigned long)[self effectiveTextFontSize]];
     [self.webview stringByEvaluatingJavaScriptFromString:jsString];
 }
 
@@ -1001,48 +1386,79 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)requestURLorSearchInput {
-    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:BrowserLocalized(@"Quick Menu")
-                                                                             message:@""
-                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    // The quick menu, built like the Reader's "Appearance" panel: font size, page appearance, actions, ad blocker.
+    BrowserQuickMenuViewController *menu = [[BrowserQuickMenuViewController alloc] initWithTitle:BrowserLocalized(@"Quick Menu")];
+    __weak typeof(self) weakSelf = self;
 
+    [menu setFontSize:[self effectiveTextFontSize] changed:^(NSUInteger size) {
+        if (weakSelf.webAppMode && weakSelf.webAppURLString.length > 0) {
+            NSMutableDictionary *sizes = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"] mutableCopy] ?: [NSMutableDictionary dictionary];
+            sizes[weakSelf.webAppURLString] = @(size);
+            [[NSUserDefaults standardUserDefaults] setObject:sizes forKey:@"BrowserWebAppTextSizes"];
+        } else {
+            weakSelf.browserTextFontSize = size;
+        }
+        [weakSelf updateTextFontSize];
+    }];
+
+    // Original (the site's own look) · Automatic (follows the Apple TV) · Light · Dark
+    NSInteger appearance = BrowserWebView.forceDarkPages ? (BrowserWebView.appearanceMode == 1 ? 2 : (BrowserWebView.appearanceMode == 2 ? 3 : 1)) : 0;
+    [menu setAppearanceSelected:appearance changed:^(NSInteger index) {
+        if (index == 0) {
+            BrowserWebView.forceDarkPages = NO;
+            return;
+        }
+        BrowserWebView.appearanceMode = (index == 1) ? 0 : (index == 2 ? 1 : 2);
+        BrowserWebView.forceDarkPages = YES;
+    }];
+
+    if (self.webAppMode) {
+        [menu addItemWithSymbol:@"xmark.circle" title:BrowserLocalized(@"Leave Web App") action:^{
+            [weakSelf browserLeaveWebApp];
+            [weakSelf browserShowStartPage];
+        }];
+    } else {
+        [menu addItemWithSymbol:@"house" title:BrowserLocalized(@"Start Page") action:^{
+            [weakSelf browserShowStartPage];
+        }];
+    }
+    [menu addItemWithSymbol:@"magnifyingglass" title:BrowserLocalized(@"Search") action:^{
+        [weakSelf showInputURLorSearchGoogle];
+    }];
+    BOOL hasPage = self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0;
+    if (hasPage) {
+        [menu addItemWithSymbol:@"text.alignleft" title:BrowserLocalized(@"Reader") action:^{
+            [weakSelf browserShowReader];
+        }];
+        [menu addItemWithSymbol:@"arrow.clockwise" title:BrowserLocalized(@"Reload") action:^{
+            weakSelf.tabCoordinator.previousURL = @"";
+            [weakSelf.webview reload];
+        }];
+    }
     if (self.webview.canGoForward) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Go Forward")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            [self.webview goForward];
-        }]];
+        [menu addItemWithSymbol:@"chevron.forward" title:BrowserLocalized(@"Forward") action:^{
+            [weakSelf.webview goForward];
+        }];
     }
+    [menu addItemWithSymbol:@"gearshape" title:BrowserLocalized(@"Settings") action:^{
+        [weakSelf showAdvancedMenu];
+    }];
 
-    [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Enter Address or Search with Google")
-                                                        style:UIAlertActionStyleDefault
-                                                      handler:^(__unused UIAlertAction *action) {
-        [self showInputURLorSearchGoogle];
-    }]];
+    [menu setToggleTitle:BrowserLocalized(@"Block Ads") value:BrowserWebView.adBlockEnabled changed:^(BOOL on) {
+        BrowserWebView.adBlockEnabled = on;
+        [weakSelf.webview reload];
+    }];
 
-    if (self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Open in Reader")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            [self browserShowReader];
-        }]];
-    }
-
-    if (self.webview.request != nil && self.webview.request.URL.absoluteString.length > 0) {
-        [alertController addAction:[UIAlertAction actionWithTitle:BrowserLocalized(@"Reload Page")
-                                                            style:UIAlertActionStyleDefault
-                                                          handler:^(__unused UIAlertAction *action) {
-            self.tabCoordinator.previousURL = @"";
-            [self.webview reload];
-        }]];
-    }
-
-    [alertController addAction:[UIAlertAction actionWithTitle:nil style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alertController animated:YES completion:nil];
+    [self deactivateTopBarFocusMode];
+    [self presentViewController:menu animated:NO completion:nil];
 }
 
 /// First start of a new version: "What's New", then the usage guide.
 - (void)showWhatsNewIfNeeded {
-    NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    // Version and build: a new beta of the same version (1.1.0 Beta 1 → Beta 2) shows What's New again.
+    NSString *shortVersion = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    NSString *build = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"";
+    NSString *version = shortVersion.length > 0 ? [NSString stringWithFormat:@"%@ (%@)", shortVersion, build] : @"";
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if (version.length == 0 || [[defaults stringForKey:@"BrowserWhatsNewShownVersion"] isEqualToString:version]) {
         return;
@@ -1050,7 +1466,12 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         ViewController *strongSelf = weakSelf;
-        if (strongSelf == nil || strongSelf.presentedViewController != nil || strongSelf.view.window == nil) {
+        UIViewController *presenter = strongSelf;
+        if ([strongSelf.presentedViewController isKindOfClass:[BrowserStartPageViewController class]] &&
+            strongSelf.presentedViewController.presentedViewController == nil) {
+            presenter = strongSelf.presentedViewController; // over the start page
+        }
+        if (strongSelf == nil || (presenter == strongSelf && strongSelf.presentedViewController != nil) || strongSelf.view.window == nil) {
             return; // try again at the next start
         }
         [defaults setObject:version forKey:@"BrowserWhatsNewShownVersion"];
@@ -1058,7 +1479,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
         whatsNew.continueHandler = ^{
             [weakSelf showHintsAlert];
         };
-        [strongSelf presentViewController:whatsNew animated:YES completion:nil];
+        [presenter presentViewController:whatsNew animated:YES completion:nil];
     });
 }
 
@@ -1194,8 +1615,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     // "Always Open in Reader" for this site: open each article once, as soon as its text is there.
     NSURL *URL = self.webview.request.URL;
     NSString *page = URL.absoluteString ?: @"";
+    BOOL fromFeeds = CACurrentMediaTime() < self.feedReaderPendingUntil;
     if (!readerAvailable || page.length == 0 || [self.autoReaderURL isEqualToString:page] || self.presentedViewController != nil
-        || ![BrowserReaderViewController opensAutomaticallyForURL:URL]) {
+        || !(fromFeeds || [BrowserReaderViewController opensAutomaticallyForURL:URL])) {
         return;
     }
     NSString *script = [BrowserReaderViewController extractionScript];
@@ -1207,7 +1629,16 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     self.autoReaderURL = page;
     self.pageArticle = article;
     self.pageArticleURL = page;
-    [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
+    BrowserReaderViewController *reader = [[BrowserReaderViewController alloc] initWithArticle:article];
+    if (fromFeeds) {
+        // Read from the feeds: Back from the Reader returns to the feed list.
+        self.feedReaderPendingUntil = 0;
+        __weak typeof(self) weakSelf = self;
+        reader.didClose = ^{
+            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf browserShowFeeds]; });
+        };
+    }
+    [self browserPresentViewController:reader];
 }
 
 - (void)schedulePageFeatureChecksForWebView:(id)webView delays:(NSArray<NSNumber *> *)delays {
@@ -1240,11 +1671,344 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self browserPresentViewController:[[BrowserReaderViewController alloc] initWithArticle:article]];
 }
 
+- (void)browserTabCoordinatorShowStartPage {
+    [self browserShowStartPage];
+}
+
+/// YES when the open tab shows no real web page (no address, about:blank, an empty data page ...).
+- (BOOL)browserActiveTabIsEmpty {
+    if (self.webview.request.URL.host.length > 0) {
+        return NO;
+    }
+    BrowserTabViewModel *tab = self.tabCoordinator.activeTab;
+    NSString *stored = tab.URLString.length > 0 ? tab.URLString : tab.requestURL;
+    return [NSURL URLWithString:stored ?: @""].host.length == 0;
+}
+
+- (void)browserShowStartPage {
+    [self showStartPageAttempt:0];
+}
+
+- (void)showStartPageAttempt:(NSUInteger)attempt {
+    if (self.webAppMode || self.view.window == nil) {
+        return;
+    }
+    if (self.presentedViewController != nil) {
+        // New tabs come from the tab overview or Settings – wait until they have closed.
+        if (![self.presentedViewController isKindOfClass:[BrowserStartPageViewController class]] && attempt < 12) {
+            __weak typeof(self) weakSelf = self;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [weakSelf showStartPageAttempt:attempt + 1];
+            });
+        }
+        return;
+    }
+    [self deactivateTopBarFocusMode];
+    BOOL hasPage = ![self browserActiveTabIsEmpty];
+    if (!hasPage) {
+        // An empty tab: Google loads behind the start page right away, so Back simply shows it – never a blank page.
+        NSURLRequest *google = [self.navigationService requestForURLString:@"https://www.google.com"];
+        if (google != nil) {
+            [self.webview loadRequest:google];
+        }
+    }
+    BrowserStartPageViewController *start = [[BrowserStartPageViewController alloc] initWithTabCount:self.viewModel.tabs.count canGoBack:YES];
+    __weak typeof(self) weakSelf = self;
+    start.openURL = ^(NSString *URLString, BOOL asWebApp) {
+        if (asWebApp) {
+            [weakSelf browserOpenWebAppWithURLString:URLString];
+            return;
+        }
+        NSURLRequest *request = [weakSelf.navigationService requestForURLString:URLString];
+        if (request != nil) {
+            [weakSelf.webview loadRequest:request];
+        }
+    };
+    start.search = ^{ [weakSelf showInputURLorSearchGoogle]; };
+    start.showTabs = ^{ [weakSelf browserShowTabOverview]; };
+    start.showSettings = ^{ [weakSelf showAdvancedMenu]; };
+    start.showFeeds = ^{ [weakSelf browserShowFeeds]; };
+    start.favoritesChanged = ^{ [weakSelf.tabCoordinator updateTopShelf]; };
+    [self presentViewController:start animated:YES completion:nil];
+}
+
+#pragma mark - Web app mode
+
+- (void)browserOpenWebAppWithURLString:(NSString *)URLString {
+    // A favorite as an app: full screen, no bar. Play/Pause → "Leave Web App" brings the bar back.
+    NSURLRequest *request = [self.navigationService requestForURLString:URLString];
+    if (request == nil) {
+        return;
+    }
+    if (!self.webAppMode) {
+        self.cursorModeBeforeWebApp = self.remoteInputController.cursorModeEnabled;
+    }
+    self.webAppMode = YES;
+    self.webAppURLString = URLString;
+    // Simple controls: swipe scrolls the page anywhere, hold the clickpad to pick something (the white box).
+    [self.remoteInputController setLinkNavigationActive:NO];
+    [self.remoteInputController setCursorModeEnabled:NO];
+
+    self.webAppAskedTextSize = NO;
+    [self deactivateTopBarFocusMode];
+    self.viewModel.topNavigationBarVisible = NO; // only for now – the saved setting stays as it is
+    [self.tabCoordinator setTopNavigationVisible:NO];
+    [self updateShowTopBarButtonAnimated:YES];
+    [self.webview loadRequest:request];
+    [self showWebAppSplashForURLString:URLString];
+    [self showWebAppHint];
+}
+
+- (void)showWebAppSplashForURLString:(NSString *)URLString {
+    // Like a real app starting: its colour, logo and name instead of a white page while it loads.
+    [self.webAppSplashView removeFromSuperview];
+    NSString *host = [NSURL URLWithString:URLString].host.lowercaseString ?: @"";
+    if ([host hasPrefix:@"www."]) {
+        host = [host substringFromIndex:4];
+    }
+    NSString *name = [BrowserStartPageViewController nameForFavoriteURL:URLString] ?: host;
+    UIColor *color = [BrowserFeedStore colorForFeedURL:host];
+
+    UIView *splash = [[UIView alloc] initWithFrame:self.view.bounds];
+    splash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    splash.backgroundColor = [UIColor colorWithRed:0.067 green:0.071 blue:0.086 alpha:1.0];
+    UIView *tile = [UIView new];
+    tile.translatesAutoresizingMaskIntoConstraints = NO;
+    tile.backgroundColor = color;
+    tile.layer.cornerRadius = 56.0;
+    tile.clipsToBounds = YES;
+    UILabel *letter = [UILabel new];
+    letter.translatesAutoresizingMaskIntoConstraints = NO;
+    letter.text = name.length > 0 ? [[name substringToIndex:[name rangeOfComposedCharacterSequenceAtIndex:0].length] uppercaseString] : @"";
+    letter.font = [UIFont systemFontOfSize:110.0 weight:UIFontWeightBold];
+    letter.textColor = UIColor.whiteColor;
+    [tile addSubview:letter];
+    UIImageView *logo = [UIImageView new];
+    logo.translatesAutoresizingMaskIntoConstraints = NO;
+    logo.contentMode = UIViewContentModeScaleAspectFill;
+    logo.hidden = YES;
+    [tile addSubview:logo];
+    UILabel *title = [UILabel new];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = name;
+    title.font = [UIFont systemFontOfSize:44.0 weight:UIFontWeightBold];
+    title.textColor = UIColor.whiteColor;
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    spinner.translatesAutoresizingMaskIntoConstraints = NO;
+    spinner.color = [UIColor colorWithWhite:1.0 alpha:0.6];
+    [spinner startAnimating];
+    [splash addSubview:tile];
+    [splash addSubview:title];
+    [splash addSubview:spinner];
+    [NSLayoutConstraint activateConstraints:@[
+        [tile.centerXAnchor constraintEqualToAnchor:splash.centerXAnchor],
+        [tile.centerYAnchor constraintEqualToAnchor:splash.centerYAnchor constant:-80.0],
+        [tile.widthAnchor constraintEqualToConstant:240.0],
+        [tile.heightAnchor constraintEqualToConstant:240.0],
+        [letter.centerXAnchor constraintEqualToAnchor:tile.centerXAnchor],
+        [letter.centerYAnchor constraintEqualToAnchor:tile.centerYAnchor],
+        [logo.topAnchor constraintEqualToAnchor:tile.topAnchor],
+        [logo.bottomAnchor constraintEqualToAnchor:tile.bottomAnchor],
+        [logo.leadingAnchor constraintEqualToAnchor:tile.leadingAnchor],
+        [logo.trailingAnchor constraintEqualToAnchor:tile.trailingAnchor],
+        [title.topAnchor constraintEqualToAnchor:tile.bottomAnchor constant:40.0],
+        [title.centerXAnchor constraintEqualToAnchor:splash.centerXAnchor],
+        [spinner.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:40.0],
+        [spinner.centerXAnchor constraintEqualToAnchor:splash.centerXAnchor],
+    ]];
+    [BrowserStartPageViewController loadLogoForURL:URLString completion:^(UIImage *image) {
+        if (image != nil) {
+            logo.image = image;
+            logo.hidden = NO;
+            letter.hidden = YES;
+            tile.backgroundColor = UIColor.whiteColor;
+        }
+    }];
+    [self.view addSubview:splash];
+    if (self.webAppHintView.superview != nil) {
+        [self.view bringSubviewToFront:self.webAppHintView];
+    }
+    self.webAppSplashView = splash;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf hideWebAppSplash]; // slow page: don't keep the splash forever
+    });
+}
+
+- (void)hideWebAppSplash {
+    UIView *splash = self.webAppSplashView;
+    if (splash == nil) {
+        return;
+    }
+    self.webAppSplashView = nil;
+    [UIView animateWithDuration:0.4 animations:^{ splash.alpha = 0.0; } completion:^(__unused BOOL finished) {
+        [splash removeFromSuperview];
+    }];
+}
+
+- (BOOL)browserRemoteInputControllerHandleDownHold {
+    if (!self.webAppMode || self.presentedViewController != nil) {
+        return NO;
+    }
+    // In a web app: the favorite web apps come up from the bottom to switch between them.
+    BrowserWebAppDockViewController *dock = [[BrowserWebAppDockViewController alloc] initWithCurrentURL:self.webAppURLString];
+    __weak typeof(self) weakSelf = self;
+    dock.openWebApp = ^(NSString *URLString) {
+        if (![URLString isEqualToString:weakSelf.webAppURLString]) {
+            [weakSelf browserOpenWebAppWithURLString:URLString];
+        }
+    };
+    dock.showStartPage = ^{
+        [weakSelf browserLeaveWebApp];
+        [weakSelf browserShowStartPage];
+    };
+    [self.remoteInputController setLinkNavigationActive:NO];
+    [self presentViewController:dock animated:NO completion:nil];
+    return YES;
+}
+
+- (BOOL)browserRemoteInputControllerHandleSelectHold {
+    if (!self.webAppMode || self.presentedViewController != nil) {
+        return NO;
+    }
+    // Hold the middle of the clickpad: the selection box appears to pick a link or button; hold again (or Back) to scroll freely.
+    [self.remoteInputController setLinkNavigationActive:!self.remoteInputController.linkNavigationActive];
+    return YES;
+}
+
+- (void)browserRemoteInputControllerCursorModeDidChange:(BOOL)enabled {
+    // Taking the mouse (double click) in a web app means leaving it: back to the start page.
+    if (enabled && self.webAppMode && !self.leavingWebApp) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self browserLeaveWebApp];
+            [self browserShowStartPage];
+        });
+    }
+}
+
+static NSString *BrowserWebAppPagingScript(void) {
+    // Right / left in a web app: the page's own "next" / "previous" (rel=next, "Weiter", "»", or the next page number).
+    return
+    @"(function(dir){try{"
+    @"function vis(e){var r=e.getBoundingClientRect();return r.width>0&&r.height>0;}"
+    @"function label(e){return ((e.textContent||'')+' '+(e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')).replace(/\\s+/g,' ').trim();}"
+    @"var rel=document.querySelector(dir==='next'?'a[rel~=next][href],link[rel~=next][href]':'a[rel~=prev][href],link[rel~=prev][href]');"
+    @"if(rel&&rel.href){location.href=rel.href;return 'ok';}"
+    @"var words=dir==='next'?/^(next|weiter|nächste|older|ältere|mehr laden|load more|›|»|→)/i:/^(prev|previous|zurück|vorherige|newer|neuere|‹|«|←)/i;"
+    @"var links=Array.prototype.filter.call(document.querySelectorAll('a[href],button,[role=button]'),vis);"
+    @"var hit=null;"
+    @"for(var i=0;i<links.length&&!hit;i++){var t=label(links[i]);if(t.length&&t.length<30&&words.test(t)){hit=links[i];}}"
+    @"if(!hit){var cur=document.querySelector('[aria-current=page],.page-numbers.current,.pagination .active,.pagination .current,.pager .active');"
+    @"var n=cur?parseInt((cur.textContent||'').trim(),10):NaN;"
+    @"if(!isNaN(n)){var want=String(n+(dir==='next'?1:-1));for(var j=0;j<links.length&&!hit;j++){if((links[j].textContent||'').trim()===want){hit=links[j];}}}}"
+    @"if(!hit){return 'none';}"
+    @"if(hit.href&&hit.href.indexOf('javascript:')!==0){location.href=hit.href;}else{hit.click();}"
+    @"return 'ok';}catch(e){return 'none';}})";
+}
+
+- (BOOL)browserRemoteInputControllerPresentedViewControllerHandlesMenu {
+    if ([self.presentedViewController isKindOfClass:[BrowserStartPageViewController class]]) {
+        [(BrowserStartPageViewController *)self.presentedViewController handleBackPress];
+        return YES;
+    }
+    return NO;
+}
+
+- (BOOL)browserRemoteInputControllerHandleSideArrow:(NSString *)direction {
+    if (!self.webAppMode || self.webview == nil) {
+        return NO;
+    }
+    NSString *script = [NSString stringWithFormat:@"%@('%@')", BrowserWebAppPagingScript(), direction];
+    NSString *result = [self.webview stringByEvaluatingJavaScriptFromString:script] ?: @"none";
+    if ([result isEqualToString:@"ok"]) {
+        [self showLinkNavigationHint:[direction isEqualToString:@"next"] ? BrowserLocalized(@"Next page →") : BrowserLocalized(@"← Previous page")];
+        return YES;
+    }
+    return NO;
+}
+
+- (BOOL)browserRemoteInputControllerLinkNavigationHandleMenu {
+    if (!self.webAppMode) {
+        return NO;
+    }
+    if (self.remoteInputController.linkNavigationActive) {
+        [self.remoteInputController setLinkNavigationActive:NO]; // Back: the box goes away, scrolling again
+        return YES;
+    }
+    // In a web app, Back goes back inside the app; on its first page it leaves to the start page.
+    if (self.webview.canGoBack) {
+        [self.webview goBack];
+    } else {
+        [self browserLeaveWebApp];
+        [self browserShowStartPage];
+    }
+    return YES;
+}
+
+- (void)browserLeaveWebApp {
+    if (self.leavingWebApp) {
+        return;
+    }
+    self.leavingWebApp = YES;
+    [self hideWebAppSplash];
+    [self.remoteInputController setLinkNavigationActive:NO]; // while still in the web app: no "mouse on" hint
+    self.webAppMode = NO;
+    [self.remoteInputController setCursorModeEnabled:self.cursorModeBeforeWebApp];
+    self.leavingWebApp = NO;
+    [self updateTextFontSize]; // back to the normal text size
+    BOOL visible = self.preferencesStore.topNavigationBarVisible;
+    self.viewModel.topNavigationBarVisible = visible;
+    [self.tabCoordinator setTopNavigationVisible:visible];
+    [self updateShowTopBarButtonAnimated:YES];
+}
+
+- (void)showWebAppHint {
+    [self.webAppHintView removeFromSuperview];
+    UIVisualEffectView *pill = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    pill.layer.cornerRadius = 32.0;
+    pill.clipsToBounds = YES;
+    pill.contentView.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.5];
+    UILabel *label = [UILabel new];
+    label.text = BrowserLocalized(@"Web App · Hold the middle: pick · Play/Pause: menu");
+    label.font = [UIFont systemFontOfSize:23.0 weight:UIFontWeightSemibold];
+    label.textColor = UIColor.whiteColor;
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right"
+                                                                    withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22.0 weight:UIImageSymbolWeightSemibold]]];
+    icon.tintColor = UIColor.whiteColor;
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[icon, label]];
+    row.spacing = 14.0;
+    row.alignment = UIStackViewAlignmentCenter;
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    [pill.contentView addSubview:row];
+    pill.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:pill];
+    [NSLayoutConstraint activateConstraints:@[
+        [row.leadingAnchor constraintEqualToAnchor:pill.contentView.leadingAnchor constant:30.0],
+        [row.trailingAnchor constraintEqualToAnchor:pill.contentView.trailingAnchor constant:-30.0],
+        [row.centerYAnchor constraintEqualToAnchor:pill.contentView.centerYAnchor],
+        [pill.heightAnchor constraintEqualToConstant:64.0],
+        [pill.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:40.0],
+        [pill.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+    ]];
+    self.webAppHintView = pill;
+    pill.alpha = 0.0;
+    [UIView animateWithDuration:0.3 animations:^{ pill.alpha = 1.0; }];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [UIView animateWithDuration:0.5 animations:^{ pill.alpha = 0.0; } completion:^(__unused BOOL finished) {
+            [pill removeFromSuperview];
+        }];
+    });
+}
+
 - (void)browserShowFeeds {
     BrowserFeedsViewController *feeds = [BrowserFeedsViewController new];
     __weak typeof(self) weakSelf = self;
     // Like the tab overview: the top bar stays, its address field reads "Feeds · 4 new articles".
     feeds.headerChanged = ^(NSString *subtitle) {
+        // Orange glass while the feeds are open – a deeper orange in dark mode.
+        BOOL dark = weakSelf.view.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+        UIColor *orange = dark ? [UIColor colorWithRed:0.78 green:0.36 blue:0.0 alpha:0.9] : [UIColor colorWithRed:1.0 green:0.58 blue:0.0 alpha:0.9];
+        [weakSelf.topMenuView setTitlePillTintColor:(subtitle != nil ? orange : nil)];
         [weakSelf.topMenuView setOverrideTitle:(subtitle != nil ? BrowserLocalized(@"Feeds") : nil)
                                       subtitle:subtitle
                                     symbolName:@"dot.radiowaves.up.forward"];
@@ -1255,10 +2019,26 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     feeds.openArticle = ^(NSString *URLString) {
         NSURLRequest *request = [weakSelf.navigationService requestForURLString:URLString];
         if (request != nil) {
+            weakSelf.feedReaderPendingUntil = CACurrentMediaTime() + 25.0;
             [weakSelf.webview loadRequest:request];
         }
     };
     [self browserPresentViewController:feeds];
+}
+
+/// YES when the feed this page offers is already in the subscriptions (the feed button then just opens the feeds).
+- (BOOL)browserPageFeedIsSubscribed {
+    NSString *script = [BrowserFeedStore detectionScript];
+    NSString *result = (script.length > 0 && self.webview != nil) ? [self.webview stringByEvaluatingJavaScriptFromString:script] : nil;
+    id json = result.length > 0 ? [NSJSONSerialization JSONObjectWithData:[result dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
+    NSArray *feeds = ([json isKindOfClass:[NSDictionary class]] && [json[@"feeds"] isKindOfClass:[NSArray class]]) ? json[@"feeds"] : @[];
+    for (id feed in feeds) {
+        NSString *URLString = [feed isKindOfClass:[NSDictionary class]] && [feed[@"url"] isKindOfClass:[NSString class]] ? feed[@"url"] : nil;
+        if (URLString.length > 0 && [[BrowserFeedStore sharedStore] isSubscribedToURL:URLString]) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 - (void)browserSubscribeToPageFeed {
@@ -1319,18 +2099,21 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     // From the menu: the same screen as after an update; "Weiter" closes it (no usage guide afterwards).
     BrowserWhatsNewViewController *whatsNew = [BrowserWhatsNewViewController new];
     whatsNew.showsGuideHint = NO;
-    if (self.presentedViewController != nil) {
-        __weak typeof(self) weakSelf = self;
-        [self.presentedViewController dismissViewControllerAnimated:NO completion:^{
-            [weakSelf presentViewController:whatsNew animated:YES completion:nil];
-        }];
-        return;
-    }
-    [self presentViewController:whatsNew animated:YES completion:nil];
+    [self presentOverSettings:whatsNew]; // "Continue" or Back returns to Settings
 }
 
 - (void)browserShowHints {
-    [self showHintsAlert];
+    // From Settings → Help: on top of Settings, so Back returns to Settings.
+    [self presentOverSettings:[BrowserUsageGuideViewController new]];
+}
+
+/// Presents a help screen above whatever is open (Settings), so closing it lands there again.
+- (void)presentOverSettings:(UIViewController *)viewController {
+    UIViewController *top = self;
+    while (top.presentedViewController != nil && !top.presentedViewController.isBeingDismissed) {
+        top = top.presentedViewController;
+    }
+    [top presentViewController:viewController animated:YES completion:nil];
 }
 
 - (void)browserShowTabOverview {
@@ -1366,7 +2149,7 @@ static NSString *BrowserLinkNavigationScript(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         script =
-    @"(function(cmd, topInset){\n"
+    @"(function(cmd, topInset, feed){\n"
     @"var N = window.__tvLinkNav;\n"
     @"if (!N) {\n"
     @"  N = window.__tvLinkNav = {cur: null};\n"
@@ -1376,6 +2159,15 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  st.id = '__tvLinkNavStyle';\n"
     @"  st.textContent = '.__tvLinkNavFocus{outline:4px solid #FFFFFF !important;outline-offset:3px !important;border-radius:12px !important;box-shadow:0 0 0 7px rgba(0,0,0,0.55),0 18px 40px rgba(0,0,0,0.45) !important;background-color:rgba(255,255,255,0.14) !important;transition:outline-offset .15s ease, box-shadow .15s ease !important;}';\n"
     @"  (document.head || document.documentElement).appendChild(st);\n"
+    @"}\n"
+    @"if (feed && !document.getElementById('__tvFeedStyle')) {\n"
+    @"  var fs = document.createElement('style');\n"
+    @"  fs.id = '__tvFeedStyle';\n"
+    @"  var lum = 1; [document.body, document.documentElement].some(function(e){ if (!e) { return false; } var m = (getComputedStyle(e).backgroundColor || '').match(/[\\d.]+/g); if (m && (m.length < 4 || +m[3] > 0.1)) { lum = (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255; return true; } return false; });\n"
+    @"  var forcedDark = !!document.getElementById('__tvForceDarkStyle');\n"
+    @"  var C = (forcedDark || lum < 0.5) ? '10,132,255' : '52,199,89'; window.__orbDropTone = C;\n"
+    @"  fs.textContent = 'html{scroll-behavior:smooth !important;} .__tvLinkNavFocus{outline:none !important;border-radius:18px !important;position:relative !important;z-index:2147483000 !important;transform:scale(1.03) !important;background-color:rgba(' + C + ',0.06) !important;box-shadow:0 0 0 2px rgba(' + C + ',0.55),0 0 26px 6px rgba(' + C + ',0.26),inset 0 1px 0 rgba(255,255,255,0.55),inset 0 -10px 22px rgba(' + C + ',0.12),0 18px 40px rgba(0,0,0,0.28) !important;transition:transform .32s cubic-bezier(.2,1.35,.4,1), box-shadow .32s ease !important;} .__tvLinkNavFocus::after{content:\"\";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.06) 38%,rgba(255,255,255,0) 60%,rgba(' + C + ',0.10) 100%);}';\n"
+    @"  (document.head || document.documentElement).appendChild(fs);\n"
     @"}\n"
     @"var SELECTOR = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=option],[onclick],[tabindex]:not([tabindex=\"-1\"])';\n"
     @"function shown(el){\n"
@@ -1393,6 +2185,7 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  el.classList.add('__tvLinkNavFocus');\n"
     @"  var r = el.getBoundingClientRect();\n"
     @"  var hidden = scrollY > 0 ? topInset : 0;\n"
+    @"  if (feed) { el.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'smooth'}); return; }\n"
     @"  if (r.top < hidden || r.bottom > innerHeight) { el.scrollIntoView({block: 'center', inline: 'nearest'}); }\n"
     @"}\n"
     @"function mid(r){ return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }\n"
@@ -1405,6 +2198,12 @@ static NSString *BrowserLinkNavigationScript(void) {
     @"  return 'point:' + Math.round(p.x) + ',' + Math.round(p.y);\n"
     @"}\n"
     @"var list = candidates();\n"
+    @"if (cmd === 'center') {\n"
+    @"  var cx = innerWidth / 2, cy = innerHeight / 2, nearest = null, nd = Infinity;\n"
+    @"  list.forEach(function(el){ var q = mid(el.getBoundingClientRect()), d = Math.abs(q.x - cx) * 0.6 + Math.abs(q.y - cy); if (d < nd) { nd = d; nearest = el; } });\n"
+    @"  if (nearest) { setCur(nearest); return 'ok'; }\n"
+    @"  return 'none';\n"
+    @"}\n"
     @"if (!N.cur || !document.contains(N.cur) || !shown(N.cur)) {\n"
     @"  if (!list.length) {\n"
     @"    if (cmd === 'down') { scrollBy(0, innerHeight * 0.6); return 'scrolled'; }\n"
@@ -1453,7 +2252,7 @@ static NSString *BrowserLinkNavigationScript(void) {
     CGFloat scale = innerWidth > 0 ? CGRectGetWidth(self.webview.frame) / (CGFloat)innerWidth : 1.0;
     CGFloat barHeight = (self.viewModel.topNavigationBarVisible && !self.topMenuView.hidden) ? CGRectGetMaxY(self.topMenuView.frame) : 0.0;
     CGFloat topInsetCSS = scale > 0.0 ? barHeight / scale : barHeight;
-    NSString *script = [NSString stringWithFormat:@"%@('%@', %.1f)", BrowserLinkNavigationScript(), command, topInsetCSS];
+    NSString *script = [NSString stringWithFormat:@"%@('%@', %.1f, %@)", BrowserLinkNavigationScript(), command, topInsetCSS, self.webAppMode ? @"true" : @"false"];
     return [self.webview stringByEvaluatingJavaScriptFromString:script] ?: @"none";
 }
 
@@ -1466,8 +2265,12 @@ static NSString *BrowserLinkNavigationScript(void) {
         [self setShowTopBarButtonSelected:NO animated:YES];
     }
     if (active) {
-        [self runLinkNavigationCommand:@"down"];
-        [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
+        [self runLinkNavigationCommand:(self.webAppMode ? @"center" : @"down")]; // in a web app: the item in the middle of the screen
+        if (!self.webAppMode) {
+            [self showLinkNavigationHint:BrowserLocalized(@"Link navigation on · Arrows: switch · Click: open · Hold bottom: mouse")];
+        }
+    } else if (self.webAppMode) {
+        [self runLinkNavigationCommand:@"clear"];
     } else {
         [self runLinkNavigationCommand:@"clear"];
         [self showLinkNavigationHint:BrowserLocalized(@"Mouse on · Hold bottom: link navigation")];
@@ -1533,6 +2336,9 @@ static NSString *BrowserLinkNavigationScript(void) {
     }
     CGPoint domPoint = CGPointMake(parts[0].doubleValue, parts[1].doubleValue);
     [self runLinkNavigationCommand:@"clear"];
+    if (self.webAppMode) {
+        [self.remoteInputController setLinkNavigationActive:NO]; // picked something: back to scrolling freely
+    }
     // Same path as a cursor click, so links, text fields and videos behave exactly as before.
     [self.pageActionCoordinator handlePageSelectionAtDOMPoint:domPoint webView:self.webview];
 }
@@ -1636,7 +2442,7 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     if (button == nil) {
         return;
     }
-    BOOL shouldShow = !self.viewModel.topNavigationBarVisible;
+    BOOL shouldShow = !self.viewModel.topNavigationBarVisible && !self.webAppMode;
     CGFloat targetAlpha = shouldShow ? 1.0 : 0.0;
     if (button.alpha == targetAlpha && button.hidden == !shouldShow) {
         return;
@@ -1650,7 +2456,7 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
         button.transform = shouldShow ? CGAffineTransformIdentity : CGAffineTransformMakeScale(0.6, 0.6);
     };
     void (^completion)(BOOL) = ^(__unused BOOL finished) {
-        button.hidden = self.viewModel.topNavigationBarVisible;
+        button.hidden = self.viewModel.topNavigationBarVisible || self.webAppMode;
     };
     if (animated) {
         [UIView animateWithDuration:0.25 animations:changes completion:completion];
@@ -1827,6 +2633,8 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     UIAlertController *alertController = (UIAlertController *)self.presentedViewController;
     if (alertController != nil) {
         [self.presentedViewController dismissViewControllerAnimated:YES completion:nil];
+    } else if (self.webAppMode) {
+        [self browserRemoteInputControllerLinkNavigationHandleMenu]; // back inside the app, or out to the start page
     } else if (self.webview.canGoBack) {
         [self.webview goBack];
     } else {
@@ -1907,6 +2715,15 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
 
 - (void)webViewDidFinishLoad:(id)webView {
     [self.tabCoordinator webViewDidFinishLoad:webView];
+    if (webView == self.webview && self.webAppMode) {
+        // A web app is used like a feed: arrows jump from item to item, no mouse.
+        [self hideWebAppSplash];
+        BOOL known = self.webAppURLString.length > 0 && [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"BrowserWebAppTextSizes"][self.webAppURLString] != nil;
+        if (!known && !self.webAppAskedTextSize && self.presentedViewController == nil) {
+            self.webAppAskedTextSize = YES;
+            [self askWebAppTextSize];
+        }
+    }
     if (webView == self.webview) {
         [self schedulePageFeatureChecksForWebView:webView delays:@[@0.15, @1.5]];
     }
@@ -1997,10 +2814,30 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     [super pressesEnded:presses withEvent:event];
 }
 
+// Touches go to UIKit only when UIKit also saw them begin. Forwarding a "moved" or "ended" of a touch whose
+// "began" Orbrisa kept for itself (e.g. after switching between cursor, scrolling and the web app box mid-touch)
+// made UIKit crash with "-[UIDropShadowView (null selector)]: unrecognized selector".
+- (NSSet<UITouch *> *)forwardableTouches:(NSSet<UITouch *> *)touches {
+    NSMutableSet<UITouch *> *result = [NSMutableSet set];
+    for (UITouch *touch in touches) {
+        if ([self.forwardedTouches containsObject:touch]) {
+            [result addObject:touch];
+        }
+    }
+    return result;
+}
+
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     if ([self.remoteInputController handleTouchesBegan:touches withEvent:event]) {
         return;
     }
+    if (self.presentedViewController != nil) {
+        return; // another screen is on top (dock, menu, start page …): UIKit must not track this touch through it
+    }
+    if (self.forwardedTouches == nil) {
+        self.forwardedTouches = [NSMutableSet set];
+    }
+    [self.forwardedTouches unionSet:touches];
     [super touchesBegan:touches withEvent:event];
 }
 
@@ -2008,21 +2845,28 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     if ([self.remoteInputController handleTouchesMoved:touches withEvent:event]) {
         return;
     }
-    [super touchesMoved:touches withEvent:event];
+    NSSet<UITouch *> *forwardable = [self forwardableTouches:touches];
+    if (forwardable.count > 0) {
+        [super touchesMoved:forwardable withEvent:event];
+    }
 }
 
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    (void)touches;
-    (void)event;
     [self.remoteInputController handleTouchesEnded];
-    [super touchesEnded:touches withEvent:event];
+    NSSet<UITouch *> *forwardable = [self forwardableTouches:touches];
+    [self.forwardedTouches minusSet:touches];
+    if (forwardable.count > 0) {
+        [super touchesEnded:forwardable withEvent:event];
+    }
 }
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    (void)touches;
-    (void)event;
     [self.remoteInputController handleTouchesEnded];
-    [super touchesCancelled:touches withEvent:event];
+    NSSet<UITouch *> *forwardable = [self forwardableTouches:touches];
+    [self.forwardedTouches minusSet:touches];
+    if (forwardable.count > 0) {
+        [super touchesCancelled:forwardable withEvent:event];
+    }
 }
 
 @end

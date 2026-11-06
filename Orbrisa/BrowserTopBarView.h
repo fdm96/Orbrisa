@@ -1,3 +1,10 @@
+//
+//  BrowserTopBarView.h
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -59,6 +66,9 @@ typedef NS_ENUM(NSInteger, BrowserTopBarAction) {
 - (void)setOverrideTitle:(nullable NSString *)title subtitle:(nullable NSString *)subtitle;
 /// Same, with a small orange symbol in front of the title (e.g. the RSS symbol for the feeds).
 - (void)setOverrideTitle:(nullable NSString *)title subtitle:(nullable NSString *)subtitle symbolName:(nullable NSString *)symbolName;
+/// Tints the glass of the address pill (e.g. orange while the feeds are open, like `.glassEffect(.regular.tint(.orange).interactive())`);
+/// nil returns to the normal glass. The text turns white on the tint.
+- (void)setTitlePillTintColor:(nullable UIColor *)tintColor;
 /// Number shown on the tabs button; 0 hides it.
 - (void)setTabCount:(NSUInteger)tabCount;
 /// Shows the "Reader" button in the address pill and the RSS button next to it (only when the page has an article / a feed).
@@ -69,5 +79,12 @@ typedef NS_ENUM(NSInteger, BrowserTopBarAction) {
 - (void)setPageIsLight:(BOOL)pageIsLight animated:(BOOL)animated;
 
 @end
+
+/// Screens that lay a shade over the top bar (Feeds, Settings) leave the address pill out of it with this,
+/// so "Feeds" / "Settings" in the pill is not dimmed and stays readable.
+FOUNDATION_EXPORT void BrowserTopBarCutOutTitlePill(UIView *shade);
+/// Leaves every island of the bar (back/forward, address, RSS, buttons on the right) out of a full-screen shade,
+/// so the shade reaches up to the top without a stripe and the bar stays sharp.
+FOUNDATION_EXPORT void BrowserTopBarCutOutIslands(UIView *shade);
 
 NS_ASSUME_NONNULL_END

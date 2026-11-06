@@ -1,3 +1,10 @@
+//
+//  BrowserRemoteInputController.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "BrowserRemoteInputController.h"
 #import "BrowserLog.h"
 
@@ -60,6 +67,10 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
 @property (nonatomic) CFTimeInterval lastSelectPressTimestamp;
 @property (nonatomic) BOOL awaitingSecondSelectPress;
 @property (nonatomic, readwrite, getter=isLinkNavigationActive) BOOL linkNavigationActive;
+@property (nonatomic) CGPoint swipeAccumulation;
+@property (nonatomic) CFTimeInterval lastSwipeStepTime;
+@property (nonatomic) BOOL ignoreNextSelectEnd;
+@property (nonatomic) BOOL selectHoldFired;
 @property (nonatomic) BOOL downArrowHoldFired;
 
 @end
@@ -102,12 +113,17 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
     if (!wasCursorModeEnabled && cursorModeEnabled) {
         [self.host browserRemoteInputControllerPersistSession];
     }
+    if (wasCursorModeEnabled != cursorModeEnabled &&
+        [self.host respondsToSelector:@selector(browserRemoteInputControllerCursorModeDidChange:)]) {
+        [self.host browserRemoteInputControllerCursorModeDidChange:cursorModeEnabled];
+    }
 }
 
 - (void)refreshInteractionState {
     UIScrollView *scrollView = [self.host browserRemoteInputControllerActiveScrollView];
     BOOL topBarFocusActive = [self.host browserRemoteInputControllerTopBarFocusActive];
     BOOL shouldAllowWebInteraction = !self.cursorModeEnabled &&
+        !self.linkNavigationActive &&
         ![self.host browserRemoteInputControllerTabOverviewVisible] &&
         !topBarFocusActive;
     scrollView.scrollEnabled = shouldAllowWebInteraction;
@@ -231,7 +247,14 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
     if (linkNavigationActive) {
         [self stopManualScrollInertia];
     }
+    [self refreshInteractionState];
     [self.host browserRemoteInputControllerLinkNavigationDidChangeActive:linkNavigationActive];
+}
+
+- (void)ignoreSelectPressBriefly {
+    self.ignoreNextSelectEnd = YES;
+    self.lastDirectSelectPressTimestamp = CACurrentMediaTime() + 1.0; // the global "select ended" path stays quiet too
+    self.awaitingSecondSelectPress = NO;
 }
 
 - (BOOL)handleLinkNavigationPress:(UIPress *)press {
@@ -264,6 +287,10 @@ static NSString *BrowserPressPhaseString(UIPressPhase phase) {
             [self.host browserRemoteInputControllerLinkNavigationActivate];
             return YES;
         case UIPressTypeMenu:
+            if ([self.host respondsToSelector:@selector(browserRemoteInputControllerLinkNavigationHandleMenu)] &&
+                [self.host browserRemoteInputControllerLinkNavigationHandleMenu]) {
+                return YES;
+            }
             [self setLinkNavigationActive:NO];
             return YES;
         default:
@@ -347,6 +374,10 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
 
 - (void)handleDownArrowLongPress {
     self.downArrowHoldFired = YES;
+    if ([self.host respondsToSelector:@selector(browserRemoteInputControllerHandleDownHold)] &&
+        [self.host browserRemoteInputControllerHandleDownHold]) {
+        return;
+    }
     if (self.linkNavigationActive) {
         [self setLinkNavigationActive:NO];
         [self setCursorModeEnabled:YES];
@@ -361,8 +392,24 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
         ![self.host browserRemoteInputControllerTopBarFocusActive];
 }
 
+- (void)handleSelectHold {
+    // Timed from the press itself – no gesture recognizer, so nothing else in the window reacts to the hold.
+    if ([self.host respondsToSelector:@selector(browserRemoteInputControllerHandleSelectHold)] &&
+        [self.host browserRemoteInputControllerHandleSelectHold]) {
+        self.selectHoldFired = YES;
+        [self ignoreSelectPressBriefly];
+    }
+}
+
 - (void)handlePressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     UIPress *press = presses.anyObject;
+    if (press.type == UIPressTypeSelect) {
+        self.selectHoldFired = NO;
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(handleSelectHold) object:nil];
+        if ([self.host browserRemoteInputControllerPresentedViewController] == nil) {
+            [self performSelector:@selector(handleSelectHold) withObject:nil afterDelay:0.6];
+        }
+    }
     if (press.type == UIPressTypeDownArrow) {
         self.downArrowHoldFired = NO;
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(handleDownArrowLongPress) object:nil];
@@ -392,6 +439,22 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
             self.downArrowHoldFired = NO;
             return YES;
         }
+    }
+    if (press.type == UIPressTypeSelect) {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(handleSelectHold) object:nil];
+    }
+    if (press.type == UIPressTypeSelect && (self.ignoreNextSelectEnd || self.selectHoldFired)) {
+        self.ignoreNextSelectEnd = NO;
+        self.selectHoldFired = NO;
+        return YES;
+    }
+    if ((press.type == UIPressTypeLeftArrow || press.type == UIPressTypeRightArrow) &&
+        !self.cursorModeEnabled && !self.linkNavigationActive &&
+        [self.host browserRemoteInputControllerPresentedViewController] == nil &&
+        ![self.host browserRemoteInputControllerTopBarFocusActive] &&
+        [self.host respondsToSelector:@selector(browserRemoteInputControllerHandleSideArrow:)] &&
+        [self.host browserRemoteInputControllerHandleSideArrow:(press.type == UIPressTypeRightArrow ? @"next" : @"prev")]) {
+        return YES;
     }
 
     if (press.type == UIPressTypeMenu || press.type == UIPressTypePlayPause || press.type == UIPressTypeSelect) {
@@ -432,6 +495,10 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
             return NO;
         }
         if (press.type == UIPressTypeMenu) {
+            if ([self.host respondsToSelector:@selector(browserRemoteInputControllerPresentedViewControllerHandlesMenu)] &&
+                [self.host browserRemoteInputControllerPresentedViewControllerHandlesMenu]) {
+                return YES;
+            }
             [presentedViewController dismissViewControllerAnimated:YES completion:nil];
             return YES;
         }
@@ -504,13 +571,42 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
     if ([self.host browserRemoteInputControllerTabOverviewVisible]) {
         return NO;
     }
-    if (!self.cursorModeEnabled) {
-        return NO;
-    }
     if (self.linkNavigationActive) {
+        // Like the Apple TV focus: a swipe on the touch surface moves to the next item, a long swipe keeps going.
+        UITouch *touch = touches.anyObject;
+        CGPoint location = [touch locationInView:self.rootView];
+        if (self.lastTouchLocation.x == -1 && self.lastTouchLocation.y == -1) {
+            self.lastTouchLocation = location;
+            self.swipeAccumulation = CGPointZero;
+            return YES;
+        }
+        CGPoint sum = self.swipeAccumulation;
+        sum.x += location.x - self.lastTouchLocation.x;
+        sum.y += location.y - self.lastTouchLocation.y;
+        self.lastTouchLocation = location;
+        static CGFloat const kSwipeStep = 320.0;
+        NSString *direction = nil;
+        if (fabs(sum.y) >= kSwipeStep && fabs(sum.y) >= fabs(sum.x)) {
+            direction = sum.y > 0 ? @"down" : @"up";
+        } else if (fabs(sum.x) >= kSwipeStep) {
+            direction = sum.x > 0 ? @"right" : @"left";
+        }
+        CFTimeInterval now = CACurrentMediaTime();
+        if (direction != nil && now - self.lastSwipeStepTime > 0.16) {
+            // One item per step, a short pause between steps – a fast swipe must not race to the end of the page.
+            sum = CGPointZero;
+            self.lastSwipeStepTime = now;
+            [self.host browserRemoteInputControllerLinkNavigationMove:direction];
+        } else if (direction != nil) {
+            sum = CGPointZero;
+        }
+        self.swipeAccumulation = sum;
         return YES;
     }
 
+    if (!self.cursorModeEnabled) {
+        return NO;
+    }
     for (UITouch *touch in touches) {
         UIScrollView *activeScrollView = [self.host browserRemoteInputControllerActiveScrollView];
         UIView *targetView = activeScrollView ?: self.rootView;
@@ -554,6 +650,7 @@ static NSTimeInterval const kBrowserLinkNavigationHoldDuration = 0.7;
 
 - (void)handleTouchesEnded {
     self.lastTouchLocation = CGPointMake(-1, -1);
+    self.swipeAccumulation = CGPointZero;
 }
 
 @end

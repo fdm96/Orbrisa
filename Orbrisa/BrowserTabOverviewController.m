@@ -1,3 +1,10 @@
+//
+//  BrowserTabOverviewController.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "BrowserTabOverviewController.h"
 #import "BrowserLocalization.h"
 
@@ -518,7 +525,7 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     [NSLayoutConstraint activateConstraints:@[
         [dimView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [dimView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [dimView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTabStripTop - 8.0],
+        [dimView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [dimView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
         [collectionView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
@@ -526,6 +533,19 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
         [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTabStripTop],
         [collectionView.heightAnchor constraintEqualToConstant:kTabStripHeight],
     ]];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // One frosted surface from the very top down to the tabs – no stripe between the bar and the tabs.
+    // Only the bar's own islands are left out, so they stay sharp on top of it.
+    BrowserTopBarCutOutIslands(self.dimView);
+}
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+    if (scrollView == self.collectionView && self.previewItemIndex != NSNotFound && self.previewView.alpha > 0.0) {
+        [self showPreviewForItemIndex:self.previewItemIndex animated:NO];
+    }
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -611,8 +631,13 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     if (focusedItemIndex == NSNotFound || focusedItemIndex >= self.overviewController.viewModel.tabs.count) {
         return;
     }
-    self.preferredFocusItemIndex = focusedItemIndex;
+    // After closing, focus the tab on the left (not the "New Tab" card that slides into its place).
+    self.preferredFocusItemIndex = MAX(focusedItemIndex - 1, 0);
+    self.collectionView.remembersLastFocusedIndexPath = NO;
     [self.overviewController handleCloseRequestForDisplayItemIndex:focusedItemIndex];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        self.collectionView.remembersLastFocusedIndexPath = YES;
+    });
 }
 
 - (NSInteger)currentFocusedItemIndex {
@@ -649,11 +674,6 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     }
 }
 
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    if (scrollView == self.collectionView && self.previewItemIndex != NSNotFound && self.previewView.alpha > 0.0) {
-        [self showPreviewForItemIndex:self.previewItemIndex animated:NO];
-    }
-}
 
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     (void)collectionView;

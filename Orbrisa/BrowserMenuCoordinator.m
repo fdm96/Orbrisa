@@ -1,4 +1,12 @@
+//
+//  BrowserMenuCoordinator.m
+//  Orbrisa
+//
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
+
 #import "BrowserMenuCoordinator.h"
+#import "BrowserRemoteVisualizer.h"
 #import "BrowserLocalization.h"
 #import "BrowserLog.h"
 #import "BrowserPreferencesStore.h"
@@ -169,6 +177,11 @@ typedef void (^BrowserAdvancedMenuItemHandler)(void);
 
 @implementation BrowserAdvancedMenuViewController
 
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    BrowserTopBarCutOutTitlePill(self.dimView); // "Settings" in the address pill stays bright
+}
+
 - (UIVisualEffect *)panelEffect {
     Class glassEffectClass = NSClassFromString(@"UIGlassEffect");
     if (glassEffectClass != Nil) {
@@ -281,7 +294,7 @@ typedef void (^BrowserAdvancedMenuItemHandler)(void);
         studioLogoView.tintColor = UIColor.whiteColor;
     }
     studioLogoView.isAccessibilityElement = YES;
-    studioLogoView.accessibilityLabel = @"di marco studio";
+    studioLogoView.accessibilityLabel = @"di marcostudio.";
     [panelView.contentView addSubview:studioLogoView];
     UIImageView *studioDotView = [[UIImageView alloc] initWithImage:studioDotImage];
     studioDotView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1369,6 +1382,38 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     return fallback;
 }
 
+- (void)presentCloudGamingCheck {
+    // Does this WebKit have what cloud gaming sites (GeForce NOW, Xbox Cloud, Luna …) need?
+    static NSString * const script =
+        @"(function(){var r=[];function add(k,v){r.push(k+': '+v);}"
+        @"function t(f){try{return f();}catch(e){return 'error ('+(e&&e.message?e.message:e)+')';}}"
+        @"add('Frames per second',(window.__orbFPS||'measuring – check again in a moment')+' · visible: '+document.visibilityState+' · focus: '+document.hasFocus());"
+        @"t(function(){var n=0,s=performance.now();function f(){n++;if(performance.now()-s<1000){requestAnimationFrame(f);}else{window.__orbFPS=n+' fps';}}requestAnimationFrame(f);var m=0;var i=setInterval(function(){m++;},10);setTimeout(function(){clearInterval(i);window.__orbFPS=(window.__orbFPS||'0 fps (rAF never ran)')+' · timers '+m+'/100';},1100);return '';});"
+        @"add('WebGPU (navigator.gpu)',typeof navigator.gpu);"
+        @"add('localStorage',t(function(){localStorage.setItem('__orb','1');var v=localStorage.getItem('__orb');localStorage.removeItem('__orb');return v==='1'?'works':'no';}));"
+        @"add('IndexedDB',(typeof indexedDB)+' · last test: '+(window.__orbIDB||'running – check again in a moment'));"
+        @"t(function(){var q=indexedDB.open('__orbrisa_check',1);q.onupgradeneeded=function(){q.result.createObjectStore('s');};q.onsuccess=function(){try{var tx=q.result.transaction('s','readwrite');tx.objectStore('s').put(1,'k');tx.oncomplete=function(){window.__orbIDB='works';q.result.close();};tx.onerror=function(){window.__orbIDB='write failed';};}catch(e){window.__orbIDB='error ('+e.message+')';}};q.onerror=function(){window.__orbIDB='error ('+(q.error?q.error.message:'?')+')';};return '';});"
+        @"add('RTCPeerConnection',typeof RTCPeerConnection);"
+        @"add('new RTCPeerConnection()',t(function(){var pc=new RTCPeerConnection();var dc=pc.createDataChannel('x');var ok='ok, data channel '+(dc?'ok':'missing');pc.close();return ok;}));"
+        @"add('Video codecs (WebRTC)',t(function(){if(typeof RTCRtpReceiver==='undefined'||!RTCRtpReceiver.getCapabilities){return 'n/a';}var c=RTCRtpReceiver.getCapabilities('video');if(!c){return 'none';}var m={};c.codecs.forEach(function(x){m[x.mimeType]=1;});return Object.keys(m).join(', ');}));"
+        @"add('mediaDevices',typeof navigator.mediaDevices);"
+        @"add('getGamepads',typeof navigator.getGamepads);"
+        @"add('Gamepads seen',t(function(){if(!navigator.getGamepads){return 'n/a';}var g=Array.prototype.filter.call(navigator.getGamepads()||[],function(x){return !!x;});return g.length+(g.length?' ('+g.map(function(x){return x.id;}).join(', ')+')':' (press a controller button on the page, then check again)');}));"
+        @"add('Fullscreen API',typeof (document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen));"
+        @"add('WebGL2',t(function(){return document.createElement('canvas').getContext('webgl2')?'yes':'no';}));"
+        @"add('WebCodecs VideoDecoder',typeof VideoDecoder);"
+        @"return r.join('\\n');})()";
+    NSString *result = [[self.host browserWebView] stringByEvaluatingJavaScriptFromString:script];
+    if (result.length == 0) {
+        result = @"The page did not answer. Open any website first (e.g. play.geforcenow.com) and try again.";
+    }
+    result = [NSString stringWithFormat:@"%@\n\nWebKit features:\n%@", result, [BrowserWebView cloudGamingFeatureReport]];
+    BrowserLog(@"[CloudGamingCheck]\n%@", result);
+    UIAlertController *alertController = [self browserAlertControllerWithTitle:@"Cloud Gaming Check" message:result];
+    [alertController addAction:[self browserCancelAction]];
+    [self.host browserPresentViewController:alertController];
+}
+
 - (void)presentMediaDiagnostics {
     NSDictionary *diagnostics = [self mediaDiagnosticsDictionary];
     if (diagnostics == nil) {
@@ -1478,6 +1523,27 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
     }];
 }
 
+- (BrowserAdvancedMenuItem *)startPageAsHomeMenuItem {
+    // "Home Page   Orbrisa Start Page" – a click switches between the start page and Google.
+    __weak typeof(self) weakSelf = self;
+    BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"Home Page")
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^{
+        NSString *current = weakSelf.preferencesStore.homePageURLString;
+        weakSelf.preferencesStore.homePageURLString = current.length == 0 ? @"https://www.google.com" : @"";
+    }];
+    item.stayOpen = YES;
+    item.detailValue = ^NSString *{
+        NSString *current = weakSelf.preferencesStore.homePageURLString;
+        if (current.length == 0) {
+            return BrowserLocalized(@"Orbrisa Start Page");
+        }
+        NSString *host = [NSURL URLWithString:current].host ?: current;
+        return [host hasPrefix:@"www."] ? [host substringFromIndex:4] : host;
+    };
+    return item;
+}
+
 - (BrowserAdvancedMenuItem *)setCurrentPageAsHomePageMenuItem {
     return [self advancedMenuItemWithTitle:BrowserLocalized(@"Set Current Page As Home Page")
                                      style:UIAlertActionStyleDefault
@@ -1514,19 +1580,25 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
 }
 
 - (BrowserAdvancedMenuItem *)whatsNewMenuItem {
-    return [self advancedMenuItemWithTitle:BrowserLocalized(@"What's New")
-                                     style:UIAlertActionStyleDefault
-                                   handler:^{
+    // Opens on top of Settings (Settings stay open), so Back from it returns to Settings.
+    BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"What's New")
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^{
         [self.host browserShowWhatsNew];
     }];
+    item.stayOpen = YES;
+    return item;
 }
 
 - (BrowserAdvancedMenuItem *)usageGuideMenuItem {
-    return [self advancedMenuItemWithTitle:BrowserLocalized(@"Usage Guide")
-                                     style:UIAlertActionStyleDefault
-                                   handler:^{
+    // Opens on top of Settings (Settings stay open), so Back from it returns to Settings.
+    BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"Usage Guide")
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^{
         [self.host browserShowHints];
     }];
+    item.stayOpen = YES;
+    return item;
 }
 
 - (BrowserAdvancedMenuItem *)showTabsMenuItem {
@@ -1624,6 +1696,36 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
 static NSUInteger const kBrowserFontSizeMin = 50;
 static NSUInteger const kBrowserFontSizeMax = 200;
 
+- (void)presentTextSizeSliderWithValue:(NSUInteger)value changed:(void (^)(NSUInteger size))changed {
+    __block NSUInteger current = MIN(MAX(value, kBrowserFontSizeMin), kBrowserFontSizeMax);
+    BrowserGlassSliderViewController *slider = [BrowserGlassSliderViewController new];
+    CGFloat range = (CGFloat)(kBrowserFontSizeMax - kBrowserFontSizeMin);
+    slider.sliderTitle = BrowserLocalized(@"Font Size");
+    slider.lowText = [NSString stringWithFormat:@"%lu %%", (unsigned long)kBrowserFontSizeMin];
+    slider.highText = [NSString stringWithFormat:@"%lu %%", (unsigned long)kBrowserFontSizeMax];
+    slider.lowSymbol = @"textformat.size.smaller";
+    slider.highSymbol = @"textformat.size.larger";
+    slider.steps = range / 5.0;
+    slider.pressStep = 5.0 / range;
+    slider.getValue = ^CGFloat{
+        return (CGFloat)(current - kBrowserFontSizeMin) / range;
+    };
+    slider.setValue = ^(CGFloat sliderValue) {
+        NSUInteger size = kBrowserFontSizeMin + (NSUInteger)lround(sliderValue * range / 5.0) * 5;
+        if (size != current) {
+            current = size;
+            if (changed != nil) {
+                changed(size);
+            }
+        }
+    };
+    slider.valueText = ^NSString *(CGFloat sliderValue) {
+        NSUInteger size = kBrowserFontSizeMin + (NSUInteger)lround(sliderValue * range / 5.0) * 5;
+        return size == 100 ? BrowserLocalized(@"100 % (Default)") : [NSString stringWithFormat:@"%lu %%", (unsigned long)size];
+    };
+    [self.host browserPresentViewController:slider];
+}
+
 - (BrowserAdvancedMenuItem *)fontSizeMenuItem {
     __weak typeof(self) weakSelf = self;
     BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"Font Size")
@@ -1677,6 +1779,23 @@ static NSUInteger const kBrowserFontSizeMax = 200;
                                  changed:^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"BrowserTabSiteColors"]; }];
 }
 
+- (BrowserAdvancedMenuItem *)adBlockMenuItem {
+    __weak typeof(self) weakSelf = self;
+    return [self toggleMenuItemWithTitle:BrowserLocalized(@"Block Ads")
+                                   value:^BOOL{ return BrowserWebView.adBlockEnabled; }
+                                 changed:^(BOOL on) {
+        BrowserWebView.adBlockEnabled = on;
+        [[weakSelf.host browserWebView] reload]; // the open page shows the change right away
+    }];
+}
+
+- (BrowserAdvancedMenuItem *)demoModeMenuItem {
+    // Shows a see-through Siri Remote on the right that lights up every press – for recordings and demos.
+    return [self toggleMenuItemWithTitle:BrowserLocalized(@"Demo Mode: Show Remote Presses")
+                                   value:^BOOL{ return BrowserRemoteVisualizer.enabled; }
+                                 changed:^(BOOL on) { BrowserRemoteVisualizer.enabled = on; }];
+}
+
 - (BrowserAdvancedMenuItem *)autoAcceptCookiesMenuItem {
     return [self toggleMenuItemWithTitle:BrowserLocalized(@"Accept Cookie Banners Automatically")
                                    value:^BOOL{ return BrowserWebView.autoAcceptCookies; }
@@ -1695,6 +1814,11 @@ static NSUInteger const kBrowserFontSizeMax = 200;
                                                                                style:UIAlertActionStyleDefault
                                                                              handler:^{
         [self presentMediaDiagnostics];
+    }];
+    BrowserAdvancedMenuItem *cloudGamingItem = [self advancedMenuItemWithTitle:@"Cloud Gaming Check"
+                                                                          style:UIAlertActionStyleDefault
+                                                                        handler:^{
+        [self presentCloudGamingCheck];
     }];
     BrowserAdvancedMenuItem *webkitMediaPrefsItem = [self advancedMenuItemWithTitle:@"Inspect WebKit Media Prefs"
                                                                                 style:UIAlertActionStyleDefault
@@ -1716,6 +1840,7 @@ static NSUInteger const kBrowserFontSizeMax = 200;
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Navigation")
                                                items:@[
             [self homePageMenuItem],
+            [self startPageAsHomeMenuItem],
             [self setCurrentPageAsHomePageMenuItem],
             [self favoritesMenuItem],
             [self historyMenuItem],
@@ -1746,6 +1871,7 @@ static NSUInteger const kBrowserFontSizeMax = 200;
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Compatibility")
                                                items:@[
             [self userAgentModeMenuItem],
+            [self adBlockMenuItem],
             [self autoAcceptCookiesMenuItem],
         ]],
         [BrowserAdvancedMenuSection sectionWithTitle:BrowserLocalized(@"Maintenance")
@@ -1757,15 +1883,17 @@ static NSUInteger const kBrowserFontSizeMax = 200;
                                                items:@[
             [self whatsNewMenuItem],
             [self usageGuideMenuItem],
+            [self demoModeMenuItem],
         ]],
     ] mutableCopy];
 #if DEBUG
     // Developer tools: only in Debug builds from Xcode, never in a release.
     [sections insertObject:[BrowserAdvancedMenuSection sectionWithTitle:@"Diagnostics"
-                                                                   items:@[mediaDiagnosticsItem, webkitMediaPrefsItem]]
+                                                                   items:@[mediaDiagnosticsItem, cloudGamingItem, webkitMediaPrefsItem]]
                    atIndex:sections.count - 2];
 #else
     (void)mediaDiagnosticsItem;
+    (void)cloudGamingItem;
     (void)webkitMediaPrefsItem;
 #endif
     return sections;
