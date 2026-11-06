@@ -297,7 +297,7 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 <a href="https://github.com/fdm96">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/dimarcostudio-dark.png">
-    <img src="docs/dimarcostudio-light.png" width="220" alt="di marco studio.">
+    <img src="docs/dimarcostudio-light.png" width="220" alt="di marcostudio.">
   </picture>
 </a>
 

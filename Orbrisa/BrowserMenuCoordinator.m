@@ -2,7 +2,7 @@
 //  BrowserMenuCoordinator.m
 //  Orbrisa
 //
-//  Orbrisa by Fabio Di Marco (di marco studio) with Claude (Anthropic) – next stage reached on 05/11/2026
+//  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
 //
 
 #import "BrowserMenuCoordinator.h"
@@ -288,7 +288,7 @@ typedef void (^BrowserAdvancedMenuItemHandler)(void);
         studioLogoView.tintColor = UIColor.whiteColor;
     }
     studioLogoView.isAccessibilityElement = YES;
-    studioLogoView.accessibilityLabel = @"di marco studio";
+    studioLogoView.accessibilityLabel = @"di marcostudio.";
     [panelView.contentView addSubview:studioLogoView];
     UIImageView *studioDotView = [[UIImageView alloc] initWithImage:studioDotImage];
     studioDotView.translatesAutoresizingMaskIntoConstraints = NO;
