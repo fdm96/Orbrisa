@@ -2,6 +2,8 @@
 //  BrowserQuickMenuViewController.m
 //  Orbrisa
 //
+//  Orbrisa by Fabio Di Marco (di marco studio) with Claude (Anthropic) – next stage reached on 05/11/2026
+//
 
 #import "BrowserQuickMenuViewController.h"
 #import "BrowserLocalization.h"
