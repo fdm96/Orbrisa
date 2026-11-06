@@ -5,6 +5,7 @@
 //  Orbrisa by Fabio Di Marco (di marcostudio.) with Claude (Anthropic) – next stage reached on 05/11/2026
 //
 
+#import <objc/runtime.h>
 #import "BrowserTabCoordinator.h"
 #import "BrowserLocalization.h"
 #import "BrowserLog.h"
@@ -314,6 +315,8 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 
 #pragma mark - Strip behind the top bar
 
+static char kBrowserWebViewEdgeColorKey; // each tab's web view remembers its strip colour
+
 // The web view starts below the top bar, so the strip behind the glass islands shows the container view.
 // Give that strip the page's own background colour so the bar floats on the page instead of on a black band.
 - (void)updateChromeBackgroundFromActiveWebView {
@@ -346,6 +349,28 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
 
         [self.topMenuView setPageIsLight:[self colorIsLight:color] animated:YES];
         [self rememberPageEdgeColor:color];
+        objc_setAssociatedObject(webView, &kBrowserWebViewEdgeColorKey, color, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+}
+
+/// After switching tabs: the tab's own colour right away, then read again once its page is on screen
+/// (a parked web view answers late or not at all – the strip stayed black).
+- (void)restoreChromeBackgroundForActiveWebView {
+    BrowserWebView *webView = self.activeWebView;
+    UIColor *color = webView != nil ? objc_getAssociatedObject(webView, &kBrowserWebViewEdgeColorKey) : nil;
+    if (color != nil) {
+        self.browserContainerView.backgroundColor = color;
+        [webView setPageEdgeColor:color];
+        [self.topMenuView setPageIsLight:[self colorIsLight:color] animated:NO];
+    }
+    __weak typeof(self) weakSelf = self;
+    __weak BrowserWebView *weakWebView = webView;
+    for (NSNumber *delay in @[@0.3, @1.0, @2.5]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (weakWebView != nil && weakSelf.activeWebView == weakWebView && weakWebView.request != nil) {
+                [weakSelf updateChromeBackgroundFromActiveWebView];
+            }
+        });
     }
 }
 
@@ -450,6 +475,7 @@ static NSString * const kBrowserLastPageEdgeColorKey = @"BrowserLastPageEdgeColo
     }
 
     self.activeWebView = activeWebView;
+    [self restoreChromeBackgroundForActiveWebView];
     [self.topMenuView.loadingSpinner stopAnimating];
     [self.activeWebView removeFromSuperview];
     [self.browserContainerView addSubview:self.activeWebView];
