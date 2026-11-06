@@ -1415,8 +1415,15 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     }
     [self deactivateTopBarFocusMode];
     BOOL hasPage = ![self browserActiveTabIsEmpty];
+    if (!hasPage) {
+        // An empty tab: Google loads behind the start page right away, so Back simply shows it – never a blank page.
+        NSURLRequest *google = [self.navigationService requestForURLString:@"https://www.google.com"];
+        if (google != nil) {
+            [self.webview loadRequest:google];
+        }
+    }
     BrowserLog(@"[StartPage] show: hasPage=%@ url=%@ tabs=%lu", hasPage ? @"YES" : @"NO", self.webview.request.URL.absoluteString ?: @"(nil)", (unsigned long)self.viewModel.tabs.count);
-    BrowserStartPageViewController *start = [[BrowserStartPageViewController alloc] initWithTabCount:self.viewModel.tabs.count canGoBack:hasPage];
+    BrowserStartPageViewController *start = [[BrowserStartPageViewController alloc] initWithTabCount:self.viewModel.tabs.count canGoBack:YES];
     __weak typeof(self) weakSelf = self;
     start.openURL = ^(NSString *URLString, BOOL asWebApp) {
         if (asWebApp) {
@@ -1433,18 +1440,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     start.showSettings = ^{ [weakSelf showAdvancedMenu]; };
     start.showFeeds = ^{ [weakSelf browserShowFeeds]; };
     start.favoritesChanged = ^{ [weakSelf.tabCoordinator updateTopShelf]; };
-    if (!hasPage) {
-        // Back from the start page of an empty tab: into the previous tab, or – the only tab – to Google instead of a blank page.
-        start.closeEmptyTab = ^{
-            // Back from the start page of an empty tab: Google in this tab – never a blank page.
-            weakSelf.startPageSuppressedUntil = CACurrentMediaTime() + 1.5;
-            NSURLRequest *request = [weakSelf.navigationService requestForURLString:@"https://www.google.com"];
-            BrowserLog(@"[StartPage] back -> google request=%@ webview=%p", request.URL.absoluteString ?: @"(nil)", weakSelf.webview);
-            if (request != nil) {
-                [weakSelf.webview loadRequest:request];
-            }
-        };
-    }
     [self presentViewController:start animated:YES completion:nil];
 }
 
