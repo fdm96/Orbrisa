@@ -2005,6 +2005,10 @@ static NSString *BrowserWebAppPagingScript(void) {
     __weak typeof(self) weakSelf = self;
     // Like the tab overview: the top bar stays, its address field reads "Feeds · 4 new articles".
     feeds.headerChanged = ^(NSString *subtitle) {
+        // Orange glass while the feeds are open – a deeper orange in dark mode.
+        BOOL dark = weakSelf.view.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+        UIColor *orange = dark ? [UIColor colorWithRed:0.78 green:0.36 blue:0.0 alpha:0.9] : [UIColor colorWithRed:1.0 green:0.58 blue:0.0 alpha:0.9];
+        [weakSelf.topMenuView setTitlePillTintColor:(subtitle != nil ? orange : nil)];
         [weakSelf.topMenuView setOverrideTitle:(subtitle != nil ? BrowserLocalized(@"Feeds") : nil)
                                       subtitle:subtitle
                                     symbolName:@"dot.radiowaves.up.forward"];

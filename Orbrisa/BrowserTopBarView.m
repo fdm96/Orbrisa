@@ -145,6 +145,7 @@ static CGFloat const kTopBarFeedGap = 32.0; // room for the address pill growing
 @property (nonatomic) CGFloat progressFraction;
 @property (nonatomic, copy) NSString *subtitleText;
 @property (nonatomic) BOOL pageIsLight;
+@property (nonatomic) UIColor *titlePillTint;
 @property (nonatomic) BOOL subtitleSecure;
 @property (nonatomic) BOOL overrideTitleActive;
 @property (nonatomic, copy) NSString *stashedTitleText;
@@ -513,11 +514,40 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     return [UIBlurEffect effectWithStyle:self.pageIsLight ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
 }
 
+- (void)setTitlePillTintColor:(UIColor *)tintColor {
+    self.titlePillTint = tintColor;
+    [self applyTitlePillTint];
+    [self refreshSubtitle];
+}
+
+- (void)applyTitlePillTint {
+    UIColor *tint = self.titlePillTint;
+    if (tint == nil) {
+        self.centerEffectView.effect = [self newIslandEffect];
+        BrowserApplyGlassAmount(self.centerEffectView, [self solidIslandColor]);
+        self.URLLabel.textColor = self.centerFocused ? [self focusedTintColor] : [self idleTintColor];
+        return;
+    }
+#if __has_include(<UIKit/UIGlassEffect.h>)
+    if (@available(tvOS 26.0, *)) {
+        UIGlassEffect *glass = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
+        glass.interactive = YES;
+        glass.tintColor = tint;
+        self.centerEffectView.effect = glass;
+    }
+#endif
+    BrowserApplyGlassAmount(self.centerEffectView, tint);
+    self.URLLabel.textColor = UIColor.whiteColor;
+}
+
 - (void)glassAmountDidChange:(NSNotification *)notification {
     (void)notification;
     // Only the solid layer changes – rebuilding the glass effects on every slider step made it lag.
     for (UIVisualEffectView *effectView in @[self.leftEffectView, self.centerEffectView, self.rightEffectView]) {
         BrowserApplyGlassAmount(effectView, [self solidIslandColor]);
+    }
+    if (self.titlePillTint != nil) {
+        BrowserApplyGlassAmount(self.centerEffectView, self.titlePillTint);
     }
 }
 
@@ -556,6 +586,9 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
             containerView.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.14].CGColor;
             containerView.layer.borderWidth = 1.0;
         }
+    }
+    if (self.titlePillTint != nil) {
+        [self applyTitlePillTint];
     }
 }
 
@@ -746,7 +779,8 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 - (void)setOverrideTitle:(NSString *)title subtitle:(NSString *)subtitle symbolName:(NSString *)symbolName {
     [self setOverrideTitle:title subtitle:subtitle];
     UIImage *symbol = (title != nil && symbolName.length > 0)
-        ? [[self symbolImageNamed:symbolName pointSize:22.0] imageWithTintColor:UIColor.systemOrangeColor renderingMode:UIImageRenderingModeAlwaysOriginal] : nil;
+        ? [[self symbolImageNamed:symbolName pointSize:22.0] imageWithTintColor:(self.titlePillTint != nil ? UIColor.whiteColor : UIColor.systemOrangeColor)
+                                                         renderingMode:UIImageRenderingModeAlwaysOriginal] : nil;
     if (symbol == nil) {
         return;
     }
@@ -807,7 +841,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 }
 
 - (void)refreshSubtitle {
-    UIColor *color = [self subtitleColorFocused:self.centerFocused];
+    UIColor *color = self.titlePillTint != nil ? [UIColor colorWithWhite:1.0 alpha:0.85] : [self subtitleColorFocused:self.centerFocused];
     NSMutableAttributedString *text = [[NSMutableAttributedString alloc] init];
 
     if (self.subtitleSecure) {
@@ -964,7 +998,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     if (button == self.URLFocusButton) {
         self.centerFocused = focused;
         self.centerFocusFillView.alpha = focused ? 1.0 : 0.0;
-        self.URLLabel.textColor = focused ? [self focusedTintColor] : [self idleTintColor];
+        self.URLLabel.textColor = self.titlePillTint != nil ? UIColor.whiteColor : (focused ? [self focusedTintColor] : [self idleTintColor]);
         self.centerContainerView.transform = focused ? CGAffineTransformMakeScale(kTopBarCenterFocusedScale, kTopBarCenterFocusedScale)
                                                      : CGAffineTransformIdentity;
         [self refreshSubtitle];
