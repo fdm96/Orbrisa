@@ -77,7 +77,7 @@
 
 ### 🧪 New in Beta 2 – start page, web apps & ad blocker
 
-- **Start page** – favorites as tiles, *Recently Visited* with page pictures. Hold a favorite for *Open as Web App*, *Open When Orbrisa Starts*, *Rename* and *Remove*.
+- **Start page** – favorites as tiles, *Recently Visited* with page pictures. Hold a favorite for *Open as Web App*, *Open When Orbrisa Starts*, *Rename* and *Remove*. Hold a recent site to open it, make it a favorite or remove it.
 - **Web apps** – a favorite opens full screen without the bar. Swipe to scroll, hold the clickpad for the selection box, hold the bottom of the clickpad for your other web apps.
 - **Ad blocker** – ad and tracking servers are blocked, ad boxes hidden. On by default, switch it off in the quick menu or in Settings.
 - **New quick menu** – Play/Pause opens a glass panel with font size, page appearance, actions and the ad blocker switch.

@@ -278,3 +278,11 @@
 "New Settings" = "Neue Einstellungen";
 "Switches and design like the tvOS Settings." = "Schalter und Aussehen wie in den tvOS-Einstellungen.";
 "Adjust the glass effect smoothly or turn it off completely." = "Den Glas-Effekt stufenlos einstellen oder ganz ausschalten.";
+
+/* Start page – recently visited options */
+"Opens the page with the bar" = "Öffnet die Seite mit der Leiste";
+"Add to Favorites" = "Zu Favoriten hinzufügen";
+"As a tile at the top of the start page" = "Als Kachel oben auf der Startseite";
+"Remove from Recently Visited" = "Aus „Zuletzt besucht“ entfernen";
+"Hold a recent site" = "Zuletzt besuchte Seite gedrückt halten";
+"Options: open, open as web app, add to favorites, remove from the list." = "Optionen: öffnen, als Web-App öffnen, zu Favoriten hinzufügen, aus der Liste entfernen.";

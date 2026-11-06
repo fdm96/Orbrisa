@@ -812,9 +812,17 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     if (recognizer.state != UIGestureRecognizerStateBegan) {
         return;
     }
-    NSInteger index = self.panel == nil ? [self focusedFavoriteIndex] : NSNotFound;
+    if (self.panel != nil) {
+        return;
+    }
+    NSInteger index = [self focusedFavoriteIndex];
     if (index != NSNotFound) {
         [self presentOptionsForFavoriteAtIndex:(NSUInteger)index];
+        return;
+    }
+    NSInteger recent = [self focusedRecentIndex];
+    if (recent != NSNotFound) {
+        [self presentOptionsForRecentAtIndex:(NSUInteger)recent];
     }
 }
 
@@ -929,6 +937,203 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     }];
     [self setNeedsFocusUpdate];
     [self updateFocusIfNeeded];
+}
+
+#pragma mark Recently visited – options
+
+- (NSInteger)focusedRecentIndex {
+    id<UIFocusItem> focused = [UIFocusSystem focusSystemForEnvironment:self].focusedItem;
+    if (![focused isKindOfClass:[BrowserStartRecentCell class]]) {
+        return NSNotFound;
+    }
+    NSIndexPath *indexPath = [self.recentsView indexPathForCell:(BrowserStartRecentCell *)focused];
+    if (indexPath == nil || indexPath.item >= (NSInteger)self.recents.count) {
+        return NSNotFound;
+    }
+    return indexPath.item;
+}
+
+- (BOOL)isFavoriteURL:(NSString *)URLString {
+    NSString *host = StartHostForURL(URLString);
+    for (NSArray<NSString *> *favorite in self.favorites) {
+        if ([favorite[0] isEqualToString:URLString] || (host.length > 0 && [StartHostForURL(favorite[0]) isEqualToString:host])) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+/// The same glass panel as for favorites: open, open as web app, add to favorites, remove from the list.
+- (void)presentOptionsForRecentAtIndex:(NSUInteger)index {
+    [self closePanel];
+    NSArray<NSString *> *recent = self.recents[index];
+    NSString *URLString = recent[0];
+    NSString *host = StartHostForURL(URLString);
+    NSString *name = recent[1].length > 0 ? recent[1] : host;
+
+    UIView *backdrop = [[UIView alloc] initWithFrame:self.view.bounds];
+    backdrop.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    backdrop.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    backdrop.userInteractionEnabled = NO;
+    [self.view addSubview:backdrop];
+    self.panelBackdrop = backdrop;
+
+    UIVisualEffectView *panel = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    panel.layer.cornerRadius = 40.0;
+    panel.clipsToBounds = YES;
+    panel.contentView.backgroundColor = [UIColor colorWithRed:0.19 green:0.19 blue:0.21 alpha:0.75];
+
+    UILabel *tile = [UILabel new];
+    tile.text = StartLetterForName(name, URLString);
+    tile.textAlignment = NSTextAlignmentCenter;
+    tile.font = [UIFont systemFontOfSize:36.0 weight:UIFontWeightBold];
+    tile.textColor = UIColor.whiteColor;
+    tile.backgroundColor = [BrowserFeedStore colorForFeedURL:host];
+    tile.layer.cornerRadius = 18.0;
+    tile.layer.masksToBounds = YES;
+    [tile.widthAnchor constraintEqualToConstant:72.0].active = YES;
+    [tile.heightAnchor constraintEqualToConstant:72.0].active = YES;
+    UILabel *title = [UILabel new];
+    title.text = name;
+    title.font = [UIFont systemFontOfSize:32.0 weight:UIFontWeightBold];
+    title.textColor = UIColor.whiteColor;
+    UILabel *address = [UILabel new];
+    address.text = host;
+    address.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
+    address.textColor = [UIColor colorWithWhite:1.0 alpha:0.6];
+    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[title, address]];
+    titles.axis = UILayoutConstraintAxisVertical;
+    titles.spacing = 2.0;
+    UIStackView *header = [[UIStackView alloc] initWithArrangedSubviews:@[tile, titles]];
+    header.spacing = 20.0;
+    header.alignment = UIStackViewAlignmentCenter;
+    header.layoutMargins = UIEdgeInsetsMake(0.0, 8.0, 8.0, 8.0);
+    header.layoutMarginsRelativeArrangement = YES;
+
+    BrowserStartPanelRow *open = [BrowserStartPanelRow rowWithSymbol:@"safari" title:BrowserLocalized(@"Open")
+                                                              detail:BrowserLocalized(@"Opens the page with the bar") hasSwitch:NO height:88.0];
+    [open addTarget:self action:@selector(recentOpenPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    BrowserStartPanelRow *webApp = [BrowserStartPanelRow rowWithSymbol:@"arrow.up.left.and.arrow.down.right" title:BrowserLocalized(@"Open as Web App")
+                                                                detail:BrowserLocalized(@"Full screen – no bar, no buttons") hasSwitch:NO height:88.0];
+    [webApp addTarget:self action:@selector(recentWebAppPressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    NSMutableArray<UIView *> *rows = [NSMutableArray arrayWithObjects:header, open, webApp, nil];
+    NSMutableArray<BrowserStartPanelRow *> *buttons = [NSMutableArray arrayWithObjects:open, webApp, nil];
+    CGFloat height = 34.0 + 80.0 + 14.0 + 88.0 + 14.0 + 88.0;
+    if (![self isFavoriteURL:URLString]) {
+        BrowserStartPanelRow *favorite = [BrowserStartPanelRow rowWithSymbol:@"star" title:BrowserLocalized(@"Add to Favorites")
+                                                                      detail:BrowserLocalized(@"As a tile at the top of the start page") hasSwitch:NO height:88.0];
+        [favorite addTarget:self action:@selector(recentFavoritePressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+        [rows addObject:favorite];
+        [buttons addObject:favorite];
+        height += 14.0 + 88.0;
+    }
+    BrowserStartPanelRow *remove = [BrowserStartPanelRow rowWithSymbol:nil title:BrowserLocalized(@"Remove from Recently Visited") detail:nil hasSwitch:NO height:72.0];
+    remove.destructive = YES;
+    remove.layer.cornerRadius = 36.0;
+    [remove applyFocused:NO];
+    [remove addTarget:self action:@selector(recentRemovePressed:) forControlEvents:UIControlEventPrimaryActionTriggered];
+    [rows addObject:remove];
+    [buttons addObject:remove];
+    height += 20.0 + 72.0 + 34.0;
+
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:rows];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 14.0;
+    [stack setCustomSpacing:20.0 afterView:rows[rows.count - 2]];
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [panel.contentView addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.topAnchor constraintEqualToAnchor:panel.contentView.topAnchor constant:34.0],
+        [stack.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor constant:-34.0],
+        [stack.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:34.0],
+        [stack.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor constant:-34.0],
+    ]];
+    for (BrowserStartPanelRow *row in buttons) {
+        row.tag = (NSInteger)index;
+    }
+
+    // Over the picture, kept on screen
+    CGFloat width = 780.0;
+    UICollectionViewCell *cell = [self.recentsView cellForItemAtIndexPath:[NSIndexPath indexPathForItem:(NSInteger)index inSection:0]];
+    CGRect cellFrame = cell != nil ? [cell convertRect:cell.bounds toView:self.view] : CGRectMake(CGRectGetMidX(self.view.bounds), 500.0, 0.0, 0.0);
+    CGFloat boundsWidth = CGRectGetWidth(self.view.bounds);
+    CGFloat x = MIN(MAX(CGRectGetMidX(cellFrame) - width / 2.0, kStartSideInset), boundsWidth - kStartSideInset - width);
+    CGFloat y = MIN(CGRectGetMidY(cellFrame) - height / 2.0, CGRectGetHeight(self.view.bounds) - height - 40.0);
+    panel.frame = CGRectMake(x, MAX(y, 140.0), width, height);
+    [self.view addSubview:panel];
+    self.panel = panel;
+    self.panelFirstRow = open;
+
+    self.collectionView.userInteractionEnabled = NO;
+    self.recentsView.userInteractionEnabled = NO;
+    self.topBar.userInteractionEnabled = NO;
+    panel.alpha = 0.0;
+    backdrop.alpha = 0.0;
+    [UIView animateWithDuration:0.22 animations:^{
+        panel.alpha = 1.0;
+        backdrop.alpha = 1.0;
+    }];
+    [self setNeedsFocusUpdate];
+    [self updateFocusIfNeeded];
+}
+
+- (NSString *)recentURLForPanelRow:(UIButton *)row {
+    return (row.tag >= 0 && row.tag < (NSInteger)self.recents.count) ? self.recents[(NSUInteger)row.tag][0] : nil;
+}
+
+- (void)recentOpenPressed:(UIButton *)row {
+    NSString *URLString = [self recentURLForPanelRow:row];
+    [self closePanel];
+    if (URLString != nil) {
+        [self closeAndOpenURL:URLString asWebApp:NO];
+    }
+}
+
+- (void)recentWebAppPressed:(UIButton *)row {
+    NSString *URLString = [self recentURLForPanelRow:row];
+    [self closePanel];
+    if (URLString != nil) {
+        [self closeAndOpenURL:URLString asWebApp:YES];
+    }
+}
+
+- (void)recentFavoritePressed:(UIButton *)row {
+    NSString *URLString = [self recentURLForPanelRow:row];
+    NSString *name = row.tag >= 0 && row.tag < (NSInteger)self.recents.count ? self.recents[(NSUInteger)row.tag][1] : @"";
+    [self closePanel];
+    if (URLString == nil || [self isFavoriteURL:URLString]) {
+        return;
+    }
+    // The site's start address, so the tile opens the site and not one old article.
+    NSURLComponents *components = [NSURLComponents componentsWithString:URLString];
+    NSString *siteURL = components.host.length > 0 ? [NSString stringWithFormat:@"%@://%@/", components.scheme ?: @"https", components.host] : URLString;
+    NSString *title = StartHostForURL(URLString);
+    if (name.length > 0 && name.length <= 24) {
+        title = name;
+    }
+    NSMutableArray *favorites = [self.favorites mutableCopy];
+    [favorites addObject:@[siteURL, title]];
+    [self saveFavorites:favorites];
+}
+
+- (void)recentRemovePressed:(UIButton *)row {
+    NSString *URLString = [self recentURLForPanelRow:row];
+    [self closePanel];
+    NSString *host = StartHostForURL(URLString ?: @"");
+    if (host.length == 0) {
+        return;
+    }
+    // The list shows one entry per site, so every visit of that site leaves it.
+    NSMutableArray *history = [NSMutableArray array];
+    for (id entry in [NSUserDefaults.standardUserDefaults arrayForKey:kStartHistoryKey]) {
+        if ([entry isKindOfClass:[NSArray class]] && [entry count] > 0 && [entry[0] isKindOfClass:[NSString class]]
+            && [StartHostForURL(entry[0]) isEqualToString:host]) {
+            continue;
+        }
+        [history addObject:entry];
+    }
+    [NSUserDefaults.standardUserDefaults setObject:history forKey:kStartHistoryKey];
+    [self reloadData];
 }
 
 - (BOOL)consumeMenuPress {
@@ -1108,6 +1313,11 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         NSInteger index = [self focusedFavoriteIndex];
         if (index != NSNotFound) {
             [self presentOptionsForFavoriteAtIndex:(NSUInteger)index];
+            return;
+        }
+        NSInteger recent = [self focusedRecentIndex];
+        if (recent != NSNotFound) {
+            [self presentOptionsForRecentAtIndex:(NSUInteger)recent];
         }
         return;
     }

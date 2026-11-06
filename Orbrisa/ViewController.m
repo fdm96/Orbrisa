@@ -381,6 +381,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
           [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
                       title:BrowserLocalized(@"Hold a favorite")
                        text:BrowserLocalized(@"Options: open as web app, open when Orbrisa starts, rename, remove. Play/Pause works too.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold a recent site")
+                       text:BrowserLocalized(@"Options: open, open as web app, add to favorites, remove from the list.")],
           [self rowWithKind:BrowserRemoteIconKindBack badge:nil
                       title:BrowserLocalized(@"Back on the start page")
                        text:BrowserLocalized(@"Closes it and shows the page – an empty tab shows Google.")]],

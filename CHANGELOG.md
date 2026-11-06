@@ -10,6 +10,7 @@ All notable changes to Orbrisa. The format follows [Keep a Changelog](https://ke
 - **Start page** for new tabs and the Home button – the Liquid Glass top bar, your favorites as large tiles and *Recently Visited* with real page pictures
   - Favorites stay in one row and scroll sideways, only *Recently Visited* scrolls up and down
   - Hold a favorite (or press Play/Pause on it) for its options: *Open as Web App*, *Open When Orbrisa Starts*, *Always Open as Web App*, *Rename*, *Remove*
+  - Hold a recently visited site for *Open*, *Open as Web App*, *Add to Favorites* and *Remove from Recently Visited*
   - Settings → *Home Page*: the Orbrisa start page or a website of your choice
   - An empty tab loads Google behind the start page – Back simply shows it, never a blank page
 - **Web apps** – open a favorite like a native app
