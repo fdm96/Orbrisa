@@ -549,9 +549,10 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 - (void)glassAmountDidChange:(NSNotification *)notification {
     (void)notification;
     // Only the solid layer changes – rebuilding the glass effects on every slider step made it lag.
-    for (UIVisualEffectView *effectView in @[self.leftEffectView, self.centerEffectView, self.rightEffectView, self.feedEffectView]) {
+    for (UIVisualEffectView *effectView in @[self.leftEffectView, self.centerEffectView, self.rightEffectView]) {
         BrowserApplyGlassAmount(effectView, [self solidIslandColor]);
     }
+    [self applyFeedGlass];
     if (self.titlePillTint != nil) {
         BrowserApplyGlassAmount(self.centerEffectView, self.titlePillTint);
     }
@@ -596,8 +597,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     if (self.titlePillTint != nil) {
         [self applyTitlePillTint];
     }
-    self.feedEffectView.effect = [self newIslandEffect];
-    BrowserApplyGlassAmount(self.feedEffectView, [self solidIslandColor]);
+    [self applyFeedGlass];
     self.feedFocusButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:[self usesGlass] ? (self.pageIsLight ? 0.35 : 0.55) : 0.14].CGColor;
     self.feedFocusButton.layer.borderWidth = 1.0;
 }
@@ -889,9 +889,33 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     self.tabsFocusButton.accessibilityValue = tabCount > 0 ? [NSString stringWithFormat:BrowserLocalized(@"%lu open"), (unsigned long)tabCount] : nil;
 }
 
+- (void)applyFeedGlass {
+    UIColor *orange = [UIColor colorWithRed:1.0 green:0.55 blue:0.0 alpha:0.95];
+    if (self.feedAvailable) {
+#if __has_include(<UIKit/UIGlassEffect.h>)
+        if (@available(tvOS 26.0, *)) {
+            UIGlassEffect *glass = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
+            glass.interactive = YES;
+            glass.tintColor = orange;
+            self.feedEffectView.effect = glass;
+        }
+#endif
+        BrowserApplyGlassAmount(self.feedEffectView, orange);
+    } else {
+        self.feedEffectView.effect = [self newIslandEffect];
+        BrowserApplyGlassAmount(self.feedEffectView, [self solidIslandColor]);
+    }
+}
+
 - (void)applyFeedLook {
-    // Liquid Glass like the bar; the RSS symbol is orange – bright when the page offers a feed, softer otherwise.
-    self.feedFocusButton.iconView.tintColor = self.feedAvailable ? UIColor.systemOrangeColor : [UIColor.systemOrangeColor colorWithAlphaComponent:0.55];
+    // A feed to subscribe to: the button glows orange (orange glass) with a white symbol.
+    // No feed: clear Liquid Glass like the bar with an orange symbol (opens your feeds).
+    [self applyFeedGlass];
+    self.feedFocusButton.iconView.tintColor = self.feedAvailable ? UIColor.whiteColor : UIColor.systemOrangeColor;
+    self.feedFocusButton.layer.shadowColor = (self.feedAvailable ? UIColor.systemOrangeColor : UIColor.blackColor).CGColor;
+    self.feedFocusButton.layer.shadowOffset = self.feedAvailable ? CGSizeZero : CGSizeMake(0.0, 6.0);
+    self.feedFocusButton.layer.shadowRadius = self.feedAvailable ? 16.0 : 12.0;
+    self.feedFocusButton.layer.shadowOpacity = self.feedAvailable ? 0.7 : 0.25;
     self.feedFocusButton.accessibilityLabel = self.feedAvailable ? BrowserLocalized(@"Subscribe to Feed") : BrowserLocalized(@"Feeds");
 }
 
@@ -1025,9 +1049,11 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     }
     if (button == self.feedFocusButton) {
         button.transform = focused ? CGAffineTransformMakeScale(kTopBarFocusedButtonScale, kTopBarFocusedButtonScale) : CGAffineTransformIdentity;
-        button.backgroundColor = focused ? [self focusFillColor] : UIColor.clearColor;
-        self.feedEffectView.alpha = focused ? 0.0 : 1.0;
-        button.layer.shadowOpacity = focused ? 0.45 : 0.25;
+        BOOL fill = focused && !self.feedAvailable; // the orange button just grows and glows stronger
+        button.backgroundColor = fill ? [self focusFillColor] : UIColor.clearColor;
+        self.feedEffectView.alpha = fill ? 0.0 : 1.0;
+        button.layer.borderWidth = (focused && self.feedAvailable) ? 3.0 : 1.0;
+        button.layer.shadowOpacity = self.feedAvailable ? (focused ? 0.9 : 0.7) : (focused ? 0.45 : 0.25);
         return;
     }
 
