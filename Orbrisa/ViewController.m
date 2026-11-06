@@ -456,12 +456,15 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     versionLabel.textAlignment = NSTextAlignmentCenter;
 
     UIStackView *features = [[UIStackView alloc] initWithArrangedSubviews:@[
-        [self featureWithSymbol:@"text.alignleft" color:UIColor.systemOrangeColor
-                          title:BrowserLocalized(@"Reader Mode")
-                           text:BrowserLocalized(@"Only the article – large, calm text with your own size, background and font.")],
-        [self featureWithSymbol:@"dot.radiowaves.up.forward" color:UIColor.systemBlueColor
-                          title:BrowserLocalized(@"RSS Feeds")
-                           text:BrowserLocalized(@"Subscribe to your favourite sites and see all new articles in one place.")],
+        [self featureWithSymbol:@"house.fill" color:UIColor.systemBlueColor
+                          title:BrowserLocalized(@"New Start Page")
+                           text:BrowserLocalized(@"Your favorites as large tiles and recently visited sites with real pictures. Hold a favorite for its options.")],
+        [self featureWithSymbol:@"app.badge.fill" color:UIColor.systemIndigoColor
+                          title:BrowserLocalized(@"Web Apps")
+                           text:BrowserLocalized(@"Open a favorite as an app: full screen, no bar, simple remote controls – hold the bottom of the clickpad for your other web apps.")],
+        [self featureWithSymbol:@"hand.raised.fill" color:UIColor.systemRedColor
+                          title:BrowserLocalized(@"Ad Blocker")
+                           text:BrowserLocalized(@"Blocks ad and tracking servers and hides ad boxes. Switch it off in the quick menu or in Settings.")],
         [self featureWithSymbol:@"ladybug.fill" color:UIColor.systemGreenColor
                           title:BrowserLocalized(@"This Is a Beta")
                            text:BrowserLocalized(@"Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot.")],
@@ -541,7 +544,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic) BOOL pageHasFeed;
 @property (nonatomic) NSUInteger pageProbeGeneration;
 @property (nonatomic, copy) NSString *autoReaderURL;
-@property (nonatomic) CFTimeInterval startPageSuppressedUntil; // Back just left the start page: don't bring it straight back
 @property (nonatomic) CFTimeInterval feedReaderPendingUntil; // an article opened from the feeds: show it in the Reader once it has loaded
 @property (nonatomic) BOOL webAppMode;
 @property (nonatomic) BOOL didHandleLaunchWebApp;
@@ -1153,7 +1155,10 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
 /// First start of a new version: "What's New", then the usage guide.
 - (void)showWhatsNewIfNeeded {
-    NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    // Version and build: a new beta of the same version (1.1.0 Beta 1 → Beta 2) shows What's New again.
+    NSString *shortVersion = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    NSString *build = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"";
+    NSString *version = shortVersion.length > 0 ? [NSString stringWithFormat:@"%@ (%@)", shortVersion, build] : @"";
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if (version.length == 0 || [[defaults stringForKey:@"BrowserWhatsNewShownVersion"] isEqualToString:version]) {
         return;
@@ -1367,10 +1372,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 }
 
 - (void)browserTabCoordinatorShowStartPage {
-    if (CACurrentMediaTime() < self.startPageSuppressedUntil) {
-        [self browserOpenGoogleIfTabEmpty];
-        return;
-    }
     [self browserShowStartPage];
 }
 
@@ -1382,17 +1383,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     BrowserTabViewModel *tab = self.tabCoordinator.activeTab;
     NSString *stored = tab.URLString.length > 0 ? tab.URLString : tab.requestURL;
     return [NSURL URLWithString:stored ?: @""].host.length == 0;
-}
-
-/// Opens Google in the open tab when it shows nothing (no address, or about:blank).
-- (void)browserOpenGoogleIfTabEmpty {
-    if (![self browserActiveTabIsEmpty]) {
-        return;
-    }
-    NSURLRequest *request = [self.navigationService requestForURLString:@"https://www.google.com"];
-    if (request != nil) {
-        [self.webview loadRequest:request];
-    }
 }
 
 - (void)browserShowStartPage {
@@ -1422,7 +1412,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
             [self.webview loadRequest:google];
         }
     }
-    BrowserLog(@"[StartPage] show: hasPage=%@ url=%@ tabs=%lu", hasPage ? @"YES" : @"NO", self.webview.request.URL.absoluteString ?: @"(nil)", (unsigned long)self.viewModel.tabs.count);
     BrowserStartPageViewController *start = [[BrowserStartPageViewController alloc] initWithTabCount:self.viewModel.tabs.count canGoBack:YES];
     __weak typeof(self) weakSelf = self;
     start.openURL = ^(NSString *URLString, BOOL asWebApp) {

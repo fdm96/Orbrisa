@@ -1090,14 +1090,8 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     if ([self consumeMenuPress] || self.closing) {
         return;
     }
-    if (self.canGoBack) {
-        self.closing = YES;
-        [self closeThen:nil];
-    } else if (self.closeEmptyTab != nil) {
-        self.closing = YES;
-        [self closeThen:self.closeEmptyTab]; // an empty tab: close it and go back into the previous tab
-    }
-    // the only tab, and it is empty: the start page stays – there is no tab to go back to
+    self.closing = YES;
+    [self closeThen:nil];
 }
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {

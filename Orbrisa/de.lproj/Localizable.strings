@@ -6,9 +6,7 @@
 "100 % (Default)" = "100 % (Standard)";
 "Accept Cookie Banners Automatically" = "Cookie-Banner automatisch akzeptieren";
 "Add Current Page to Favorites" = "Aktuelle Seite zu Favoriten hinzufügen";
-"Adjust the glass effect smoothly or turn it off completely." = "Den Glas-Effekt stufenlos einstellen oder ganz ausschalten.";
 "Afterwards, Orbrisa shows you how to use the Siri Remote." = "Danach zeigt dir Orbrisa die Bedienung mit der Siri Remote.";
-"All tabs with their logos right under the address bar – in each site's colour if you like." = "Alle Tabs mit Logo direkt unter der Adressleiste – auf Wunsch in der Farbe der Seite.";
 "Appearance" = "Darstellung";
 "Automatic" = "Automatisch";
 "Back" = "Zurück";
@@ -34,13 +32,11 @@
 "Cursor & Scrolling" = "Cursor & Scrollen";
 "Dark" = "Dunkel";
 "Dark Mode" = "Dunkelmodus";
-"Dark websites – automatic like the Apple TV, light or dark." = "Webseiten dunkel – automatisch wie das Apple TV, hell oder dunkel.";
 "DASH stream (VLC)" = "DASH-Stream (VLC)";
 "Delete a Favorite" = "Favorit löschen";
 "Dismiss" = "Schliessen";
 "Done" = "Fertig";
 "Enter address or search" = "Adresse eingeben oder suchen";
-"Enter Address or Search with Google" = "Adresse eingeben oder mit Google suchen";
 "Enter an Address or Search" = "Adresse eingeben oder suchen";
 "Enter URL or Search" = "Adresse eingeben oder suchen";
 "Exit" = "Beenden";
@@ -52,7 +48,6 @@
 "Found (%lu), but nothing playable:\n%@" = "Gefunden (%lu), aber nichts Abspielbares:\n%@";
 "Full Screen" = "Vollbild";
 "Full Screen Player" = "Vollbild-Player";
-"Go Forward" = "Vorwärts";
 "Go To Home Page" = "Zur Startseite";
 "Goes back one page. Closes menus, the keyboard and link navigation. On the first page: quits the app." = "Eine Seite zurück. Schliesst Menüs, Tastatur und Link-Navigation. Auf der ersten Seite: App beenden.";
 "Google This Page" = "Diese Seite googeln";
@@ -80,9 +75,7 @@
 "Moves the cursor. In scroll mode the page scrolls – scrolling down hides the bar, scrolling up brings it back." = "Bewegt den Cursor. Im Scroll-Modus scrollt die Seite – nach unten verschwindet die Leiste, nach oben kommt sie zurück.";
 "Name New Favorite" = "Name des neuen Favoriten";
 "Navigation" = "Navigation";
-"New Settings" = "Neue Einstellungen";
 "New Tab" = "Neuer Tab";
-"New Tab Strip" = "Neue Tab-Leiste";
 "Next Found Video" = "Nächstes gefundenes Video";
 "No other videos found." = "Keine weiteren Videos gefunden.";
 "No Video for the Apple TV Player" = "Kein Video für den Apple-TV-Player";
@@ -123,7 +116,6 @@
 "Swipe in the player" = "Im Player wischen";
 "Swipe on the clickpad" = "Über das Clickpad wischen";
 "Swipe or press left/right  ·  Click: done" = "Wischen oder links/rechts drücken  ·  Klicken: fertig";
-"Switches and design like the tvOS Settings." = "Schalter und Aussehen wie in den tvOS-Einstellungen.";
 "Switches between cursor mode and scroll mode." = "Wechselt zwischen Cursor-Modus und Scroll-Modus.";
 "Tab icon in the bar" = "Tab-Symbol in der Leiste";
 "Tabs" = "Tabs";
@@ -146,7 +138,6 @@
 "Video Can't Be Played" = "Video lässt sich nicht abspielen";
 "Video Playback" = "Videowiedergabe";
 "Video Playing" = "Video läuft";
-"Videos in the Apple TV Player" = "Videos im Apple-TV-Player";
 "VLC couldn't play this video. The site probably only allows it in its own player." = "VLC konnte dieses Video nicht abspielen. Die Seite lässt es vermutlich nur in ihrem eigenen Player zu.";
 "VLC Player Missing" = "VLC-Player fehlt";
 "VLC · Center: Play/Pause · ◀︎ ▶︎ 10 s · Swipe: scrub · Back: close" = "VLC · Mitte: Play/Pause · ◀︎ ▶︎ 10 s · Wischen: spulen · Zurück: schliessen";
@@ -156,7 +147,6 @@
 "Which Video?" = "Welches Video?";
 "You can still open Settings by double-tapping the Play/Pause button." = "Die Einstellungen öffnest du weiterhin mit zweimal Play/Pause.";
 "YouTube Extraction Failed" = "YouTube-Video nicht gefunden";
-"“Full Screen” opens the actual video in the Apple TV player – ads before it are skipped." = "„Vollbild“ öffnet den echten Film im Apple-TV-Player – Werbung davor wird übersprungen.";
 "Link Navigation" = "Link-Navigation";
 "hold" = "halten";
 
@@ -167,10 +157,6 @@
 "Subscribe to Feed" = "Feed abonnieren";
 "Swipe: scroll  ·  Play/Pause: appearance  ·  Back: close Reader" = "Wischen: scrollen  ·  Play/Pause: Darstellung  ·  Zurück: Reader beenden";
 "%ld min read" = "%ld Min. Lesezeit";
-"Click to change  ·  Back: done" = "Klicken: ändern  ·  Zurück: fertig";
-"Font Size: %ld %%" = "Schriftgrösse: %ld %%";
-"Background: %@" = "Hintergrund: %@";
-"Font: %@" = "Schrift: %@";
 "Serif" = "Serif";
 "System" = "System";
 "Sepia" = "Sepia";
@@ -181,7 +167,6 @@
 "%lu new articles" = "%lu neue Artikel";
 "No feeds yet. Open a website and choose “Subscribe to Feed” in Settings – Orbrisa finds the feed for you." = "Noch keine Feeds. Öffne eine Webseite und wähle in den Einstellungen „Feed abonnieren“ – Orbrisa findet den Feed für dich.";
 "No articles found. The site may be offline – try again later." = "Keine Artikel gefunden. Die Seite ist vielleicht nicht erreichbar – versuch es später nochmals.";
-"Click: open article  ·  Play/Pause on a feed: unsubscribe  ·  Back: close" = "Klicken: Artikel öffnen  ·  Play/Pause auf einem Feed: abbestellen  ·  Zurück: schliessen";
 "Unsubscribe from “%@”?" = "„%@“ abbestellen?";
 "Unsubscribe" = "Abbestellen";
 "OK" = "OK";
@@ -196,10 +181,6 @@
 "Feed Found: %@" = "Feed gefunden: %@";
 "Subscribe" = "Abonnieren";
 "Not Now" = "Nicht jetzt";
-"Reader Mode" = "Reader-Modus";
-"Only the article – large, calm text with your own size, background and font." = "Nur der Artikel – grosse, ruhige Schrift mit eigener Grösse, Hintergrund und Schrift.";
-"RSS Feeds" = "RSS-Feeds";
-"Subscribe to your favourite sites and see all new articles in one place." = "Abonniere deine Lieblingsseiten und sieh alle neuen Artikel an einem Ort.";
 "This Is a Beta" = "Das ist eine Beta";
 "Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot." = "Fehler gefunden oder eine Idee? Melde es auf GitHub – ein Foto vom Fernseher hilft sehr.";
 "Reader" = "Reader";
@@ -212,35 +193,20 @@
 "All" = "Alle";
 "Unread" = "Ungelesen";
 "Add Feed" = "Feed hinzufügen";
-"Search or enter address" = "Suchen oder Adresse eingeben";
 "Recently Visited" = "Zuletzt besucht";
 "Add Favorite" = "Favorit hinzufügen";
 "Web App" = "Web-App";
 "Open as Web App" = "Als Web-App öffnen";
-"Always Open as Web App: On" = "Immer als Web-App öffnen: Ein";
-"Always Open as Web App: Off" = "Immer als Web-App öffnen: Aus";
-"Open When Orbrisa Starts: On" = "Beim Start von Orbrisa öffnen: Ein";
-"Open When Orbrisa Starts: Off" = "Beim Start von Orbrisa öffnen: Aus";
 "Rename" = "Umbenennen";
 "Remove" = "Entfernen";
 "Name" = "Name";
 "Address" = "Adresse";
 "Leave Web App" = "Web-App verlassen";
-"Web App · Play/Pause opens the menu" = "Web-App · Play/Pause öffnet das Menü";
 "Full screen – no bar, no buttons" = "Ganzer Bildschirm – ohne Leiste und Knöpfe";
 "Open When Orbrisa Starts" = "Beim Start von Orbrisa öffnen";
 "Orbrisa starts right away with this web app" = "Orbrisa startet direkt mit dieser Web-App";
 "Always Open as Web App" = "Immer als Web-App öffnen";
 "A click on the tile opens it full screen" = "Ein Klick auf die Kachel öffnet sie im Vollbild";
-"Orbrisa Start Page as Home Page" = "Orbrisa-Startseite als Startseite";
-"How large should the text be?" = "Wie gross soll die Schrift sein?";
-"For this web app. You can change it later with Play/Pause → Text Size." = "Für diese Web-App. Du kannst es später mit Play/Pause → Schriftgrösse ändern.";
-"Normal" = "Normal";
-"Larger" = "Etwas grösser";
-"Large" = "Gross";
-"Very Large" = "Sehr gross";
-"Huge" = "Riesig";
-"Text Size" = "Schriftgrösse";
 "Block Ads" = "Werbung blockieren";
 "Web App · Hold the middle: pick · Play/Pause: menu" = "Web-App · Mitte gedrückt halten: auswählen · Play/Pause: Menü";
 "Next page →" = "Nächste Seite →";
@@ -253,3 +219,10 @@
 "Actions" = "Aktionen";
 "Search" = "Suchen";
 "Show Web Page" = "Webseite anzeigen";
+
+/* Beta 2 – What's New */
+"New Start Page" = "Neue Startseite";
+"Your favorites as large tiles and recently visited sites with real pictures. Hold a favorite for its options." = "Deine Favoriten als grosse Kacheln und zuletzt besuchte Seiten mit echtem Bild. Halte einen Favoriten gedrückt für seine Optionen.";
+"Open a favorite as an app: full screen, no bar, simple remote controls – hold the bottom of the clickpad for your other web apps." = "Öffne einen Favoriten als App: Vollbild, keine Leiste, einfache Steuerung – unten auf dem Clickpad halten zeigt deine anderen Web-Apps.";
+"Ad Blocker" = "Werbeblocker";
+"Blocks ad and tracking servers and hides ad boxes. Switch it off in the quick menu or in Settings." = "Blockiert Werbe- und Tracking-Server und blendet Werbeflächen aus. Ausschalten im Schnellmenü oder in den Einstellungen.";

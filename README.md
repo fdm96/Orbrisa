@@ -20,7 +20,7 @@
 ---
 
 > [!TIP]
-> 🧪 **Beta 1.1.0 is out – Reader mode and RSS feeds!** Download `Orbrisa-1.1.0-Beta-1-unsigned.ipa` from the [pre-release](https://github.com/fdm96/Orbrisa/releases) and tell me what you think. See the [changelog](CHANGELOG.md) for everything that's new.
+> 🧪 **Beta 2 is out – new start page, web apps and an ad blocker!** Download `Orbrisa-1.1.0-Beta-2-unsigned.ipa` from the [pre-release](https://github.com/fdm96/Orbrisa/releases) and tell me what you think. See the [changelog](CHANGELOG.md) for everything that's new.
 
 > [!IMPORTANT]
 > Orbrisa uses private Apple APIs (tvOS has no public WebKit). It can never be on the App Store and is meant for sideloading onto your own Apple TV. Use at your own risk.
@@ -30,6 +30,10 @@
 | | |
 |---|---|
 | 🌐 **Real browser** | WebKit (WKWebView) with tabs, session restore, favorites, history and a home page |
+| 🏠 **Start page** 🧪 | Favorites as large tiles and recently visited sites with real page pictures |
+| 📱 **Web apps** 🧪 | Open a favorite like an app: full screen, no bar, simple remote controls and a dock for your other web apps |
+| 🛡️ **Ad blocker** 🧪 | Blocks ad and tracking servers and hides ad boxes – one switch in the quick menu |
+| 📖 **Reader & RSS** 🧪 | Only the article in calm, large text – and feeds of your favourite sites that open right in the Reader |
 | 🗂️ **Tab strip** | Tabs with site logos right under the address bar, a large preview of the focused tab – optionally in each site's colour |
 | 🖱️ **Cursor & scroll mode** | Move a cursor with the clickpad, or scroll the page – double-press to switch |
 | 🔗 **Link navigation** | Jump from link to link with the ring, like a native tvOS app |
@@ -71,7 +75,15 @@
 
 </details>
 
-### 🧪 New in Beta 1.1.0 – Reader & RSS
+### 🧪 New in Beta 2 – start page, web apps & ad blocker
+
+- **Start page** – favorites as tiles, *Recently Visited* with page pictures. Hold a favorite for *Open as Web App*, *Open When Orbrisa Starts*, *Rename* and *Remove*.
+- **Web apps** – a favorite opens full screen without the bar. Swipe to scroll, hold the clickpad for the selection box, hold the bottom of the clickpad for your other web apps.
+- **Ad blocker** – ad and tracking servers are blocked, ad boxes hidden. On by default, switch it off in the quick menu or in Settings.
+- **New quick menu** – Play/Pause opens a glass panel with font size, page appearance, actions and the ad blocker switch.
+- **Feeds in the Reader** – articles from your feeds open in the Reader, and the Reader can switch back to the web page.
+
+### 🧪 New in Beta 1 – Reader & RSS
 
 <p align="center">
   <img src="docs/screenshots/beta-reader-button.jpg" width="820" alt="Reader button in the address bar and the RSS button next to it">
@@ -112,8 +124,8 @@ These features are designed and planned for the next versions. The pictures are 
 
 | | Feature | |
 |:---:|---|---|
-| 📖 | **Reader mode** 🧪 *in Beta 1.1.0* | Only the article – no ads, no menus. Large, calm text with your choice of size, background (light, sepia, grey, dark) and font. |
-| 📰 | **RSS feeds** 🧪 *in Beta 1.1.0* | Subscribe to your favourite sites. Orbrisa spots a feed on a page and shows new articles in one overview. |
+| 📖 | **Reader mode** 🧪 *in the beta* | Only the article – no ads, no menus. Large, calm text with your choice of size, background (light, sepia, grey, dark) and font. |
+| 📰 | **RSS feeds** 🧪 *in the beta* | Subscribe to your favourite sites. Orbrisa spots a feed on a page and shows new articles in one overview. |
 | 🖼️ | **Picture in picture** | Keep the video playing in a small window while you go on browsing. |
 | 🔒 | **Private mode** | Tabs without history or cookies, locked with a 4-digit code. |
 
@@ -166,10 +178,21 @@ See [Build from source](#build-from-source). A free Apple ID is enough.
 | Ring up / down / left / right | Next link (in link navigation) |
 | Top of the ring | Into the toolbar: back, forward, reload, address, home, tabs, fullscreen, menu |
 | Back | Previous page · closes menus and keyboard |
-| Play/Pause | Quick menu: forward, enter address, reload |
+| Play/Pause | Quick menu: font size, page appearance, search, Reader, reload, ad blocker |
 | Play/Pause twice | Settings: favorites, history, appearance, font size and more |
 
 In the Apple TV player the remote works exactly like in the TV app.
+
+**In a web app** 🧪
+
+| Button | Action |
+|---|---|
+| Swipe on the clickpad | Scroll the page |
+| Hold the center | Selection box on/off – the ring moves it, the center clicks |
+| Ring left / right | Previous / next page (on sites with pages) |
+| Hold the bottom of the clickpad | Your other web apps and the start page |
+| Back | Back inside the app – on its first page: to the start page |
+| Play/Pause | Quick menu with *Leave Web App* |
 
 ## Build from source
 
@@ -253,11 +276,13 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 - *IPA selbst bauen:* im Terminal im Orbrisa-Ordner `./scripts/make-ipa.sh` ausführen.
 - *Mit Mac:* Projekt klonen, `Configs/Local.xcconfig.example` nach `Configs/Local.xcconfig` kopieren, Team-ID und eigene Bundle-ID eintragen, `Orbrisa.xcodeproj` öffnen, Apple TV wählen, **⌘R**.
 
-**Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü, zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
+**Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü (Schriftgrösse, Darstellung, Aktionen, Werbeblocker), zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
 
-**Beta 1.1.0** 🧪 – Neu zum Ausprobieren: **Reader-Modus** (nur der Artikel, mit Schriftgrösse, Hintergrund Hell/Sepia/Grau/Dunkel, Schriftart und „Immer im Reader öffnen“) und **RSS-Feeds** (RSS-Knopf neben der Adressleiste, Feed-Übersicht mit ungelesenen Artikeln). Die IPA `Orbrisa-1.1.0-Beta-1-unsigned.ipa` gibt es unter [Releases](https://github.com/fdm96/Orbrisa/releases).
+**Beta 2** 🧪 – Neu: eine **Startseite** mit deinen Favoriten als Kacheln und den zuletzt besuchten Seiten mit Bild · **Web-Apps** (einen Favoriten wie eine App öffnen: Vollbild ohne Leiste, einfache Steuerung, unten auf dem Clickpad halten zeigt deine anderen Web-Apps) · ein **Werbeblocker** · ein neues **Schnellmenü** im Glas-Design · Artikel aus den **Feeds öffnen im Reader**. Die IPA `Orbrisa-1.1.0-Beta-2-unsigned.ipa` gibt es unter [Releases](https://github.com/fdm96/Orbrisa/releases).
+
+**Beta 1** 🧪 – **Reader-Modus** (nur der Artikel, mit Schriftgrösse, Hintergrund Hell/Sepia/Grau/Dunkel, Schriftart und „Immer im Reader öffnen“) und **RSS-Feeds** (RSS-Knopf neben der Adressleiste, Feed-Übersicht mit ungelesenen Artikeln).
 
 **Geplant** – Bild-in-Bild (Video läuft weiter, während du surfst) und ein privater Modus mit Code-Sperre. Die Entwürfe findest du oben unter *Roadmap*.
 

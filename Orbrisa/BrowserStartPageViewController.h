@@ -21,15 +21,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) void (^showTabs)(void);
 @property (nonatomic, copy, nullable) void (^showSettings)(void);
 @property (nonatomic, copy, nullable) void (^showFeeds)(void);
-/// Back on a start page of an empty tab: closes that tab and returns to another one (only when other tabs exist).
-@property (nonatomic, copy, nullable) void (^closeEmptyTab)(void);
 /// Runs right away when favorites were added, renamed or removed (e.g. to refresh the Top Shelf).
 @property (nonatomic, copy, nullable) void (^favoritesChanged)(void);
 
 /// YES when this favorite always opens as a web app (full screen, no bar).
 /// Back while the favorite panel is open (or was just closed): closes only the panel. YES when it was used.
 - (BOOL)consumeMenuPress;
-/// Back on the start page: closes a panel, else returns to the tab (an empty tab is closed and the previous one shown).
+/// Back on the start page: closes an open panel, else the start page (an empty tab already shows Google behind it).
 - (void)handleBackPress;
 
 + (BOOL)isWebAppURL:(nullable NSString *)URLString;
