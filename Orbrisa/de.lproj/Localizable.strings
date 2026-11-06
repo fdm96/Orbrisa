@@ -298,3 +298,10 @@
 "Hold %@" = "%@ halten";
 "2× %@" = "2× %@";
 "Swipe %@" = "Wischen %@";
+
+/* Start page wallpaper */
+"Wallpaper" = "Hintergrundbild";
+"Photos from Unsplash – shown blurred behind the start page" = "Fotos von Unsplash – unscharf hinter der Startseite";
+"Loading photos …" = "Fotos werden geladen …";
+"The photos could not be loaded. Check the internet connection and try again." = "Die Fotos konnten nicht geladen werden. Prüfe die Internetverbindung und versuche es nochmal.";
+"No Wallpaper" = "Kein Hintergrundbild";

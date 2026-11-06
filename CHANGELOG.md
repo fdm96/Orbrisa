@@ -13,6 +13,7 @@ All notable changes to Orbrisa. The format follows [Keep a Changelog](https://ke
   - Hold a recently visited site for *Open*, *Open as Web App*, *Add to Favorites* and *Remove from Recently Visited*
   - Settings → *Home Page*: the Orbrisa start page or a website of your choice
   - An empty tab loads Google behind the start page – Back simply shows it, never a blank page
+  - *Wallpaper* button under the address field: pick a photo from Unsplash (via Lorem Picsum, no account needed) in a glass window – it is shown softly blurred behind the start page
 - **Web apps** – open a favorite like a native app
   - Full screen, no bar, a splash screen with the site's logo
   - Swipe scrolls anywhere; hold the clickpad for a selection box (a soft glass droplet – blue on dark pages, green on light pages); left / right turns pages

@@ -10,6 +10,7 @@
 #import "BrowserLocalization.h"
 #import "BrowserTopBarView.h"
 #import "BrowserLog.h"
+#import "BrowserWallpaperViewController.h"
 
 static NSString * const kStartFavoritesKey = @"FAVORITES";
 static NSString * const kStartHistoryKey = @"HISTORY";
@@ -410,6 +411,31 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 @end
 
+#pragma mark - Wallpaper button
+
+/// The small "Wallpaper" capsule under the address field: glass when idle, white when focused.
+@interface BrowserStartWallpaperButton : UIButton
+@end
+
+@implementation BrowserStartWallpaperButton
+
+- (void)applyFocused:(BOOL)focused {
+    self.backgroundColor = focused ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.14];
+    UIColor *content = focused ? [UIColor colorWithWhite:0.1 alpha:1.0] : UIColor.whiteColor;
+    [self setTitleColor:content forState:UIControlStateNormal];
+    self.tintColor = content;
+    self.transform = focused ? CGAffineTransformMakeScale(1.08, 1.08) : CGAffineTransformIdentity;
+    self.layer.shadowOpacity = focused ? 0.4 : 0.0;
+}
+
+- (void)didUpdateFocusInContext:(UIFocusUpdateContext *)context withAnimationCoordinator:(UIFocusAnimationCoordinator *)coordinator {
+    [super didUpdateFocusInContext:context withAnimationCoordinator:coordinator];
+    BOOL focused = (context.nextFocusedView == self);
+    [coordinator addCoordinatedAnimations:^{ [self applyFocused:focused]; } completion:nil];
+}
+
+@end
+
 #pragma mark - Start page
 
 @interface BrowserStartPageViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, BrowserTopBarViewDelegate>
@@ -427,6 +453,8 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 @property (nonatomic) UIView *panel;
 @property (nonatomic) BrowserStartPanelRow *panelFirstRow;
 @property (nonatomic) BOOL focusFavoritesNext;
+@property (nonatomic) UIImageView *wallpaperView;       // the chosen photo, blurred behind everything
+@property (nonatomic) UIVisualEffectView *wallpaperBlur;
 @property (nonatomic) CFTimeInterval panelClosedTime;
 @end
 
@@ -567,6 +595,26 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [self.view addSubview:topBar];
     self.topBar = topBar;
 
+    BrowserStartWallpaperButton *wallpaperButton = [BrowserStartWallpaperButton buttonWithType:UIButtonTypeCustom];
+    wallpaperButton.translatesAutoresizingMaskIntoConstraints = NO;
+    UIImageSymbolConfiguration *photoConfig = [UIImageSymbolConfiguration configurationWithPointSize:20.0 weight:UIImageSymbolWeightSemibold];
+    [wallpaperButton setImage:[UIImage systemImageNamed:@"photo.on.rectangle" withConfiguration:photoConfig] forState:UIControlStateNormal];
+    [wallpaperButton setTitle:[@"  " stringByAppendingString:BrowserLocalized(@"Wallpaper")] forState:UIControlStateNormal];
+    wallpaperButton.titleLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightSemibold];
+    wallpaperButton.contentEdgeInsets = UIEdgeInsetsMake(0.0, 26.0, 0.0, 30.0);
+    wallpaperButton.layer.cornerRadius = 25.0;
+    wallpaperButton.layer.shadowColor = UIColor.blackColor.CGColor;
+    wallpaperButton.layer.shadowRadius = 12.0;
+    wallpaperButton.layer.shadowOffset = CGSizeMake(0.0, 6.0);
+    [wallpaperButton applyFocused:NO];
+    [wallpaperButton addTarget:self action:@selector(wallpaperPressed) forControlEvents:UIControlEventPrimaryActionTriggered];
+    [self.view addSubview:wallpaperButton];
+    [NSLayoutConstraint activateConstraints:@[
+        [wallpaperButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [wallpaperButton.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:142.0],
+        [wallpaperButton.heightAnchor constraintEqualToConstant:50.0],
+    ]];
+
     UILabel *favoritesLabel = [UILabel new];
     favoritesLabel.translatesAutoresizingMaskIntoConstraints = NO;
     favoritesLabel.text = BrowserLocalized(@"Favorites");
@@ -640,7 +688,44 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         [recentsView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [recentsView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
     ]];
+    [self applyWallpaper];
     [self reloadData];
+}
+
+/// The chosen photo fills the screen behind the start page, always softly blurred.
+- (void)applyWallpaper {
+    UIImage *image = [BrowserWallpaperViewController currentWallpaper];
+    if (image == nil) {
+        [self.wallpaperView removeFromSuperview];
+        [self.wallpaperBlur removeFromSuperview];
+        self.wallpaperView = nil;
+        self.wallpaperBlur = nil;
+        return;
+    }
+    if (self.wallpaperView == nil) {
+        UIImageView *imageView = [[UIImageView alloc] initWithFrame:self.view.bounds];
+        imageView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        imageView.contentMode = UIViewContentModeScaleAspectFill;
+        imageView.clipsToBounds = YES;
+        UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular]];
+        blur.frame = self.view.bounds;
+        blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        blur.contentView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.22]; // keeps the white text readable
+        [self.view insertSubview:blur atIndex:0];
+        [self.view insertSubview:imageView atIndex:0];
+        self.wallpaperView = imageView;
+        self.wallpaperBlur = blur;
+    }
+    [UIView transitionWithView:self.wallpaperView duration:0.4 options:UIViewAnimationOptionTransitionCrossDissolve animations:^{
+        self.wallpaperView.image = image;
+    } completion:nil];
+}
+
+- (void)wallpaperPressed {
+    BrowserWallpaperViewController *picker = [BrowserWallpaperViewController new];
+    __weak typeof(self) weakSelf = self;
+    picker.wallpaperChanged = ^{ [weakSelf applyWallpaper]; };
+    [self presentViewController:picker animated:YES completion:nil];
 }
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
@@ -1382,6 +1467,9 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 }
 
 - (void)handleBackPress {
+    if (self.presentedViewController != nil) {
+        return; // the wallpaper window (or an alert) on top handles Back itself
+    }
     BrowserLog(@"[StartPage] Back: panel=%@ closedAgo=%.2f closing=%@", self.panel != nil ? @"YES" : @"NO",
                CACurrentMediaTime() - self.panelClosedTime, self.closing ? @"YES" : @"NO");
     if ([self consumeMenuPress] || self.closing) {
