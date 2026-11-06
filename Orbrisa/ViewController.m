@@ -743,11 +743,7 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     betaLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
     betaLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
 
-    for (NSNumber *direction in @[@(UISwipeGestureRecognizerDirectionLeft), @(UISwipeGestureRecognizerDirectionRight)]) {
-        UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swiped:)];
-        swipe.direction = direction.unsignedIntegerValue;
-        [self.view addGestureRecognizer:swipe];
-    }
+    // No swiping here: the pages only turn with the ring (left / right), so a touch on the clickpad never moves them.
 
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
@@ -789,10 +785,6 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     ]];
     self.pageIndex = -1;
     [self showPage:0];
-}
-
-- (void)swiped:(UISwipeGestureRecognizer *)swipe {
-    [self showPage:self.pageIndex + (swipe.direction == UISwipeGestureRecognizerDirectionLeft ? 1 : -1)];
 }
 
 - (void)showPage:(NSInteger)index {
