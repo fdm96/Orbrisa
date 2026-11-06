@@ -2094,18 +2094,21 @@ static NSString *BrowserWebAppPagingScript(void) {
     // From the menu: the same screen as after an update; "Weiter" closes it (no usage guide afterwards).
     BrowserWhatsNewViewController *whatsNew = [BrowserWhatsNewViewController new];
     whatsNew.showsGuideHint = NO;
-    if (self.presentedViewController != nil) {
-        __weak typeof(self) weakSelf = self;
-        [self.presentedViewController dismissViewControllerAnimated:NO completion:^{
-            [weakSelf presentViewController:whatsNew animated:YES completion:nil];
-        }];
-        return;
-    }
-    [self presentViewController:whatsNew animated:YES completion:nil];
+    [self presentOverSettings:whatsNew]; // "Continue" or Back returns to Settings
 }
 
 - (void)browserShowHints {
-    [self showHintsAlert];
+    // From Settings → Help: on top of Settings, so Back returns to Settings.
+    [self presentOverSettings:[BrowserUsageGuideViewController new]];
+}
+
+/// Presents a help screen above whatever is open (Settings), so closing it lands there again.
+- (void)presentOverSettings:(UIViewController *)viewController {
+    UIViewController *top = self;
+    while (top.presentedViewController != nil && !top.presentedViewController.isBeingDismissed) {
+        top = top.presentedViewController;
+    }
+    [top presentViewController:viewController animated:YES completion:nil];
 }
 
 - (void)browserShowTabOverview {

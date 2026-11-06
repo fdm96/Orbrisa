@@ -1567,19 +1567,25 @@ static CGFloat const kGlassSliderTrackWidth = 680.0;
 }
 
 - (BrowserAdvancedMenuItem *)whatsNewMenuItem {
-    return [self advancedMenuItemWithTitle:BrowserLocalized(@"What's New")
-                                     style:UIAlertActionStyleDefault
-                                   handler:^{
+    // Opens on top of Settings (Settings stay open), so Back from it returns to Settings.
+    BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"What's New")
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^{
         [self.host browserShowWhatsNew];
     }];
+    item.stayOpen = YES;
+    return item;
 }
 
 - (BrowserAdvancedMenuItem *)usageGuideMenuItem {
-    return [self advancedMenuItemWithTitle:BrowserLocalized(@"Usage Guide")
-                                     style:UIAlertActionStyleDefault
-                                   handler:^{
+    // Opens on top of Settings (Settings stay open), so Back from it returns to Settings.
+    BrowserAdvancedMenuItem *item = [self advancedMenuItemWithTitle:BrowserLocalized(@"Usage Guide")
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^{
         [self.host browserShowHints];
     }];
+    item.stayOpen = YES;
+    return item;
 }
 
 - (BrowserAdvancedMenuItem *)showTabsMenuItem {
