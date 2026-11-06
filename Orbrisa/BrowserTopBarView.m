@@ -190,7 +190,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
     if (shade == nil || CGRectIsEmpty(BrowserTopBarTitlePillFrame) || shade.window == nil) {
         return;
     }
-    CGRect hole = CGRectInset([shade convertRect:BrowserTopBarTitlePillFrame fromView:nil], -10.0, -10.0);
+    CGRect hole = [shade convertRect:BrowserTopBarTitlePillFrame fromView:nil];
     UIBezierPath *path = [UIBezierPath bezierPathWithRect:shade.bounds];
     [path appendPath:[UIBezierPath bezierPathWithRoundedRect:hole cornerRadius:CGRectGetHeight(hole) / 2.0]];
     CAShapeLayer *mask = [shade.layer.mask isKindOfClass:[CAShapeLayer class]] ? (CAShapeLayer *)shade.layer.mask : [CAShapeLayer layer];
@@ -740,15 +740,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
         self.subtitleText = self.stashedSubtitleText ?: @"";
         self.subtitleSecure = self.stashedSubtitleSecure;
     }
-    // While it names the open screen (Feeds, Settings) the pill is lit like a focused item, so you see where you are.
-    BOOL lit = self.overrideTitleActive || self.centerFocused;
-    self.centerFocusFillView.alpha = lit ? 1.0 : 0.0;
-    self.URLLabel.textColor = lit ? [self focusedTintColor] : [self idleTintColor];
-    self.subtitleLabel.textColor = [self subtitleColorFocused:lit];
     [self refreshSubtitle];
-    if (lit) {
-        self.subtitleLabel.textColor = [self subtitleColorFocused:YES];
-    }
 }
 
 - (void)setOverrideTitle:(NSString *)title subtitle:(NSString *)subtitle symbolName:(NSString *)symbolName {
@@ -815,7 +807,7 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 }
 
 - (void)refreshSubtitle {
-    UIColor *color = [self subtitleColorFocused:(self.centerFocused || self.overrideTitleActive)];
+    UIColor *color = [self subtitleColorFocused:self.centerFocused];
     NSMutableAttributedString *text = [[NSMutableAttributedString alloc] init];
 
     if (self.subtitleSecure) {
@@ -971,8 +963,8 @@ void BrowserTopBarCutOutTitlePill(UIView *shade) {
 
     if (button == self.URLFocusButton) {
         self.centerFocused = focused;
-        self.centerFocusFillView.alpha = (focused || self.overrideTitleActive) ? 1.0 : 0.0;
-        self.URLLabel.textColor = (focused || self.overrideTitleActive) ? [self focusedTintColor] : [self idleTintColor];
+        self.centerFocusFillView.alpha = focused ? 1.0 : 0.0;
+        self.URLLabel.textColor = focused ? [self focusedTintColor] : [self idleTintColor];
         self.centerContainerView.transform = focused ? CGAffineTransformMakeScale(kTopBarCenterFocusedScale, kTopBarCenterFocusedScale)
                                                      : CGAffineTransformIdentity;
         [self refreshSubtitle];
