@@ -184,6 +184,22 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
     fill.alpha = 1.0 - BrowserGlassAmount();
 }
 
+static CGRect BrowserTopBarTitlePillFrame; // in window coordinates, updated on every layout
+
+void BrowserTopBarCutOutTitlePill(UIView *shade) {
+    if (shade == nil || CGRectIsEmpty(BrowserTopBarTitlePillFrame) || shade.window == nil) {
+        return;
+    }
+    CGRect hole = CGRectInset([shade convertRect:BrowserTopBarTitlePillFrame fromView:nil], -10.0, -10.0);
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:shade.bounds];
+    [path appendPath:[UIBezierPath bezierPathWithRoundedRect:hole cornerRadius:CGRectGetHeight(hole) / 2.0]];
+    CAShapeLayer *mask = [shade.layer.mask isKindOfClass:[CAShapeLayer class]] ? (CAShapeLayer *)shade.layer.mask : [CAShapeLayer layer];
+    mask.fillRule = kCAFillRuleEvenOdd;
+    mask.path = path.CGPath;
+    mask.frame = shade.bounds;
+    shade.layer.mask = mask;
+}
+
 @implementation BrowserTopBarView
 
 - (instancetype)initWithCoder:(NSCoder *)coder {
@@ -587,6 +603,9 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
         centerWidth = MAX(200.0, maxCenterMaxX - centerX);
     }
     self.centerContainerView.frame = CGRectMake(centerX, originY, centerWidth, kTopBarHeight);
+    if (self.window != nil) {
+        BrowserTopBarTitlePillFrame = [self convertRect:self.centerContainerView.frame toView:nil];
+    }
     CGAffineTransform feedTransform = self.feedFocusButton.transform;
     self.feedFocusButton.transform = CGAffineTransformIdentity;
     self.feedFocusButton.frame = CGRectMake(centerX + centerWidth + kTopBarFeedGap,
@@ -721,7 +740,15 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
         self.subtitleText = self.stashedSubtitleText ?: @"";
         self.subtitleSecure = self.stashedSubtitleSecure;
     }
+    // While it names the open screen (Feeds, Settings) the pill is lit like a focused item, so you see where you are.
+    BOOL lit = self.overrideTitleActive || self.centerFocused;
+    self.centerFocusFillView.alpha = lit ? 1.0 : 0.0;
+    self.URLLabel.textColor = lit ? [self focusedTintColor] : [self idleTintColor];
+    self.subtitleLabel.textColor = [self subtitleColorFocused:lit];
     [self refreshSubtitle];
+    if (lit) {
+        self.subtitleLabel.textColor = [self subtitleColorFocused:YES];
+    }
 }
 
 - (void)setOverrideTitle:(NSString *)title subtitle:(NSString *)subtitle symbolName:(NSString *)symbolName {
@@ -788,7 +815,7 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 }
 
 - (void)refreshSubtitle {
-    UIColor *color = [self subtitleColorFocused:self.centerFocused];
+    UIColor *color = [self subtitleColorFocused:(self.centerFocused || self.overrideTitleActive)];
     NSMutableAttributedString *text = [[NSMutableAttributedString alloc] init];
 
     if (self.subtitleSecure) {
@@ -944,8 +971,8 @@ void BrowserApplyGlassAmount(UIVisualEffectView *effectView, UIColor *solidColor
 
     if (button == self.URLFocusButton) {
         self.centerFocused = focused;
-        self.centerFocusFillView.alpha = focused ? 1.0 : 0.0;
-        self.URLLabel.textColor = focused ? [self focusedTintColor] : [self idleTintColor];
+        self.centerFocusFillView.alpha = (focused || self.overrideTitleActive) ? 1.0 : 0.0;
+        self.URLLabel.textColor = (focused || self.overrideTitleActive) ? [self focusedTintColor] : [self idleTintColor];
         self.centerContainerView.transform = focused ? CGAffineTransformMakeScale(kTopBarCenterFocusedScale, kTopBarCenterFocusedScale)
                                                      : CGAffineTransformIdentity;
         [self refreshSubtitle];

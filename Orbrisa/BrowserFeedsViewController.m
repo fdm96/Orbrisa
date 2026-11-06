@@ -6,6 +6,7 @@
 //
 
 #import "BrowserFeedsViewController.h"
+#import "BrowserTopBarView.h"
 #import "BrowserFeedStore.h"
 #import "BrowserLocalization.h"
 
@@ -227,6 +228,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 #pragma mark - Screen
 
 @interface BrowserFeedsViewController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate>
+@property (nonatomic) UIView *topShade;
 @property (nonatomic) UIButton *allChip;
 @property (nonatomic) UIButton *unreadChip;
 @property (nonatomic) UIButton *addButton;
@@ -267,6 +269,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     topShade.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
     topShade.userInteractionEnabled = NO;
     [self.view addSubview:topShade];
+    self.topShade = topShade;
 
     UILabel *sidebarTitle = [UILabel new];
     sidebarTitle.translatesAutoresizingMaskIntoConstraints = NO;
@@ -471,6 +474,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    BrowserTopBarCutOutTitlePill(self.topShade); // "Feeds" in the address pill stays bright
     UICollectionViewFlowLayout *layout = (UICollectionViewFlowLayout *)self.collectionView.collectionViewLayout;
     CGFloat available = CGRectGetWidth(self.collectionView.bounds) - layout.sectionInset.left - layout.sectionInset.right;
     CGFloat width = floor((available - 2.0 * layout.minimumInteritemSpacing) / 3.0);

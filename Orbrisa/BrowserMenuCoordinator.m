@@ -177,6 +177,11 @@ typedef void (^BrowserAdvancedMenuItemHandler)(void);
 
 @implementation BrowserAdvancedMenuViewController
 
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    BrowserTopBarCutOutTitlePill(self.dimView); // "Settings" in the address pill stays bright
+}
+
 - (UIVisualEffect *)panelEffect {
     Class glassEffectClass = NSClassFromString(@"UIGlassEffect");
     if (glassEffectClass != Nil) {
