@@ -47,6 +47,9 @@ static NSString *BrowserTabDisplayTitle(BrowserTabViewModel *tab, NSString *host
 
 static CGFloat const kTabStripTop = 148.0;          // just below the top bar (60 + 68 + gap)
 static CGFloat const kTabStripSideInset = 80.0;      // same as the top bar
+static CGFloat const kTabFrostTop = 128.0;           // the frost starts right under the bar …
+static CGFloat const kTabFrostFade = 44.0;           // … and fades in softly instead of a hard edge
+static CGFloat const kTabStripEdgeFade = 70.0;       // pills fade out at the ends of the strip instead of being cut
 static CGFloat const kTabStripMaxWidth = 1760.0;
 static CGFloat const kTabStripHeight = 92.0;         // room for the focus zoom
 static CGFloat const kTabPillWidth = 330.0;
@@ -525,7 +528,7 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     [NSLayoutConstraint activateConstraints:@[
         [dimView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [dimView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [dimView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTabStripTop - 8.0],
+        [dimView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTabFrostTop],
         [dimView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
         [collectionView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
@@ -533,6 +536,44 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
         [collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kTabStripTop],
         [collectionView.heightAnchor constraintEqualToConstant:kTabStripHeight],
     ]];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // A soft start of the frosted glass under the bar.
+    CAGradientLayer *frostMask = [self.dimView.layer.mask isKindOfClass:[CAGradientLayer class]] ? (CAGradientLayer *)self.dimView.layer.mask : [CAGradientLayer layer];
+    frostMask.frame = self.dimView.bounds;
+    frostMask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor];
+    CGFloat height = MAX(CGRectGetHeight(self.dimView.bounds), 1.0);
+    frostMask.locations = @[@0.0, @(kTabFrostFade / height)];
+    self.dimView.layer.mask = frostMask;
+
+    // The ends of the strip: pills fade out softly (the mask reaches above and below for the focus zoom).
+    CGRect bounds = self.collectionView.bounds;
+    CAGradientLayer *edgeMask = [self.collectionView.layer.mask isKindOfClass:[CAGradientLayer class]] ? (CAGradientLayer *)self.collectionView.layer.mask : [CAGradientLayer layer];
+    edgeMask.frame = CGRectMake(CGRectGetMinX(bounds), CGRectGetMinY(bounds) - 40.0, CGRectGetWidth(bounds), CGRectGetHeight(bounds) + 80.0);
+    edgeMask.startPoint = CGPointMake(0.0, 0.5);
+    edgeMask.endPoint = CGPointMake(1.0, 0.5);
+    edgeMask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor, (id)UIColor.blackColor.CGColor, (id)UIColor.clearColor.CGColor];
+    CGFloat width = MAX(CGRectGetWidth(bounds), 1.0);
+    edgeMask.locations = @[@0.0, @(kTabStripEdgeFade / width), @(1.0 - kTabStripEdgeFade / width), @1.0];
+    self.collectionView.layer.mask = edgeMask;
+}
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+    // The edge fade belongs to the visible strip, not to the scrolled content.
+    if (scrollView == self.collectionView) {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        CALayer *mask = self.collectionView.layer.mask;
+        CGRect frame = mask.frame;
+        frame.origin.x = scrollView.contentOffset.x;
+        mask.frame = frame;
+        [CATransaction commit];
+    }
+    if (scrollView == self.collectionView && self.previewItemIndex != NSNotFound && self.previewView.alpha > 0.0) {
+        [self showPreviewForItemIndex:self.previewItemIndex animated:NO];
+    }
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -661,11 +702,6 @@ static BOOL BrowserTabColorIsLight(UIColor *color) {
     }
 }
 
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    if (scrollView == self.collectionView && self.previewItemIndex != NSNotFound && self.previewView.alpha > 0.0) {
-        [self showPreviewForItemIndex:self.previewItemIndex animated:NO];
-    }
-}
 
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     (void)collectionView;
