@@ -231,6 +231,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 
 @interface BrowserFeedsViewController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate>
 @property (nonatomic) UIView *topShade;
+@property (nonatomic) UIView *windowShadow;
 @property (nonatomic) UIVisualEffectView *sidebarGlass; // light orange Liquid Glass over the whole page background
 @property (nonatomic) UIButton *allChip;
 @property (nonatomic) UIButton *unreadChip;
@@ -270,7 +271,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     [self.view addSubview:outerShade];
     UIView *windowShadow = [UIView new];
     windowShadow.translatesAutoresizingMaskIntoConstraints = NO;
-    windowShadow.backgroundColor = FeedsBackgroundColor();
+    windowShadow.backgroundColor = UIColor.clearColor; // only its shadow – the page behind must shine through the glass
     windowShadow.layer.cornerRadius = kFeedsWindowRadius;
     windowShadow.layer.shadowColor = UIColor.blackColor.CGColor;
     windowShadow.layer.shadowOpacity = 0.55;
@@ -278,9 +279,10 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     windowShadow.layer.shadowOffset = CGSizeMake(0.0, 20.0);
     windowShadow.userInteractionEnabled = NO;
     [self.view addSubview:windowShadow];
+    self.windowShadow = windowShadow;
     UIView *backdrop = [UIView new];
     backdrop.translatesAutoresizingMaskIntoConstraints = NO;
-    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.9];
+    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.4]; // light: the glass lets the page show a little
     backdrop.layer.cornerRadius = kFeedsWindowRadius;
     backdrop.clipsToBounds = YES;
     backdrop.userInteractionEnabled = NO;
@@ -546,6 +548,17 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     BrowserTopBarCutOutTitlePill(self.topShade); // "Feeds" in the address pill stays bright
+    // The shadow only falls outside the window, so the glass inside stays clear.
+    CGRect windowRect = self.windowShadow.bounds;
+    self.windowShadow.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:windowRect cornerRadius:kFeedsWindowRadius].CGPath;
+    CAShapeLayer *outside = [CAShapeLayer layer];
+    CGRect area = CGRectInset(windowRect, -140.0, -140.0);
+    outside.frame = area;
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:CGRectMake(0.0, 0.0, CGRectGetWidth(area), CGRectGetHeight(area))];
+    [path appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectOffset(windowRect, 140.0, 140.0) cornerRadius:kFeedsWindowRadius]];
+    outside.path = path.CGPath;
+    outside.fillRule = kCAFillRuleEvenOdd;
+    self.windowShadow.layer.mask = outside;
     UICollectionViewFlowLayout *layout = (UICollectionViewFlowLayout *)self.collectionView.collectionViewLayout;
     CGFloat available = CGRectGetWidth(self.collectionView.bounds) - layout.sectionInset.left - layout.sectionInset.right;
     CGFloat width = floor((available - 2.0 * layout.minimumInteritemSpacing) / 3.0);
