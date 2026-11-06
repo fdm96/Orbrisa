@@ -229,7 +229,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 
 @interface BrowserFeedsViewController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate>
 @property (nonatomic) UIView *topShade;
-@property (nonatomic) UIVisualEffectView *sidebarGlass; // orange Liquid Glass behind the list of feeds
+@property (nonatomic) UIVisualEffectView *sidebarGlass; // light orange Liquid Glass over the whole page background
 @property (nonatomic) UIButton *allChip;
 @property (nonatomic) UIButton *unreadChip;
 @property (nonatomic) UIButton *addButton;
@@ -262,7 +262,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
     UIView *backdrop = [UIView new];
     backdrop.translatesAutoresizingMaskIntoConstraints = NO;
-    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.97];
+    backdrop.backgroundColor = [FeedsBackgroundColor() colorWithAlphaComponent:0.9];
     backdrop.userInteractionEnabled = NO;
     [self.view addSubview:backdrop];
     UIView *topShade = [UIView new];
@@ -272,11 +272,9 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
     [self.view addSubview:topShade];
     self.topShade = topShade;
 
-    // The feeds on the left sit on orange Liquid Glass (like .glassEffect(.regular.tint(.orange).interactive())).
+    // The whole feeds page lies on a light orange Liquid Glass (like .glassEffect(.regular.tint(.orange).interactive())).
     UIVisualEffectView *sidebarGlass = [[UIVisualEffectView alloc] initWithEffect:nil];
     sidebarGlass.translatesAutoresizingMaskIntoConstraints = NO;
-    sidebarGlass.layer.cornerRadius = 44.0;
-    sidebarGlass.clipsToBounds = YES;
     sidebarGlass.userInteractionEnabled = NO;
     [self.view addSubview:sidebarGlass];
     self.sidebarGlass = sidebarGlass;
@@ -363,10 +361,10 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         [backdrop.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop - 8.0],
         [backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
-        [sidebarGlass.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:50.0],
-        [sidebarGlass.trailingAnchor constraintEqualToAnchor:tableView.trailingAnchor constant:30.0],
-        [sidebarGlass.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop - 6.0],
-        [sidebarGlass.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-24.0],
+        [sidebarGlass.leadingAnchor constraintEqualToAnchor:backdrop.leadingAnchor],
+        [sidebarGlass.trailingAnchor constraintEqualToAnchor:backdrop.trailingAnchor],
+        [sidebarGlass.topAnchor constraintEqualToAnchor:backdrop.topAnchor],
+        [sidebarGlass.bottomAnchor constraintEqualToAnchor:backdrop.bottomAnchor],
 
         [sidebarTitle.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:110.0],
         [sidebarTitle.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:kFeedsTop + 12.0],
@@ -409,7 +407,8 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
 - (void)applySidebarGlass {
     UITraitCollection *traits = self.presentingViewController.view.window.traitCollection ?: UIScreen.mainScreen.traitCollection;
     BOOL dark = traits.userInterfaceStyle == UIUserInterfaceStyleDark;
-    UIColor *orange = dark ? [UIColor colorWithRed:0.72 green:0.33 blue:0.0 alpha:0.85] : [UIColor colorWithRed:1.0 green:0.58 blue:0.0 alpha:0.85];
+    // Only a light tint: the dark base below keeps the white text readable.
+    UIColor *orange = dark ? [UIColor colorWithRed:0.72 green:0.33 blue:0.0 alpha:0.32] : [UIColor colorWithRed:1.0 green:0.58 blue:0.0 alpha:0.42];
     Class glassClass = NSClassFromString(@"UIGlassEffect");
     if (glassClass != Nil) {
         id glass = [[glassClass alloc] init];
@@ -426,7 +425,7 @@ static NSCache<NSString *, UIImage *> *FeedsImageCache(void) {
         }
     }
     self.sidebarGlass.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
-    self.sidebarGlass.contentView.backgroundColor = [orange colorWithAlphaComponent:0.6];
+    self.sidebarGlass.contentView.backgroundColor = orange;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
