@@ -2831,6 +2831,9 @@ static CGFloat const kShowTopBarButtonHitSlop = 24.0;
     if ([self.remoteInputController handleTouchesBegan:touches withEvent:event]) {
         return;
     }
+    if (self.presentedViewController != nil) {
+        return; // another screen is on top (dock, menu, start page …): UIKit must not track this touch through it
+    }
     if (self.forwardedTouches == nil) {
         self.forwardedTouches = [NSMutableSet set];
     }

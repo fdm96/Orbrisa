@@ -595,6 +595,11 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     hold.minimumPressDuration = 0.6;
     [collectionView addGestureRecognizer:hold];
 
+    // Back: our own recognizer, so tvOS can't close the start page on its own while an options panel is open.
+    UITapGestureRecognizer *back = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleBackGesture:)];
+    back.allowedPressTypes = @[@(UIPressTypeMenu)];
+    [self.view addGestureRecognizer:back];
+
     UILabel *recentsLabel = [UILabel new];
     recentsLabel.translatesAutoresizingMaskIntoConstraints = NO;
     recentsLabel.text = BrowserLocalized(@"Recently Visited");
@@ -1353,6 +1358,25 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
         return;
     }
     [super pressesBegan:presses withEvent:event];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    // Diagnostics: who closes the start page (Back with the options panel open should not).
+    NSArray<NSString *> *stack = [NSThread callStackSymbols];
+    BrowserLog(@"[StartPage] closing: panel=%@ closedAgo=%.2f\n%@", self.panel != nil ? @"YES" : @"NO",
+               CACurrentMediaTime() - self.panelClosedTime, [[stack subarrayWithRange:NSMakeRange(0, MIN((NSUInteger)14, stack.count))] componentsJoinedByString:@"\n"]);
+}
+
+- (void)handleBackGesture:(UITapGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateEnded) {
+        return;
+    }
+    if (self.panel != nil) {
+        [self closePanel]; // only the panel – the start page stays
+        return;
+    }
+    [self handleBackPress];
 }
 
 - (void)handleBackPress {
