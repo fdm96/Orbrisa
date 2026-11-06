@@ -51,7 +51,7 @@
 | ✨ **What's New** | Shown once after each update, and any time under *Settings → Help* |
 | 🧭 **Top Shelf** *(in development)* | Open tabs and favorites on the Apple TV home screen |
 | 🌍 **English & German** | Follows the Apple TV language: German when it is set to German, English for every other language |
-| 📖 **Usage guide** | Built-in guide with Siri Remote illustrations |
+| 📖 **Usage guide** | Built-in guide with Siri Remote illustrations – six pages, including web apps, Reader and feeds |
 
 ## Screenshots
 
@@ -276,7 +276,7 @@ Websites, their content and their videos belong to their owners – Orbrisa only
 - *IPA selbst bauen:* im Terminal im Orbrisa-Ordner `./scripts/make-ipa.sh` ausführen.
 - *Mit Mac:* Projekt klonen, `Configs/Local.xcconfig.example` nach `Configs/Local.xcconfig` kopieren, Team-ID und eigene Bundle-ID eintragen, `Orbrisa.xcodeproj` öffnen, Apple TV wählen, **⌘R**.
 
-**Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü (Schriftgrösse, Darstellung, Aktionen, Werbeblocker), zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
+**Bedienung** – Mitte zweimal drücken wechselt zwischen Cursor und Scrollen, Play/Pause öffnet das Schnellmenü (Schriftgrösse, Darstellung, Aktionen, Werbeblocker), zweimal Play/Pause die Einstellungen. Die ganze Anleitung mit Bildern der Fernbedienung – sechs Seiten, auch für Web-Apps, Reader und Feeds – ist in der App unter *Einstellungen → Hilfe → Bedienungsanleitung*.
 
 **Videos** – Startet ein Video, fragt Orbrisa: *Vollbild* (echter Stream im Apple-TV-Player, Werbung wird übersprungen), *Video auswählen …* oder *Auf der Seite bleiben*.
 

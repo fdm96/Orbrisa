@@ -190,8 +190,54 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
 @end
 
-/// Full-screen guide with every remote gesture of the browser, drawn with the Siri Remote parts.
+#pragma mark - Page dots
+
+/// The little dots under paged screens, like on Apple's onboarding: the current page is white, the others dim.
+@interface BrowserPageDotsView : UIStackView
+- (instancetype)initWithCount:(NSUInteger)count;
+- (void)setCurrent:(NSUInteger)current;
+@end
+
+@implementation BrowserPageDotsView
+
+- (instancetype)initWithCount:(NSUInteger)count {
+    self = [super initWithFrame:CGRectZero];
+    if (self) {
+        self.axis = UILayoutConstraintAxisHorizontal;
+        self.alignment = UIStackViewAlignmentCenter;
+        self.spacing = 16.0;
+        self.translatesAutoresizingMaskIntoConstraints = NO;
+        for (NSUInteger i = 0; i < count; i++) {
+            UIView *dot = [UIView new];
+            dot.translatesAutoresizingMaskIntoConstraints = NO;
+            dot.layer.cornerRadius = 7.0;
+            [dot.widthAnchor constraintEqualToConstant:14.0].active = YES;
+            [dot.heightAnchor constraintEqualToConstant:14.0].active = YES;
+            [self addArrangedSubview:dot];
+        }
+        self.hidden = count < 2;
+        [self setCurrent:0];
+    }
+    return self;
+}
+
+- (void)setCurrent:(NSUInteger)current {
+    [UIView animateWithDuration:0.25 animations:^{
+        for (NSUInteger i = 0; i < self.arrangedSubviews.count; i++) {
+            UIView *dot = self.arrangedSubviews[i];
+            dot.backgroundColor = (i == current) ? UIColor.whiteColor : [UIColor colorWithWhite:1.0 alpha:0.3];
+            dot.transform = (i == current) ? CGAffineTransformMakeScale(1.15, 1.15) : CGAffineTransformIdentity;
+        }
+    }];
+}
+
+@end
+
+/// Full-screen guide with every remote gesture of the browser, drawn with the Siri Remote parts – on several pages.
 @interface BrowserUsageGuideViewController : UIViewController
+@property (nonatomic, copy) NSArray<UIView *> *pages;
+@property (nonatomic) BrowserPageDotsView *dots;
+@property (nonatomic) NSInteger pageIndex;
 @end
 
 @implementation BrowserUsageGuideViewController
@@ -246,6 +292,163 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     return column;
 }
 
+- (UIView *)pageWithTitle:(NSString *)pageTitle columns:(NSArray<NSArray<UIView *> *> *)columnViews {
+    NSMutableArray<UIView *> *columns = [NSMutableArray array];
+    for (NSArray<UIView *> *views in columnViews) {
+        [columns addObject:[self columnWithViews:views]];
+    }
+    while (columns.count < 2) {
+        [columns addObject:[UIView new]]; // keep the columns the same width on pages with one column
+    }
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:columns];
+    row.axis = UILayoutConstraintAxisHorizontal;
+    row.distribution = UIStackViewDistributionFillEqually;
+    row.alignment = UIStackViewAlignmentTop;
+    row.spacing = 90.0;
+
+    UILabel *heading = [UILabel new];
+    heading.text = pageTitle;
+    heading.font = [UIFont systemFontOfSize:34.0 weight:UIFontWeightSemibold];
+    heading.textColor = UIColor.systemBlueColor;
+
+    UIStackView *page = [[UIStackView alloc] initWithArrangedSubviews:@[heading, row]];
+    page.axis = UILayoutConstraintAxisVertical;
+    page.alignment = UIStackViewAlignmentFill;
+    page.spacing = 34.0;
+    page.translatesAutoresizingMaskIntoConstraints = NO;
+    return page;
+}
+
+- (NSArray<UIView *> *)buildPages {
+    UIView *browsing = [self pageWithTitle:BrowserLocalized(@"Browsing") columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Cursor & Scrolling")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe on the clickpad")
+                       text:BrowserLocalized(@"Moves the cursor. In scroll mode the page scrolls – scrolling down hides the bar, scrolling up brings it back.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Press the center")
+                       text:BrowserLocalized(@"Clicks at the cursor. Text fields open the keyboard right away, “Search” submits.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:@"2×"
+                      title:BrowserLocalized(@"Press the center twice")
+                       text:BrowserLocalized(@"Switches between cursor mode and scroll mode.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Top Bar")],
+          [self rowWithKind:BrowserRemoteIconKindRingUp badge:nil
+                      title:BrowserLocalized(@"Press the top of the ring")
+                       text:BrowserLocalized(@"Jumps into the bar: Back, Forward, Reload, Address, Home, Tabs, Full Screen, Menu. The bottom of the ring leaves it again.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Click the address")
+                       text:BrowserLocalized(@"The keyboard opens right away. An address opens the page, anything else is searched on Google.")],
+          [self rowWithKind:BrowserRemoteIconKindRedButton badge:nil
+                      title:BrowserLocalized(@"Red button")
+                       text:BrowserLocalized(@"When the bar is hidden (full screen), clicking the red button at the top brings it back.")]],
+    ]];
+
+    UIView *buttons = [self pageWithTitle:BrowserLocalized(@"Buttons & Menus") columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Buttons")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back button")
+                       text:BrowserLocalized(@"Goes back one page. Closes menus, the keyboard and link navigation. On the first page: quits the app.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:@"Play/Pause"
+                       text:BrowserLocalized(@"Quick menu: font size, page appearance, search, Reader, reload and the ad blocker.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:@"2×"
+                      title:BrowserLocalized(@"Press Play/Pause twice")
+                       text:BrowserLocalized(@"Opens Settings with favorites, history, appearance, font size and more.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Link Navigation")],
+          [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold the bottom of the ring")
+                       text:BrowserLocalized(@"Turns link navigation on or off. A white frame shows the selected link.")],
+          [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil
+                      title:BrowserLocalized(@"Ring up / down / left / right")
+                       text:BrowserLocalized(@"Jumps to the next link. At the very top it continues into the bar (or to the red button).")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Press the center")
+                       text:BrowserLocalized(@"Opens the selected link.")]],
+    ]];
+
+    UIView *tabs = [self pageWithTitle:BrowserLocalized(@"Tabs & Start Page") columns:@[
+        @[[self sectionLabel:@"Tabs"],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Tab icon in the bar")
+                       text:BrowserLocalized(@"Shows all tabs with their logos. Ring left/right selects, click switches, Play/Pause closes the tab.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:BrowserLocalized(@"Close a tab")
+                       text:BrowserLocalized(@"Play/Pause in the tab overview closes the selected tab – Orbrisa goes to the tab on its left.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Start Page")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"New tab or Home button")
+                       text:BrowserLocalized(@"Shows your favorites and the recently visited sites. Ring left/right scrolls the favorites.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold a favorite")
+                       text:BrowserLocalized(@"Options: open as web app, open when Orbrisa starts, rename, remove. Play/Pause works too.")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back on the start page")
+                       text:BrowserLocalized(@"Closes it and shows the page – an empty tab shows Google.")]],
+    ]];
+
+    UIView *webApps = [self pageWithTitle:BrowserLocalized(@"Web Apps") columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Using a Web App")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe on the clickpad")
+                       text:BrowserLocalized(@"Scrolls the page – anywhere, no cursor needed.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold the center")
+                       text:BrowserLocalized(@"Shows the selection box. Swipe moves it, press the center to open what it marks.")],
+          [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil
+                      title:BrowserLocalized(@"Ring left / right")
+                       text:BrowserLocalized(@"Turns to the previous or next page on sites with several pages.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Switching & Leaving")],
+          [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
+                      title:BrowserLocalized(@"Hold the bottom of the ring")
+                       text:BrowserLocalized(@"Your other web apps slide up – pick one, or go to the start page.")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back button")
+                       text:BrowserLocalized(@"Goes back inside the web app. On its first page: to the start page.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:@"Play/Pause"
+                       text:BrowserLocalized(@"Quick menu with the text size for this web app and “Leave Web App”.")]],
+    ]];
+
+    UIView *reader = [self pageWithTitle:BrowserLocalized(@"Reader & Feeds") columns:@[
+        @[[self sectionLabel:@"Reader"],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Reader button in the address bar")
+                       text:BrowserLocalized(@"Appears when a page has an article and shows it as calm, large text.")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe in the Reader")
+                       text:BrowserLocalized(@"Scrolls the article.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:BrowserLocalized(@"Play/Pause in the Reader")
+                       text:BrowserLocalized(@"Appearance: font size, background, font, “Always Open in Reader” and “Show Web Page”.")]],
+        @[[self sectionLabel:BrowserLocalized(@"Feeds")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"RSS button next to the address")
+                       text:BrowserLocalized(@"Orange: subscribe to the page's feed. Grey: opens your feeds.")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Click an article")
+                       text:BrowserLocalized(@"Opens it in the Reader. Back takes you to the feed list again.")],
+          [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
+                      title:BrowserLocalized(@"Play/Pause on a feed")
+                       text:BrowserLocalized(@"Unsubscribes from the feed.")]],
+    ]];
+
+    UIView *videos = [self pageWithTitle:@"Videos" columns:@[
+        @[[self sectionLabel:BrowserLocalized(@"Starting a Video")],
+          [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
+                      title:BrowserLocalized(@"Start a video")
+                       text:BrowserLocalized(@"Orbrisa asks: Full Screen (Apple TV player, without ads), Choose Video or Stay on Page.")]],
+        @[[self sectionLabel:BrowserLocalized(@"In the Player")],
+          [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
+                      title:BrowserLocalized(@"Swipe in the player")
+                       text:BrowserLocalized(@"Scrubs forward and back. Press the center to confirm, ring left/right jumps 10 seconds.")],
+          [self rowWithKind:BrowserRemoteIconKindBack badge:nil
+                      title:BrowserLocalized(@"Back in the player")
+                       text:BrowserLocalized(@"Closes the player and takes you back to the page.")]],
+    ]];
+
+    return @[browsing, buttons, tabs, webApps, reader, videos];
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.clearColor;
@@ -266,79 +469,25 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     title.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:title];
 
-    UIStackView *left = [self columnWithViews:@[
-        [self sectionLabel:BrowserLocalized(@"Cursor & Scrolling")],
-        [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
-                    title:BrowserLocalized(@"Swipe on the clickpad")
-                     text:BrowserLocalized(@"Moves the cursor. In scroll mode the page scrolls – scrolling down hides the bar, scrolling up brings it back.")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Press the center")
-                     text:BrowserLocalized(@"Clicks at the cursor. Text fields open the keyboard right away, “Search” submits.")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:@"2×"
-                    title:BrowserLocalized(@"Press the center twice")
-                     text:BrowserLocalized(@"Switches between cursor mode and scroll mode.")],
-        [self sectionLabel:BrowserLocalized(@"Link Navigation")],
-        [self rowWithKind:BrowserRemoteIconKindRingDown badge:BrowserLocalized(@"hold")
-                    title:BrowserLocalized(@"Hold the bottom of the ring")
-                     text:BrowserLocalized(@"Turns link navigation on or off. A white frame shows the selected link.")],
-        [self rowWithKind:BrowserRemoteIconKindRingAll badge:nil
-                    title:BrowserLocalized(@"Ring up / down / left / right")
-                     text:BrowserLocalized(@"Jumps to the next link. At the very top it continues into the bar (or to the red button).")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Press the center")
-                     text:BrowserLocalized(@"Opens the selected link.")],
-    ]];
+    UIView *pageArea = [UIView new];
+    pageArea.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:pageArea];
+    self.pages = [self buildPages];
+    for (UIView *page in self.pages) {
+        [pageArea addSubview:page];
+        [NSLayoutConstraint activateConstraints:@[
+            [page.topAnchor constraintEqualToAnchor:pageArea.topAnchor],
+            [page.leadingAnchor constraintEqualToAnchor:pageArea.leadingAnchor],
+            [page.trailingAnchor constraintEqualToAnchor:pageArea.trailingAnchor],
+        ]];
+        page.alpha = 0.0;
+    }
 
-    UIStackView *right = [self columnWithViews:@[
-        [self sectionLabel:BrowserLocalized(@"Top Bar")],
-        [self rowWithKind:BrowserRemoteIconKindRingUp badge:nil
-                    title:BrowserLocalized(@"Press the top of the ring")
-                     text:BrowserLocalized(@"Jumps into the bar: Back, Forward, Reload, Address, Home, Tabs, Full Screen, Menu. The bottom of the ring leaves it again.")],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Click the address")
-                     text:BrowserLocalized(@"The keyboard opens right away. An address opens the page, anything else is searched on Google.")],
-        [self rowWithKind:BrowserRemoteIconKindRedButton badge:nil
-                    title:BrowserLocalized(@"Red button")
-                     text:BrowserLocalized(@"When the bar is hidden (full screen), clicking the red button at the top brings it back.")],
-        [self sectionLabel:BrowserLocalized(@"Buttons")],
-        [self rowWithKind:BrowserRemoteIconKindBack badge:nil
-                    title:BrowserLocalized(@"Back button")
-                     text:BrowserLocalized(@"Goes back one page. Closes menus, the keyboard and link navigation. On the first page: quits the app.")],
-        [self rowWithKind:BrowserRemoteIconKindPlayPause badge:nil
-                    title:@"Play/Pause"
-                     text:BrowserLocalized(@"Quick menu: forward, enter an address, reload the page.")],
-        [self rowWithKind:BrowserRemoteIconKindPlayPause badge:@"2×"
-                    title:BrowserLocalized(@"Press Play/Pause twice")
-                     text:BrowserLocalized(@"Opens Settings with favorites, history, appearance, font size and more.")],
-    ]];
-
-    UIStackView *third = [self columnWithViews:@[
-        [self sectionLabel:@"Tabs"],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Tab icon in the bar")
-                     text:BrowserLocalized(@"Shows all tabs with their logos. Ring left/right selects, click switches, Play/Pause closes the tab.")],
-        [self sectionLabel:@"Videos"],
-        [self rowWithKind:BrowserRemoteIconKindCenter badge:nil
-                    title:BrowserLocalized(@"Start a video")
-                     text:BrowserLocalized(@"Orbrisa asks: Full Screen (Apple TV player, without ads), Choose Video or Stay on Page.")],
-        [self rowWithKind:BrowserRemoteIconKindSwipe badge:nil
-                    title:BrowserLocalized(@"Swipe in the player")
-                     text:BrowserLocalized(@"Scrubs forward and back. Press the center to confirm, ring left/right jumps 10 seconds.")],
-        [self rowWithKind:BrowserRemoteIconKindBack badge:nil
-                    title:BrowserLocalized(@"Back in the player")
-                     text:BrowserLocalized(@"Closes the player and takes you back to the page.")],
-    ]];
-
-    UIStackView *columns = [[UIStackView alloc] initWithArrangedSubviews:@[left, right, third]];
-    columns.axis = UILayoutConstraintAxisHorizontal;
-    columns.distribution = UIStackViewDistributionFillEqually;
-    columns.alignment = UIStackViewAlignmentTop;
-    columns.spacing = 56.0;
-    columns.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:columns];
+    self.dots = [[BrowserPageDotsView alloc] initWithCount:self.pages.count];
+    [self.view addSubview:self.dots];
 
     UILabel *footer = [UILabel new];
-    footer.text = BrowserLocalized(@"Press Back to close");
+    footer.text = BrowserLocalized(@"Swipe or press left / right for more  ·  Back to close");
     footer.font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightMedium];
     footer.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
     footer.translatesAutoresizingMaskIntoConstraints = NO;
@@ -346,13 +495,47 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 
     [NSLayoutConstraint activateConstraints:@[
         [title.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:60.0],
-        [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:80.0],
-        [columns.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:30.0],
-        [columns.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:80.0],
-        [columns.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-80.0],
-        [footer.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-40.0],
+        [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:120.0],
+        [pageArea.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:36.0],
+        [pageArea.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:120.0],
+        [pageArea.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-120.0],
+        [pageArea.bottomAnchor constraintEqualToAnchor:self.dots.topAnchor constant:-20.0],
+        [self.dots.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.dots.bottomAnchor constraintEqualToAnchor:footer.topAnchor constant:-18.0],
+        [footer.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-44.0],
         [footer.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
     ]];
+
+    for (NSNumber *direction in @[@(UISwipeGestureRecognizerDirectionLeft), @(UISwipeGestureRecognizerDirectionRight)]) {
+        UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swiped:)];
+        swipe.direction = direction.unsignedIntegerValue;
+        [self.view addGestureRecognizer:swipe];
+    }
+    self.pageIndex = -1;
+    [self showPage:0];
+}
+
+- (void)swiped:(UISwipeGestureRecognizer *)swipe {
+    [self showPage:self.pageIndex + (swipe.direction == UISwipeGestureRecognizerDirectionLeft ? 1 : -1)];
+}
+
+/// Pages slide sideways like the tvOS onboarding screens; the dots below show where you are.
+- (void)showPage:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.pages.count || index == self.pageIndex) {
+        return;
+    }
+    UIView *old = self.pageIndex >= 0 ? self.pages[(NSUInteger)self.pageIndex] : nil;
+    UIView *next = self.pages[(NSUInteger)index];
+    CGFloat shift = (index > self.pageIndex ? 1.0 : -1.0) * 120.0;
+    self.pageIndex = index;
+    [self.dots setCurrent:(NSUInteger)index];
+    next.transform = old != nil ? CGAffineTransformMakeTranslation(shift, 0.0) : CGAffineTransformIdentity;
+    [UIView animateWithDuration:(old != nil ? 0.35 : 0.0) delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        old.alpha = 0.0;
+        old.transform = CGAffineTransformMakeTranslation(-shift, 0.0);
+        next.alpha = 1.0;
+        next.transform = CGAffineTransformIdentity;
+    } completion:nil];
 }
 
 - (BOOL)canBecomeFirstResponder {
@@ -364,9 +547,36 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     [self becomeFirstResponder];
 }
 
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    // Handled on release; swallowing the start keeps the browser underneath from reacting.
+    UIPressType type = presses.anyObject.type;
+    if (type == UIPressTypeMenu || type == UIPressTypeSelect || type == UIPressTypePlayPause
+        || type == UIPressTypeLeftArrow || type == UIPressTypeRightArrow) {
+        return;
+    }
+    [super pressesBegan:presses withEvent:event];
+}
+
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
-    UIPress *press = presses.anyObject;
-    if (press.type == UIPressTypeMenu || press.type == UIPressTypeSelect || press.type == UIPressTypePlayPause) {
+    UIPressType type = presses.anyObject.type;
+    if (type == UIPressTypeLeftArrow) {
+        [self showPage:self.pageIndex - 1];
+        return;
+    }
+    if (type == UIPressTypeRightArrow) {
+        [self showPage:self.pageIndex + 1];
+        return;
+    }
+    if (type == UIPressTypeSelect) {
+        // Next page – on the last page the guide closes.
+        if (self.pageIndex + 1 < (NSInteger)self.pages.count) {
+            [self showPage:self.pageIndex + 1];
+        } else {
+            [self dismissViewControllerAnimated:YES completion:nil];
+        }
+        return;
+    }
+    if (type == UIPressTypeMenu || type == UIPressTypePlayPause) {
         [self dismissViewControllerAnimated:YES completion:nil];
         return;
     }
@@ -382,6 +592,9 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 @property (nonatomic, copy) void (^continueHandler)(void);
 @property (nonatomic) UIButton *continueButton;
 @property (nonatomic) BOOL showsGuideHint; // NO when opened from Settings → Help
+@property (nonatomic, copy) NSArray<UIView *> *pages;
+@property (nonatomic) BrowserPageDotsView *dots;
+@property (nonatomic) NSInteger pageIndex;
 @end
 
 @implementation BrowserWhatsNewViewController
@@ -455,23 +668,83 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     versionLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
     versionLabel.textAlignment = NSTextAlignmentCenter;
 
-    UIStackView *features = [[UIStackView alloc] initWithArrangedSubviews:@[
-        [self featureWithSymbol:@"house.fill" color:UIColor.systemBlueColor
-                          title:BrowserLocalized(@"New Start Page")
-                           text:BrowserLocalized(@"Your favorites as large tiles and recently visited sites with real pictures. Hold a favorite for its options.")],
-        [self featureWithSymbol:@"app.badge.fill" color:UIColor.systemIndigoColor
-                          title:BrowserLocalized(@"Web Apps")
-                           text:BrowserLocalized(@"Open a favorite as an app: full screen, no bar, simple remote controls – hold the bottom of the clickpad for your other web apps.")],
-        [self featureWithSymbol:@"hand.raised.fill" color:UIColor.systemRedColor
-                          title:BrowserLocalized(@"Ad Blocker")
-                           text:BrowserLocalized(@"Blocks ad and tracking servers and hides ad boxes. Switch it off in the quick menu or in Settings.")],
-        [self featureWithSymbol:@"ladybug.fill" color:UIColor.systemGreenColor
-                          title:BrowserLocalized(@"This Is a Beta")
-                           text:BrowserLocalized(@"Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot.")],
-    ]];
-    features.axis = UILayoutConstraintAxisVertical;
-    features.spacing = 34.0;
-    features.alignment = UIStackViewAlignmentLeading;
+    // One page per release, newest first – the dots below show there is more (ring left / right or swipe).
+    NSArray<NSArray *> *releases = @[
+        @[BrowserLocalized(@"New in Beta 2"), @[
+            [self featureWithSymbol:@"house.fill" color:UIColor.systemBlueColor
+                              title:BrowserLocalized(@"New Start Page")
+                               text:BrowserLocalized(@"Your favorites as large tiles and recently visited sites with real pictures. Hold a favorite for its options.")],
+            [self featureWithSymbol:@"app.badge.fill" color:UIColor.systemIndigoColor
+                              title:BrowserLocalized(@"Web Apps")
+                               text:BrowserLocalized(@"Open a favorite as an app: full screen, no bar, simple remote controls – hold the bottom of the clickpad for your other web apps.")],
+            [self featureWithSymbol:@"hand.raised.fill" color:UIColor.systemRedColor
+                              title:BrowserLocalized(@"Ad Blocker")
+                               text:BrowserLocalized(@"Blocks ad and tracking servers and hides ad boxes. Switch it off in the quick menu or in Settings.")],
+            [self featureWithSymbol:@"slider.horizontal.3" color:UIColor.systemTealColor
+                              title:BrowserLocalized(@"New Quick Menu")
+                               text:BrowserLocalized(@"Play/Pause opens a glass panel with font size, page appearance, actions and the ad blocker.")],
+        ]],
+        @[BrowserLocalized(@"Beta 1 – Reader & RSS"), @[
+            [self featureWithSymbol:@"text.alignleft" color:UIColor.systemOrangeColor
+                              title:BrowserLocalized(@"Reader Mode")
+                               text:BrowserLocalized(@"Only the article – large, calm text with your own size, background and font.")],
+            [self featureWithSymbol:@"dot.radiowaves.up.forward" color:UIColor.systemBlueColor
+                              title:BrowserLocalized(@"RSS Feeds")
+                               text:BrowserLocalized(@"Subscribe to your favourite sites and see all new articles in one place – they open in the Reader.")],
+        ]],
+        @[BrowserLocalized(@"Version 1.0 – Orbrisa"), @[
+            [self featureWithSymbol:@"play.tv.fill" color:UIColor.systemPurpleColor
+                              title:BrowserLocalized(@"Videos in the Apple TV Player")
+                               text:BrowserLocalized(@"“Full Screen” opens the actual video in the Apple TV player – ads before it are skipped.")],
+            [self featureWithSymbol:@"square.on.square" color:UIColor.systemGreenColor
+                              title:BrowserLocalized(@"New Tab Strip")
+                               text:BrowserLocalized(@"All tabs with their logos right under the address bar – in each site's colour if you like.")],
+            [self featureWithSymbol:@"gearshape.fill" color:UIColor.systemGrayColor
+                              title:BrowserLocalized(@"New Settings")
+                               text:BrowserLocalized(@"Switches and design like the tvOS Settings.")],
+            [self featureWithSymbol:@"drop.fill" color:UIColor.systemCyanColor
+                              title:@"Liquid Glass"
+                               text:BrowserLocalized(@"Adjust the glass effect smoothly or turn it off completely.")],
+        ]],
+    ];
+
+    UIView *pageArea = [UIView new];
+    pageArea.translatesAutoresizingMaskIntoConstraints = NO;
+    NSMutableArray<UIView *> *pages = [NSMutableArray array];
+    for (NSArray *release in releases) {
+        UILabel *heading = [UILabel new];
+        heading.text = release[0];
+        heading.font = [UIFont systemFontOfSize:30.0 weight:UIFontWeightSemibold];
+        heading.textColor = UIColor.systemBlueColor;
+        NSMutableArray<UIView *> *rows = [NSMutableArray arrayWithObject:heading];
+        [rows addObjectsFromArray:release[1]];
+        UIStackView *page = [[UIStackView alloc] initWithArrangedSubviews:rows];
+        page.axis = UILayoutConstraintAxisVertical;
+        page.alignment = UIStackViewAlignmentLeading;
+        page.spacing = 30.0;
+        page.translatesAutoresizingMaskIntoConstraints = NO;
+        page.alpha = 0.0;
+        [pageArea addSubview:page];
+        [NSLayoutConstraint activateConstraints:@[
+            [page.topAnchor constraintEqualToAnchor:pageArea.topAnchor],
+            [page.leadingAnchor constraintEqualToAnchor:pageArea.leadingAnchor],
+            [page.trailingAnchor constraintEqualToAnchor:pageArea.trailingAnchor],
+        ]];
+        [pages addObject:page];
+    }
+    self.pages = pages;
+    self.dots = [[BrowserPageDotsView alloc] initWithCount:pages.count];
+
+    UILabel *betaLabel = [UILabel new];
+    betaLabel.text = BrowserLocalized(@"Found a bug or have an idea? Report it on GitHub – a photo of your TV helps a lot.");
+    betaLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
+    betaLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
+
+    for (NSNumber *direction in @[@(UISwipeGestureRecognizerDirectionLeft), @(UISwipeGestureRecognizerDirectionRight)]) {
+        UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swiped:)];
+        swipe.direction = direction.unsignedIntegerValue;
+        [self.view addGestureRecognizer:swipe];
+    }
 
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
@@ -494,20 +767,47 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
     hintLabel.font = [UIFont systemFontOfSize:21.0 weight:UIFontWeightRegular];
     hintLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.45];
 
-    UIStackView *content = [[UIStackView alloc] initWithArrangedSubviews:(self.showsGuideHint ? @[titleLabel, versionLabel, features, button, hintLabel] : @[titleLabel, versionLabel, features, button])];
+    UIStackView *content = [[UIStackView alloc] initWithArrangedSubviews:(self.showsGuideHint ? @[titleLabel, versionLabel, pageArea, self.dots, betaLabel, button, hintLabel] : @[titleLabel, versionLabel, pageArea, self.dots, betaLabel, button])];
     content.axis = UILayoutConstraintAxisVertical;
     content.alignment = UIStackViewAlignmentCenter;
     content.spacing = 18.0;
-    [content setCustomSpacing:60.0 afterView:versionLabel];
-    [content setCustomSpacing:70.0 afterView:features];
+    [content setCustomSpacing:50.0 afterView:versionLabel];
+    [content setCustomSpacing:26.0 afterView:pageArea];
+    [content setCustomSpacing:22.0 afterView:self.dots];
+    [content setCustomSpacing:40.0 afterView:betaLabel];
     content.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:content];
 
     [NSLayoutConstraint activateConstraints:@[
         [content.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [content.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
-        [features.widthAnchor constraintEqualToConstant:1000.0],
+        [pageArea.widthAnchor constraintEqualToConstant:1000.0],
+        [pageArea.heightAnchor constraintEqualToConstant:540.0],
     ]];
+    self.pageIndex = -1;
+    [self showPage:0];
+}
+
+- (void)swiped:(UISwipeGestureRecognizer *)swipe {
+    [self showPage:self.pageIndex + (swipe.direction == UISwipeGestureRecognizerDirectionLeft ? 1 : -1)];
+}
+
+- (void)showPage:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.pages.count || index == self.pageIndex) {
+        return;
+    }
+    UIView *old = self.pageIndex >= 0 ? self.pages[(NSUInteger)self.pageIndex] : nil;
+    UIView *next = self.pages[(NSUInteger)index];
+    CGFloat shift = (index > self.pageIndex ? 1.0 : -1.0) * 100.0;
+    self.pageIndex = index;
+    [self.dots setCurrent:(NSUInteger)index];
+    next.transform = old != nil ? CGAffineTransformMakeTranslation(shift, 0.0) : CGAffineTransformIdentity;
+    [UIView animateWithDuration:(old != nil ? 0.35 : 0.0) delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        old.alpha = 0.0;
+        old.transform = CGAffineTransformMakeTranslation(-shift, 0.0);
+        next.alpha = 1.0;
+        next.transform = CGAffineTransformIdentity;
+    } completion:nil];
 }
 
 - (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
@@ -527,6 +827,10 @@ static UIImage *BrowserGuideSymbol(NSArray<NSString *> *names, CGFloat pointSize
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     if (presses.anyObject.type == UIPressTypeMenu) {
         [self continueTapped];
+        return;
+    }
+    if (presses.anyObject.type == UIPressTypeLeftArrow || presses.anyObject.type == UIPressTypeRightArrow) {
+        [self showPage:self.pageIndex + (presses.anyObject.type == UIPressTypeRightArrow ? 1 : -1)];
         return;
     }
     [super pressesEnded:presses withEvent:event];

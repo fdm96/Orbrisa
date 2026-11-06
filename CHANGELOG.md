@@ -21,7 +21,8 @@ All notable changes to Orbrisa. The format follows [Keep a Changelog](https://ke
 - **New quick menu** (Play/Pause), designed like the Reader's appearance panel: font size, page appearance (*Original*, *Automatic*, *Light*, *Dark*), action buttons and the ad blocker switch
 - **Feeds open in the Reader** – pick an article and it opens in the Reader; Back returns to the feed list
 - **Reader:** *Show Web Page* in the appearance panel
-- What's New presents the Beta 2 features; the version in Settings reads "1.1.0 Beta 2"
+- **Usage guide on six pages** with page dots like Apple's – browsing, buttons & menus, tabs & start page, web apps, Reader & feeds, videos. Swipe or press left / right to turn the page
+- **What's New** has one page per release: Beta 2, Beta 1 (Reader & RSS) and 1.0 – swipe to see what came before; the version in Settings reads "1.1.0 Beta 2"
 
 ### Changed
 - Unread counts in the feeds are red badges like on Apple devices
