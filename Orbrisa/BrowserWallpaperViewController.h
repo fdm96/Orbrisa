@@ -18,6 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// The saved wallpaper, or nil.
 + (nullable UIImage *)currentWallpaper;
+/// The wallpaper – from the cache, or downloaded again when tvOS has emptied the cache. nil: no wallpaper chosen.
++ (void)loadWallpaperWithCompletion:(void (^)(UIImage * _Nullable image))completion;
 
 @end
 

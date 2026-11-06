@@ -18,6 +18,7 @@ static NSString * const kStartWebAppsKey = @"BrowserWebAppURLs";
 static NSString * const kStartLaunchWebAppKey = @"BrowserLaunchWebAppURL";
 
 static CGFloat const kStartSideInset = 160.0;
+static CGFloat const kStartWallpaperButtonY = 190.0; // centre between the bar (bottom 128) and the favorite tiles
 static CGFloat const kStartFavoriteTile = 180.0;
 
 static UIColor *StartBackgroundColor(void) { return [UIColor colorWithRed:0.067 green:0.071 blue:0.086 alpha:1.0]; }
@@ -611,7 +612,7 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
     [self.view addSubview:wallpaperButton];
     [NSLayoutConstraint activateConstraints:@[
         [wallpaperButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [wallpaperButton.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:142.0],
+        [wallpaperButton.centerYAnchor constraintEqualToAnchor:self.view.topAnchor constant:kStartWallpaperButtonY],
         [wallpaperButton.heightAnchor constraintEqualToConstant:50.0],
     ]];
 
@@ -694,7 +695,13 @@ static void StartFetchFirstImage(NSArray<NSString *> *candidates, NSUInteger ind
 
 /// The chosen photo fills the screen behind the start page, always softly blurred.
 - (void)applyWallpaper {
-    UIImage *image = [BrowserWallpaperViewController currentWallpaper];
+    __weak typeof(self) weakSelf = self;
+    [BrowserWallpaperViewController loadWallpaperWithCompletion:^(UIImage *image) {
+        [weakSelf showWallpaper:image];
+    }];
+}
+
+- (void)showWallpaper:(UIImage *)image {
     if (image == nil) {
         [self.wallpaperView removeFromSuperview];
         [self.wallpaperBlur removeFromSuperview];

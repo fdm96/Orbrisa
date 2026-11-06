@@ -14,10 +14,16 @@ static CGFloat const kWallpaperInset = 60.0;
 static CGFloat const kWallpaperRadius = 48.0;
 static NSInteger const kWallpaperPageSize = 40;
 
+/// tvOS only lets apps keep files in Caches (it may empty it when space runs low – the photo is then loaded again).
 static NSURL *WallpaperFileURL(void) {
-    NSURL *folder = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;
+    NSURL *folder = [NSFileManager.defaultManager URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
     [NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
     return [folder URLByAppendingPathComponent:@"OrbrisaWallpaper.jpg"];
+}
+
+static NSURL *WallpaperDownloadURL(NSString *photoID) {
+    // The full TV size; blurred later, so 1920 × 1080 is plenty.
+    return [NSURL URLWithString:[NSString stringWithFormat:@"https://picsum.photos/id/%@/1920/1080", photoID]];
 }
 
 static NSCache<NSString *, UIImage *> *WallpaperThumbnails(void) {
@@ -131,6 +137,22 @@ static NSCache<NSString *, UIImage *> *WallpaperThumbnails(void) {
 @end
 
 @implementation BrowserWallpaperViewController
+
++ (void)loadWallpaperWithCompletion:(void (^)(UIImage *))completion {
+    UIImage *image = [self currentWallpaper];
+    NSString *photoID = [NSUserDefaults.standardUserDefaults dictionaryForKey:kWallpaperInfoKey][@"id"];
+    if (image != nil || photoID.length == 0) {
+        completion(image);
+        return;
+    }
+    [[NSURLSession.sharedSession dataTaskWithURL:WallpaperDownloadURL(photoID) completionHandler:^(NSData *data, __unused NSURLResponse *response, __unused NSError *error) {
+        UIImage *downloaded = data.length > 0 ? [UIImage imageWithData:data] : nil;
+        if (downloaded != nil) {
+            [data writeToURL:WallpaperFileURL() atomically:YES];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(downloaded); });
+    }] resume];
+}
 
 + (UIImage *)currentWallpaper {
     if ([NSUserDefaults.standardUserDefaults dictionaryForKey:kWallpaperInfoKey] == nil) {
@@ -379,17 +401,21 @@ static NSCache<NSString *, UIImage *> *WallpaperThumbnails(void) {
     BrowserWallpaperCell *cell = (BrowserWallpaperCell *)[collectionView cellForItemAtIndexPath:indexPath];
     [cell.spinner startAnimating];
     self.choosing = YES;
-    // The full TV size; blurred later, so 1920 × 1080 is plenty.
-    NSURL *URL = [NSURL URLWithString:[NSString stringWithFormat:@"https://picsum.photos/id/%@/1920/1080", photo[@"id"]]];
     __weak typeof(self) weakSelf = self;
-    [[NSURLSession.sharedSession dataTaskWithURL:URL completionHandler:^(NSData *data, __unused NSURLResponse *response, NSError *error) {
-        BOOL ok = data.length > 0 && [UIImage imageWithData:data] != nil && [data writeToURL:WallpaperFileURL() atomically:YES];
+    [[NSURLSession.sharedSession dataTaskWithURL:WallpaperDownloadURL(photo[@"id"]) completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSError *writeError = nil;
+        BOOL image = data.length > 0 && [UIImage imageWithData:data] != nil;
+        BOOL ok = image && [data writeToURL:WallpaperFileURL() options:NSDataWritingAtomic error:&writeError];
+        if (!ok) {
+            BrowserLog(@"[Wallpaper] failed: bytes=%lu image=%@ status=%ld write=%@ error=%@", (unsigned long)data.length, image ? @"YES" : @"NO",
+                       (long)([response isKindOfClass:[NSHTTPURLResponse class]] ? ((NSHTTPURLResponse *)response).statusCode : 0),
+                       writeError.localizedDescription, error.localizedDescription);
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             BrowserWallpaperViewController *strongSelf = weakSelf;
             [cell.spinner stopAnimating];
             strongSelf.choosing = NO;
             if (!ok) {
-                BrowserLog(@"[Wallpaper] download failed: %@", error.localizedDescription);
                 return;
             }
             [NSUserDefaults.standardUserDefaults setObject:photo forKey:kWallpaperInfoKey];
